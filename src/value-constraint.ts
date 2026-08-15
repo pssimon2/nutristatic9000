@@ -181,3 +181,49 @@ export function namedConstraint(name: string, spec: string): Nfa[] | null {
       return null;
   }
 }
+
+/** Any string built from `allowed` (spaces always permitted). */
+function alphabetNfa(allowed: Iterable<number>): Nfa {
+  const nfa = new Nfa();
+  const s = nfa.addState();
+  nfa.setStart(s);
+  nfa.setFinal(s);
+  nfa.addArc(s, SPACE, s);
+  for (const c of allowed) nfa.addArc(s, c, s);
+  return nfa;
+}
+
+/**
+ * Letter banks and sub-anagrams over a literal bag of letters.
+ *
+ * `sub` — any subset of the letters, respecting their multiplicities
+ * ({sub:cryptography} can spell "crypt" but not "ccc").
+ * `bank` — only these letters, each repeatable without limit, but every
+ * distinct one must appear at least once (the puzzle convention for
+ * <<washington>>).
+ *
+ * Both are the per-letter counters again: an upper bound per letter for a
+ * sub-anagram, a lower bound of one for a bank, plus an alphabet restriction.
+ * A sub-anagram is genuinely easier than the exact anagram the language
+ * already has — same counting, but accepting anywhere instead of only at full
+ * consumption.
+ */
+export function bankConstraint(letters: string, mode: "sub" | "bank"): Nfa[] | null {
+  const counts = new Map<number, number>();
+  for (const ch of letters.toLowerCase()) {
+    if (ch === " ") continue;
+    const c = ch.charCodeAt(0);
+    if (c < A || c > Z) return null; // letters only
+    counts.set(c, (counts.get(c) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  const conjuncts = [alphabetNfa(counts.keys())];
+  for (const [c, n] of counts) {
+    conjuncts.push(
+      mode === "sub"
+        ? valueNfa(markTable([c]), { lo: 0, hi: n })
+        : valueNfa(markTable([c]), { lo: 1, hi: Infinity }),
+    );
+  }
+  return conjuncts;
+}

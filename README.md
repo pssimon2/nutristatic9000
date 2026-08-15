@@ -27,6 +27,7 @@ Deployment notes specific to this fork:
 | Output extraction | `{at 3:expr}` | Shows the Nth letter of each match (negative counts from the end; lists allowed) |
 | Rank windows | `{rank 200-2000:expr}` | Reaches mid-frequency answers without scrolling |
 | Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`; prunes the search |
+| Letter banks / sub-anagrams | `<<washington>>`, `{bank:…}`, `{sub:cryptography}` | Per-letter bounds plus an alphabet restriction |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
 
 `{at …}` and `{rank …}` are output wrappers stripped before the engine runs.

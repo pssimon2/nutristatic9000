@@ -56,6 +56,7 @@ describe("WasmSession parity", () => {
     "{sum=50..60:A{4}}&C*",
     "{count(e)=2:A*}",
     "{distinct:A{6}}", // 26 conjuncts, just under the kernel's MAX_CONJ
+    "<<washington>>",
   ];
 
   for (const q of QUERIES) {

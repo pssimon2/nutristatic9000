@@ -167,3 +167,28 @@ describe("occurrence and multiset constraints", () => {
     }
   });
 });
+
+describe("letter banks and sub-anagrams", () => {
+  it("sub-anagrams respect multiplicities and the alphabet", () => {
+    expect(matches("{sub:cryptography}", "crypt")).toBe(true);
+    expect(matches("{sub:cryptography}", "cot")).toBe(true);
+    expect(matches("{sub:cryptography}", "ccc")).toBe(false); // one c available
+    expect(matches("{sub:cryptography}", "zebra")).toBe(false); // z not in bank
+  });
+
+  it("banks demand every distinct letter but allow repeats", () => {
+    expect(matches("<<washington>>", "washington")).toBe(true);
+    expect(matches("<<washington>>", "was nothing")).toBe(true);
+    expect(matches("<<washington>>", "was")).toBe(false); // missing letters
+    expect(matches("<<washington>>", "washingtonn")).toBe(true); // repeats fine
+    expect(matches("{bank:aelpp}", "apple")).toBe(true);
+    expect(matches("{bank:aelpp}", "app")).toBe(false); // no l or e
+  });
+
+  it("rejects empty or non-letter banks", () => {
+    const nfa = new Nfa();
+    for (const bad of ["{sub:}", "{bank:12}", "<<>>"]) {
+      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+    }
+  });
+});

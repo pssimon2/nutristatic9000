@@ -31,7 +31,7 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
-import { namedConstraint } from "./value-constraint.js";
+import { bankConstraint, namedConstraint } from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
 
@@ -227,6 +227,14 @@ function parseAtom(
     const p = parseExprBox(s, i + 1, box, quoted);
     if (p === null || s[p] !== ")") return null;
     return p + 1;
+  } else if (s[i] === "<" && s[i + 1] === "<") {
+    // <<letters>> is the puzzle notation for a letter bank.
+    const close = s.indexOf(">>", i + 2);
+    if (close < 0) return null;
+    const bank = bankConstraint(s.slice(i + 2, close), "bank");
+    if (!bank) return null;
+    box.and = bank;
+    return close + 2;
   } else if (s[i] === "<") {
     const p = parseAnagram(s, i + 1, box, quoted);
     if (p === null || s[p] !== ">") return null;
@@ -310,7 +318,18 @@ function parseNamedConstraint(
 ): number | null {
   const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
-  const conjuncts = namedConstraint(head[1].toLowerCase(), head[2]);
+  const name = head[1].toLowerCase();
+  if (name === "sub" || name === "bank") {
+    // These take a literal bag of letters, not a pattern: the atom *is* the
+    // constraint, so there is nothing further to parse inside.
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const bank = bankConstraint(s.slice(i + head[0].length, close), name);
+    if (!bank) return null;
+    box.and = bank;
+    return close + 1;
+  }
+  const conjuncts = namedConstraint(name, head[2]);
   if (!conjuncts) return null;
   const p = parseExprBox(s, i + head[0].length, box, quoted);
   if (p === null || s[p] !== "}") return null;
