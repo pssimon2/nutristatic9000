@@ -19,6 +19,19 @@ Deployment notes specific to this fork:
 - Deploy target is `/srv/nutristatic9000` on the web host, served by Caddy
   under `handle_path /9000/*`.
 
+## Added so far
+
+| Feature | Syntax | Notes |
+|---|---|---|
+| Repeated-phrase folding | *(none)* | Collapses overlapping index windows of one phrase; a link restores them |
+| Output extraction | `{at 3:expr}` | Shows the Nth letter of each match (negative counts from the end; lists allowed) |
+| Rank windows | `{rank 200-2000:expr}` | Reaches mid-frequency answers without scrolling |
+| Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`; prunes the search |
+
+`{at …}` and `{rank …}` are output wrappers stripped before the engine runs.
+`{sum …}` / `{scrabble …}` compile to conjunct NFAs, so the WASM kernel runs
+them with no C-side work — locked in by a parity test.
+
 Everything below describes the engine, which is unchanged from upstream.
 
 ---

@@ -31,6 +31,7 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
+import { VALUE_TABLES, parseValueRange, valueNfa } from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
 
@@ -230,6 +231,10 @@ function parseAtom(
     const p = parseAnagram(s, i + 1, box, quoted);
     if (p === null || s[p] !== ">") return null;
     return p + 1;
+  } else if (s[i] === "{") {
+    // A brace at atom position is a named constraint; as a quantifier it can
+    // only follow an atom, so there is no ambiguity with `A{4,8}`.
+    return parseNamedConstraint(s, i, box, quoted);
   }
 
   const chars: number[] = [];
@@ -290,6 +295,30 @@ function parseAtom(
 
   box.and = [fst];
   return p;
+}
+
+/**
+ * `{name spec:PATTERN}` — the pattern, intersected with a constraint automaton
+ * named by `name`. Returns null (a parse error) for an unknown name, so the
+ * user gets the standard "can't parse" pointer at the offending text.
+ */
+function parseNamedConstraint(
+  s: string,
+  i: number,
+  box: Box,
+  quoted: boolean,
+): number | null {
+  const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
+  if (!head) return null;
+  const name = head[1].toLowerCase();
+  const table = VALUE_TABLES[name];
+  if (!table) return null;
+  const range = parseValueRange(head[2]);
+  if (!range) return null;
+  const p = parseExprBox(s, i + head[0].length, box, quoted);
+  if (p === null || s[p] !== "}") return null;
+  box.and.push(valueNfa(table, range));
+  return p + 1;
 }
 
 function parseCharClass(s: string, i: number, out: number[]): number | null {

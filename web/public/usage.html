@@ -150,6 +150,22 @@ from the end (<tt>{at -1:...}</tt>), and may be a list
 (<tt>{at 3,5,7:...}</tt>). It wraps the whole pattern; clicking a result
 copies the extracted letters rather than the word.
 
+<li><b>Letter-value arithmetic — <tt>{sum=100:expr}</tt>,
+<tt>{scrabble&gt;25:expr}</tt></b>. Constrains the total of a match's letter
+values: <tt>sum</tt> uses a=1…z=26, <tt>scrabble</tt> uses tile values. Write
+<tt>=100</tt>, <tt>&lt;30</tt>, <tt>&lt;=30</tt>, <tt>&gt;25</tt>,
+<tt>&gt;=25</tt> or a range <tt>=50..60</tt>. Spaces and digits count zero, so
+a phrase totals by its letters however the words fall.
+<tt><a href="/9000/?q=%7Bsum%3D100%3AA*%7D">{sum=100:A*}</a></tt> finds
+words totalling 100;
+<tt><a href="/9000/?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a></tt>
+finds high-scoring five-letter words. It composes with everything —
+<tt>{sum=52:A*}&amp;.*ll</tt> — and unlike most constraints it makes searches
+<em>faster</em>: a total that can no longer reach the target is abandoned, so
+an open-ended <tt>A*</tt> stops wandering.
+<br>(Note that a space is a literal character, so write
+<tt>expr&amp;expr</tt> without spaces around the <tt>&amp;</tt>.)
+
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,

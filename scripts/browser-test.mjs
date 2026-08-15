@@ -167,6 +167,22 @@ await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
+// Letter-value constraints run in the engine (and, being ordinary conjunct
+// NFAs, in the WASM kernel too).
+await page.fill("#q", "{sum=52:A*}&A{4}");
+await page.click("input[type=submit]");
+await waitDone();
+const sums = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 5).map((e) => e.textContent),
+);
+console.log("sum=52 & A{4}:", JSON.stringify(sums));
+const value = (w) => [...w].reduce((n, c) => n + (c.charCodeAt(0) - 96), 0);
+for (const w of sums) {
+  if (w.replace(/ /g, "").length !== 4 || value(w.replace(/ /g, "")) !== 52) {
+    throw new Error(`bad {sum} match: ${w}`);
+  }
+}
+
 // Full download -> disk mode -> WASM engine.
 await page.click("#dlfull");
 await waitInfo("device storage");

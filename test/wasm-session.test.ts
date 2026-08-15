@@ -49,6 +49,11 @@ describe("WasmSession parity", () => {
     "solar s_stem",
     '"C*aC*eC*i"',
     "867-####",
+    // Value constraints are ordinary conjunct NFAs, so the kernel gets them
+    // with no C-side work — this locks that in.
+    "{sum=52:A*}",
+    "{scrabble>25:A{5}}",
+    "{sum=50..60:A{4}}&C*",
   ];
 
   for (const q of QUERIES) {
