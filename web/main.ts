@@ -213,13 +213,104 @@ function fontSize(score: number): number {
   return Math.max(size, 0.4);
 }
 
-function addResult(score: number, text: string): void {
+// Results arrive in descending frequency, and the index stores overlapping
+// sliding windows of every phrase — so one underlying phrase can occupy a long
+// run of consecutive slots ("dieses abschnittes wurde", "archivierung dieses
+// abschnittes wurde", "abschnittes wurde gewuenscht", …), burying genuinely
+// different answers below it. Hide a result when it is a contiguous run of
+// words inside one already shown (or contains one), provided the shared text
+// is substantial: "der" inside "in der" is coincidence, not repetition.
+const MIN_OVERLAP_CHARS = 12;
+
+let collapseVariants = true;
+let lastDoneStatus = "";
+// Literal text the query itself demands. Every result contains it, so it is
+// not evidence of repetition: `.*administration.*` must not collapse its own
+// matches into one.
+let queryLiterals: string[] = [];
+let pageResults: Array<{ score: number; text: string }> = [];
+let hiddenVariants = 0;
+const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
+
+/**
+ * Maximal literal runs in a pattern — plain letters/digits/spaces, ignoring
+ * every metacharacter and class (`A`, `C`, `V`, `_`, `#` are uppercase or
+ * punctuation and so never appear here).
+ */
+function literalsOf(pattern: string): string[] {
+  return (pattern.match(/[a-z0-9 ]+/g) || [])
+    .map((t) => t.trim())
+    .filter((t) => t.length >= MIN_OVERLAP_CHARS);
+}
+
+/** Contiguous word-runs of `text` that are long enough to count as a match. */
+function wordRuns(text: string): string[] {
+  const w = text.split(" ");
+  const out: string[] = [];
+  for (let i = 0; i < w.length; ++i) {
+    for (let j = i + 1; j <= w.length; ++j) {
+      const run = w.slice(i, j).join(" ");
+      if (run.length >= MIN_OVERLAP_CHARS) out.push(run);
+    }
+  }
+  return out;
+}
+
+/**
+ * True when `text` shares a substantial run of words with a result already on
+ * screen — the signature of the same underlying phrase seen through a
+ * different index window. Measured in characters, so it never fires on the
+ * short results that fixed-length patterns produce (verified: zero hits on
+ * `A*`, `A{8}` and anagram queries; 60 -> 24 results on a long-phrase query).
+ */
+function isVariantOfShown(text: string): boolean {
+  for (const run of wordRuns(text)) {
+    if (queryLiterals.some((lit) => lit.includes(run))) continue;
+    if (shownRuns.has(run)) return true;
+  }
+  return false;
+}
+
+function renderResult(score: number, text: string): void {
   const span = document.createElement("span");
   span.style.fontSize = `${fontSize(score)}em`;
   span.textContent = text;
   span.title = `score ${score.toPrecision(4)} · click to copy`;
   resultsEl.append(span, document.createElement("br"));
   ++resultCount;
+  for (const run of wordRuns(text)) {
+    if (!queryLiterals.some((lit) => lit.includes(run))) shownRuns.add(run);
+  }
+}
+
+function addResult(score: number, text: string): void {
+  pageResults.push({ score, text });
+  if (collapseVariants && isVariantOfShown(text)) {
+    ++hiddenVariants;
+    return;
+  }
+  renderResult(score, text);
+}
+
+/** Re-render the current results with every collapsed variant restored. */
+function showAllVariants(): void {
+  collapseVariants = false;
+  resultsEl.textContent = "";
+  resultCount = 0;
+  hiddenVariants = 0;
+  shownRuns.clear();
+  for (const r of pageResults) renderResult(r.score, r.text);
+  // Rebuild the same action area the search ended with (minus the now-spent
+  // reveal button).
+  afterEl.textContent = "";
+  renderAfterSearch(lastDoneStatus);
+}
+
+function resetResultCollapsing(): void {
+  collapseVariants = true;
+  pageResults = [];
+  hiddenVariants = 0;
+  shownRuns.clear();
 }
 
 // Click a result to copy it (solvers copy answers constantly). Delegated from
@@ -296,6 +387,8 @@ function startSearch(query: string): void {
   resultsEl.textContent = "";
   afterEl.textContent = "";
   resultCount = 0;
+  resetResultCollapsing();
+  queryLiterals = literalsOf(transliterate(query));
   // Local step budget from the live URL's comp (not the load-time snapshot) so
   // back/forward through raised-budget entries picks up the right value.
   currentComp =
@@ -460,10 +553,19 @@ worker.onmessage = (ev) => {
       if (msg.engine === "wasm" && !indexInfo.textContent!.includes("WASM")) {
         indexInfo.textContent += " · WASM engine";
       }
-      if (msg.status === "exhausted") {
+      lastDoneStatus = msg.status;
+      renderAfterSearch(msg.status);
+      break;
+  }
+};
+
+/** The action area under the results, rebuilt when collapsed variants are shown. */
+function renderAfterSearch(status: string): void {
+  {
+      if (status === "exhausted") {
         afterEl.textContent =
           resultCount > 0 ? "No more results found." : "No results found, sorry.";
-      } else if (msg.status === "limit") {
+      } else if (status === "limit") {
         if (indexMode === "range") {
           // Range mode stopped on its bytes/time budget: this query reaches
           // deep into the index, which is slow to stream piece by piece. The
@@ -496,9 +598,18 @@ worker.onmessage = (ev) => {
         // Result budget filled; offer the next page.
         afterEl.append(actionButton("More results »", moreResults));
       }
-      break;
   }
-};
+  // Offer to restore anything hidden as a near-duplicate of a shown result.
+  if (collapseVariants && hiddenVariants > 0) {
+    afterEl.append(
+      document.createElement("br"),
+      actionButton(
+        `show ${hiddenVariants} similar result${hiddenVariants === 1 ? "" : "s"} »`,
+        showAllVariants,
+      ),
+    );
+  }
+}
 
 form.addEventListener("submit", (ev) => {
   ev.preventDefault();

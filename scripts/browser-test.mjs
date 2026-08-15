@@ -70,11 +70,49 @@ const first = await page.$eval("#results span", (e) => e.textContent);
 console.log("range search first:", first);
 if (first !== "anagram") throw new Error("wrong first result");
 
+// Variant collapsing: a fixed-length pattern must not collapse anything (no
+// "show N similar" affordance), since its results are short and distinct.
+if (/similar result/.test(await page.textContent("#after"))) {
+  throw new Error("collapsed variants on a query that has none");
+}
+
 // Click a result to copy it.
 await page.click("#results span");
 const clip = await page.evaluate(() => navigator.clipboard.readText());
 console.log("click-to-copy:", JSON.stringify(clip));
 if (clip !== "anagram") throw new Error("click-to-copy failed");
+
+// Phrase variants (same word seen through different index windows) collapse,
+// and the reveal button restores every one of them.
+await page.fill("#q", "A{14} A*");
+await page.click("input[type=submit]");
+await waitDone();
+const collapsedCount = (await page.$$("#results span")).length;
+const revealBtn = await page.$("#after button:has-text('similar result')");
+if (!revealBtn) throw new Error("expected collapsed variants");
+console.log("collapsed:", (await revealBtn.textContent()).trim(), `(${collapsedCount} shown)`);
+await revealBtn.click();
+const revealedCount = (await page.$$("#results span")).length;
+console.log("after reveal:", revealedCount, "results");
+if (revealedCount <= collapsedCount) throw new Error("reveal did not restore variants");
+
+// A literal the query itself demands is not evidence of repetition: nearly
+// every match of `.*administration.*` contains that word, so the bulk of them
+// must survive (only true window variants like "the administration of" go).
+await page.fill("#q", ".*administration.*");
+await page.click("input[type=submit]");
+await waitDone();
+const litShown = (await page.$$("#results span")).length;
+const litBtn = await page.$("#after button:has-text('similar result')");
+const litHidden = litBtn ? +/\d+/.exec(await litBtn.textContent())[0] : 0;
+const hiddenShare = litHidden / (litShown + litHidden);
+console.log(
+  `query-literal exemption: ${litShown} kept, ${litHidden} hidden ` +
+    `(${(hiddenShare * 100).toFixed(0)}% collapsed)`,
+);
+if (hiddenShare > 0.25) {
+  throw new Error("collapsed on a literal the query requires");
+}
 
 // Full download -> disk mode -> WASM engine.
 await page.click("#dlfull");
