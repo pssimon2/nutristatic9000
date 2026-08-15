@@ -259,3 +259,50 @@ describe("cipher transforms", () => {
     }
   });
 });
+
+describe("structural classes and encodings", () => {
+  it("restricts to letter sets", () => {
+    expect(matches("{roman:A*}", "civic")).toBe(true);
+    expect(matches("{roman:A*}", "cat")).toBe(false);
+    // This is the letter set that survives a turn (HINOSXZ), not full
+    // ambigram detection: SWIMS reads as itself only because W and M rotate
+    // into each other, which needs the reversal a regular language can't do.
+    expect(matches("{rot180:A*}", "onion")).toBe(true);
+    expect(matches("{rot180:A*}", "noon")).toBe(true);
+    expect(matches("{rot180:A*}", "swims")).toBe(false);
+    expect(matches("{rot180:A*}", "cat")).toBe(false);
+    expect(matches("{row1:A*}", "typewriter")).toBe(true);
+    expect(matches("{row1:A*}", "typewriters")).toBe(false); // s is row 2
+    expect(matches("{holes=0:A*}", "system")).toBe(true);
+    expect(matches("{holes=0:A*}", "apple")).toBe(false);
+  });
+
+  it("orders letters", () => {
+    expect(matches("{ascending:A*}", "almost")).toBe(true);
+    expect(matches("{ascending:A*}", "billowy")).toBe(true);
+    expect(matches("{ascending:A*}", "cat")).toBe(false);
+    expect(matches("{descending:A*}", "spoonfed")).toBe(true);
+    expect(matches("{descending:A*}", "cat")).toBe(false);
+  });
+
+  it("decodes T9 keypresses to every consistent spelling", () => {
+    for (const w of ["book", "cool", "cook", "bonk"]) {
+      expect(matches("{t9:2665}", w)).toBe(true);
+    }
+    expect(matches("{t9:2665}", "boot")).toBe(false);
+    expect(matches("{t9:2665}", "boo")).toBe(false);
+  });
+
+  it("matches crossword enumerations", () => {
+    expect(matches("{enum:4,3,5}", "that the first")).toBe(true);
+    expect(matches("{enum:4,3,5}", "that the firsts")).toBe(false);
+    expect(matches("{enum:5}", "solar")).toBe(true);
+  });
+
+  it("rejects unknown classes and malformed arguments", () => {
+    const nfa = new Nfa();
+    for (const bad of ["{roman=2:A*}", "{row9:A*}", "{t9:2601}", "{enum:x}", "{holes=7:A*}"]) {
+      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+    }
+  });
+});

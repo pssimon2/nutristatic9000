@@ -379,3 +379,132 @@ export function cipherNfa(name: string, spec: string, text: string): Nfa | null 
   }
   return nfa;
 }
+
+const letterSet = (s: string) => [...s].map((c) => c.charCodeAt(0));
+
+/**
+ * Letter sets that recur constantly in hunts. Each is just an alphabet
+ * restriction — the cheapest kind of constraint there is.
+ */
+const CLASS_SETS: Record<string, number[]> = {
+  // Spelled only in Roman numerals: CIVIC, MIMIC.
+  roman: letterSet("ivxlcdm"),
+  // Unchanged by a 180° turn: SWIMS, NOON.
+  rot180: letterSet("hinosxz"),
+  // Mirror-symmetric about a vertical axis (as capitals).
+  mirror: letterSet("ahimotuvwxy"),
+  // Renderable on a seven-segment display.
+  sevenseg: letterSet("abcdefghijlnopqrstuy"),
+  // QWERTY rows, as capitals: TYPEWRITER is one row.
+  row1: letterSet("qwertyuiop"),
+  row2: letterSet("asdfghjkl"),
+  row3: letterSet("zxcvbnm"),
+};
+
+/** Enclosed counters per capital letter, the usual puzzle convention. */
+const HOLES: Record<number, string> = {
+  0: "cefghijklmnstuvwxyz1234567",
+  1: "adopqr0469",
+  2: "b8",
+};
+
+const T9: Record<string, string> = {
+  "2": "abc",
+  "3": "def",
+  "4": "ghi",
+  "5": "jkl",
+  "6": "mno",
+  "7": "pqrs",
+  "8": "tuv",
+  "9": "wxyz",
+};
+
+/** One state per last-letter, so each letter must not go backwards (or forwards). */
+function monotoneNfa(descending: boolean): Nfa {
+  const nfa = new Nfa();
+  const start = nfa.addState();
+  nfa.setStart(start);
+  nfa.setFinal(start);
+  const at = LETTERS.map(() => nfa.addState());
+  for (let i = 0; i < 26; ++i) {
+    nfa.setFinal(at[i]);
+    nfa.addArc(start, LETTERS[i], at[i]);
+    nfa.addArc(at[i], SPACE, at[i]); // spaces don't break the ordering
+    for (let j = 0; j < 26; ++j) {
+      if (descending ? j <= i : j >= i) nfa.addArc(at[i], LETTERS[j], at[j]);
+    }
+  }
+  nfa.addArc(start, SPACE, start);
+  return nfa;
+}
+
+/** A chain of character classes: `{t9:2665}` → [abc][mno][mno][jkl]. */
+function classChainNfa(classes: number[][]): Nfa {
+  const nfa = new Nfa();
+  let state = nfa.addState();
+  nfa.setStart(state);
+  for (const set of classes) {
+    const next = nfa.addState();
+    for (const c of set) nfa.addArc(state, c, next);
+    state = next;
+  }
+  nfa.setFinal(state);
+  return nfa;
+}
+
+/** `{enum:4,3,5}` — the crossword enumeration, as words of those lengths. */
+function enumNfa(lengths: number[]): Nfa | null {
+  if (lengths.length === 0 || lengths.some((n) => n < 1 || n > 40)) return null;
+  const nfa = new Nfa();
+  let state = nfa.addState();
+  nfa.setStart(state);
+  for (let w = 0; w < lengths.length; ++w) {
+    if (w > 0) {
+      const gap = nfa.addState();
+      nfa.addArc(state, SPACE, gap);
+      state = gap;
+    }
+    for (let i = 0; i < lengths[w]; ++i) {
+      const next = nfa.addState();
+      for (const c of LETTERS) nfa.addArc(state, c, next);
+      state = next;
+    }
+  }
+  nfa.setFinal(state);
+  return nfa;
+}
+
+/** Structural and encoding classes; null if the name isn't one. */
+export function classConstraint(name: string, spec: string): Nfa[] | null {
+  if (name === "row") {
+    const set = CLASS_SETS[`row${spec.trim().replace(/^=/, "")}`];
+    return set ? [alphabetNfa(set)] : null;
+  }
+  if (name === "holes") {
+    const n = /^=?\s*(\d+)$/.exec(spec.trim());
+    const set = n ? HOLES[+n[1]] : undefined;
+    return set ? [alphabetNfa(letterSet(set))] : null;
+  }
+  if (name === "ascending" || name === "descending") {
+    return spec.trim() === "" ? [monotoneNfa(name === "descending")] : null;
+  }
+  const set = CLASS_SETS[name];
+  return set && spec.trim() === "" ? [alphabetNfa(set)] : null;
+}
+
+/** Atom-style encodings that take a literal argument: t9 digits, enumerations. */
+export function encodingNfa(name: string, spec: string, arg: string): Nfa | null {
+  if (name === "t9") {
+    if (spec.trim() !== "") return null;
+    const digits = [...arg.trim()];
+    if (digits.length === 0 || digits.some((d) => !T9[d])) return null;
+    return classChainNfa(digits.map((d) => letterSet(T9[d])));
+  }
+  if (name === "enum") {
+    if (spec.trim() !== "") return null;
+    const parts = arg.split(",").map((p) => p.trim());
+    if (parts.some((p) => !/^\d+$/.test(p))) return null;
+    return enumNfa(parts.map(Number));
+  }
+  return null;
+}

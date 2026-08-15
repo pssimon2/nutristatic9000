@@ -218,6 +218,26 @@ Transforms take a literal, never a character class: rotating <tt>C</tt> would
 mean "the class you get by shifting the consonants", which is no use to
 anyone.
 
+<li><b>Structural, keyboard and encoding classes.</b> Each is a small letter
+set or chain, and each turns up constantly in hunts:
+<ul>
+<li><tt>{roman:expr}</tt> spelled only in Roman numerals (CIVIC, MIMIC);
+<tt>{rot180:expr}</tt> from the letters that survive a 180° turn (HINOSXZ —
+this is the letter set, not full ambigram detection);
+<tt>{mirror:expr}</tt> mirror-symmetric capitals; <tt>{sevenseg:expr}</tt>
+renderable on a seven-segment display; <tt>{holes=0:expr}</tt>,
+<tt>{holes=1:expr}</tt>, <tt>{holes=2:expr}</tt> by enclosed counters.
+<li><tt>{row1:expr}</tt>, <tt>{row2:expr}</tt>, <tt>{row3:expr}</tt> — one
+QWERTY row (TYPEWRITER is row 1).
+<li><tt>{ascending:expr}</tt> / <tt>{descending:expr}</tt> — letters never go
+backwards / forwards (ALMOST, BILLOWY / SPOONFED).
+<li><tt><a href="/9000/?q=%7Bt9%3A2665%7D">{t9:2665}</a></tt> — phone-keypad
+digits, resolved to every spelling the corpus knows: BOOK, COOL, COOK at once.
+The ambiguity is exactly what the corpus is for.
+<li><tt>{enum:4,3,5}</tt> — the crossword enumeration, rather than hand-rolling
+<tt>A{4} A{3} A{5}</tt>.
+</ul>
+
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,

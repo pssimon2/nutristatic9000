@@ -34,7 +34,9 @@ import {
 import {
   bankConstraint,
   cipherNfa,
+  classConstraint,
   editConstraint,
+  encodingNfa,
   namedConstraint,
 } from "./value-constraint.js";
 
@@ -323,12 +325,32 @@ function parseNamedConstraint(
 ): number | null {
   const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
-  const name = head[1].toLowerCase();
+  // Names lex as letters, so trailing digits land in the spec — that is what
+  // makes {del1:…} and {rot13:…} work. Two names are genuinely digit-bearing;
+  // fold them back before dispatching.
+  let name = head[1].toLowerCase();
+  let spec = head[2];
+  if (name === "t" && spec.trim() === "9") {
+    name = "t9";
+    spec = "";
+  } else if (name === "rot" && spec.trim() === "180") {
+    name = "rot180"; // the visual class, not a 180-place shift
+    spec = "";
+  }
+  if (["t9", "enum"].includes(name)) {
+    // Encodings take a literal argument (digits, or a list of word lengths).
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const enc = encodingNfa(name, spec, s.slice(i + head[0].length, close));
+    if (!enc) return null;
+    box.and = [enc];
+    return close + 1;
+  }
   if (["caesar", "rot", "atbash"].includes(name)) {
     // Ciphers transform a literal, so the atom is the transformed text.
     const close = s.indexOf("}", i);
     if (close < 0) return null;
-    const cipher = cipherNfa(name, head[2], s.slice(i + head[0].length, close));
+    const cipher = cipherNfa(name, spec, s.slice(i + head[0].length, close));
     if (!cipher) return null;
     box.and = [cipher];
     return close + 1;
@@ -337,7 +359,7 @@ function parseNamedConstraint(
     // Edits also take a literal word rather than a pattern.
     const close = s.indexOf("}", i);
     if (close < 0) return null;
-    const edit = editConstraint(name, head[2], s.slice(i + head[0].length, close));
+    const edit = editConstraint(name, spec, s.slice(i + head[0].length, close));
     if (!edit) return null;
     box.and = [edit];
     return close + 1;
@@ -352,7 +374,7 @@ function parseNamedConstraint(
     box.and = bank;
     return close + 1;
   }
-  const conjuncts = namedConstraint(name, head[2]);
+  const conjuncts = namedConstraint(name, spec) ?? classConstraint(name, spec);
   if (!conjuncts) return null;
   const p = parseExprBox(s, i + head[0].length, box, quoted);
   if (p === null || s[p] !== "}") return null;
