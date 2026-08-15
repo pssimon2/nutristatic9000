@@ -150,6 +150,14 @@ from the end (<tt>{at -1:...}</tt>), and may be a list
 (<tt>{at 3,5,7:...}</tt>). It wraps the whole pattern; clicking a result
 copies the extracted letters rather than the word.
 
+<li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
+often mid-frequency: real, but not the most common thing. Rather than
+scrolling past the head of the list,
+<tt><a href="/9000/?q=%7Brank%20200-2000%3AA%7B5%7D%7D">{rank
+200-2000:A{5}}</a></tt> starts at rank 200. A bare
+<tt>{rank 200:...}</tt> runs from there to the end. Ranks count the engine's
+own frequency order, before any folding.
+
 <li><b>Repeated-phrase folding.</b> The index stores overlapping windows of
 every phrase, so one piece of text could previously fill the whole first
 screen ("dieses abschnittes wurde", "archivierung dieses abschnittes wurde",

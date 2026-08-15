@@ -145,6 +145,28 @@ await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
+// `{rank N-M:…}` window: the same stream, offset. Uses a fixed-length pattern
+// so variant folding can't shift the indices.
+await page.fill("#q", "A{5}");
+await page.click("input[type=submit]");
+await waitDone();
+const head = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 12).map((e) => e.textContent),
+);
+await page.fill("#q", "{rank 10-12:A{5}}");
+await page.click("input[type=submit]");
+await waitDone();
+const window = await page.$$eval("#results span.r", (els) =>
+  els.map((e) => e.textContent),
+);
+console.log("rank 10-12:", JSON.stringify(window), "vs stream 10-12:", JSON.stringify(head.slice(9, 12)));
+if (window.length !== 3 || window[0] !== head[9] || window[2] !== head[11]) {
+  throw new Error("rank window did not match the ranked stream");
+}
+await page.fill("#q", "<aaagmnr>");
+await page.click("input[type=submit]");
+await waitDone();
+
 // Full download -> disk mode -> WASM engine.
 await page.click("#dlfull");
 await waitInfo("device storage");

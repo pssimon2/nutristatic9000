@@ -3,6 +3,7 @@ import {
   ExtractError,
   applyExtract,
   parseExtract,
+  parseRank,
 } from "../src/extract-spec.js";
 
 describe("parseExtract", () => {
@@ -63,5 +64,32 @@ describe("applyExtract", () => {
   it("returns null when the match is too short", () => {
     expect(applyExtract({ positions: [9] }, "federal")).toBeNull();
     expect(applyExtract({ positions: [-9] }, "federal")).toBeNull();
+  });
+});
+
+describe("parseRank", () => {
+  it("returns null for ordinary and other-wrapper queries", () => {
+    expect(parseRank("A{4,8}")).toBeNull();
+    expect(parseRank("{at 3:A*}")).toBeNull();
+  });
+
+  it("parses a closed window", () => {
+    expect(parseRank("{rank 200-2000:A*}")).toEqual({
+      spec: { from: 200, to: 2000 },
+      inner: "A*",
+    });
+  });
+
+  it("treats a bare number as an open end", () => {
+    const r = parseRank("{rank 50:A*}")!;
+    expect(r.spec.from).toBe(50);
+    expect(r.spec.to).toBe(Infinity);
+  });
+
+  it("rejects malformed windows", () => {
+    expect(() => parseRank("{rank 0-10:A*}")).toThrow(ExtractError);
+    expect(() => parseRank("{rank 90-10:A*}")).toThrow(ExtractError);
+    expect(() => parseRank("{rank x:A*}")).toThrow(ExtractError);
+    expect(() => parseRank("A* & {rank 1-2:A*}")).toThrow(ExtractError);
   });
 });

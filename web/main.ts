@@ -1,8 +1,10 @@
 import {
   ExtractError,
   type ExtractSpec,
+  type RankSpec,
   applyExtract,
   parseExtract,
+  parseRank,
 } from "../src/extract-spec.js";
 
 // UI thread: form handling, URL state (?q=...&comp=...&index=...), and
@@ -238,6 +240,10 @@ let queryLiterals: string[] = [];
 // Set when the query is wrapped in `{at …:…}`: results render as the picked
 // letters rather than the whole match.
 let extractSpec: ExtractSpec | null = null;
+// Set when the query is wrapped in `{rank …:…}`: a window into the ranked
+// stream, so mid-frequency answers are reachable without scrolling.
+let rankSpec: RankSpec | null = null;
+let rawRank = 0; // engine results seen this search, before any filtering
 let pageResults: Array<{ score: number; text: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
@@ -306,6 +312,8 @@ function renderResult(score: number, text: string): void {
 }
 
 function addResult(score: number, text: string): void {
+  ++rawRank;
+  if (rankSpec && (rawRank < rankSpec.from || rawRank > rankSpec.to)) return;
   pageResults.push({ score, text });
   if (collapseVariants && isVariantOfShown(text)) {
     ++hiddenVariants;
@@ -329,6 +337,7 @@ function showAllVariants(): void {
 }
 
 function resetResultCollapsing(): void {
+  rawRank = 0;
   collapseVariants = true;
   pageResults = [];
   hiddenVariants = 0;
@@ -414,11 +423,17 @@ function startSearch(query: string): void {
   // sees the pattern itself.
   let pattern = transliterate(query);
   extractSpec = null;
+  rankSpec = null;
   try {
     const extract = parseExtract(pattern);
     if (extract) {
       extractSpec = extract.spec;
       pattern = extract.inner;
+    }
+    const rank = parseRank(pattern);
+    if (rank) {
+      rankSpec = rank.spec;
+      pattern = rank.inner;
     }
   } catch (e) {
     setStatus(e instanceof ExtractError ? e.message : String(e), true);
@@ -434,7 +449,11 @@ function startSearch(query: string): void {
   worker.postMessage({
     type: "search",
     query: pattern,
-    maxResults: PER_RUN_RESULTS,
+    // A rank window has to be reached before it can be shown; ask the engine
+    // for enough results to cover it (bounded, so a huge "to" can't run away).
+    maxResults: rankSpec
+      ? Math.min(Math.max(rankSpec.to, rankSpec.from + PER_RUN_RESULTS), 20000)
+      : PER_RUN_RESULTS,
     ...runBudget(),
   });
 }

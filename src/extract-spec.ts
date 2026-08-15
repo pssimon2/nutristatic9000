@@ -31,26 +31,41 @@ function matchingBrace(s: string, open: number): number {
 }
 
 /**
- * Parse a whole-query `{at …:PATTERN}` wrapper. Returns null when the query
- * isn't one, and throws ExtractError when it looks like one but is malformed
- * (so the user gets a reason rather than a confusing pattern-syntax error).
+ * Split a whole-query `{name spec:PATTERN}` wrapper. Wrappers are output
+ * concerns: exactly one, always outermost, stripped before the engine sees
+ * the pattern. Returns null when the query isn't one, and throws
+ * ExtractError when it looks like one but is malformed — so the user gets a
+ * reason rather than a confusing pattern-syntax error.
  */
-export function parseExtract(query: string): ExtractQuery | null {
+export function parseWrapper(
+  query: string,
+  name: string,
+): { spec: string; inner: string } | null {
   const q = query.trim();
-  const m = /^\{\s*at\s*([^:}]*):/i.exec(q);
+  const head = new RegExp(`^\\{\\s*${name}\\s*([^:}]*):`, "i");
+  const anywhere = new RegExp(`\\{\\s*${name}\\s*[^:}]*:`, "i");
+  const m = head.exec(q);
   if (!m) {
     // Nested use is the likely mistake; name it rather than letting the
     // engine fail on an unknown token.
-    if (/\{\s*at\s*[^:}]*:/i.test(q)) {
-      throw new ExtractError("{at …} must wrap the whole pattern");
+    if (anywhere.test(q)) {
+      throw new ExtractError(`{${name} …} must wrap the whole pattern`);
     }
     return null;
   }
   const end = matchingBrace(q, 0);
   if (end !== q.length - 1) {
-    throw new ExtractError("{at …} must wrap the whole pattern");
+    throw new ExtractError(`{${name} …} must wrap the whole pattern`);
   }
-  const positions = m[1]
+  const inner = q.slice(m[0].length, end).trim();
+  if (inner === "") throw new ExtractError(`{${name} …} needs a pattern`);
+  return { spec: m[1], inner };
+}
+
+export function parseExtract(query: string): ExtractQuery | null {
+  const w = parseWrapper(query, "at");
+  if (!w) return null;
+  const positions = w.spec
     .split(",")
     .map((p) => p.trim())
     .filter((p) => p !== "")
@@ -61,9 +76,35 @@ export function parseExtract(query: string): ExtractQuery | null {
       return n;
     });
   if (positions.length === 0) throw new ExtractError("{at …} needs a position");
-  const inner = q.slice(m[0].length, end).trim();
-  if (inner === "") throw new ExtractError("{at …} needs a pattern");
-  return { spec: { positions }, inner };
+  return { spec: { positions }, inner: w.inner };
+}
+
+/** A window into the frequency-ranked result stream: `{rank 200-2000:…}`. */
+export interface RankSpec {
+  from: number; // 1-based, inclusive
+  to: number; // inclusive; Infinity for an open end
+}
+
+export interface RankQuery {
+  spec: RankSpec;
+  inner: string;
+}
+
+/**
+ * Parse `{rank 200-2000:PATTERN}` (or `{rank 200:PATTERN}` for an open end).
+ * Hunt answers are often mid-frequency, and scrolling is the only way to
+ * reach them otherwise.
+ */
+export function parseRank(query: string): RankQuery | null {
+  const w = parseWrapper(query, "rank");
+  if (!w) return null;
+  const m = /^\s*(\d+)\s*(?:-\s*(\d+)\s*)?$/.exec(w.spec);
+  if (!m) throw new ExtractError('{rank …} takes "from-to", e.g. {rank 200-2000:…}');
+  const from = parseInt(m[1], 10);
+  const to = m[2] === undefined ? Infinity : parseInt(m[2], 10);
+  if (from < 1) throw new ExtractError("ranks are 1-based (use 1, not 0)");
+  if (to < from) throw new ExtractError(`empty range (${from}-${to})`);
+  return { spec: { from, to }, inner: w.inner };
 }
 
 /**
