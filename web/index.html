@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Nutristatic</title>
+  <title>Nutristatic 9000</title>
   <meta name="description" content="Search Wikipedia phrase patterns — anagrams, regexes, wildcards — entirely in your browser. A serverless rewrite of Nutrimatic across 22 languages; queries never leave your machine.">
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://nutristatic.org/">
-  <meta property="og:title" content="Nutristatic">
+  <meta property="og:url" content="https://nutristatic.org/9000/">
+  <meta property="og:title" content="Nutristatic 9000">
   <meta property="og:description" content="Search Wikipedia phrase patterns — anagrams, regexes, wildcards — entirely in your browser. No server; queries never leave your machine.">
   <meta property="og:image" content="https://nutristatic.org/nutritea-small.png">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Nutristatic">
+  <meta name="twitter:title" content="Nutristatic 9000">
   <meta name="twitter:description" content="Search Wikipedia phrase patterns — anagrams, regexes, wildcards — in your browser. Serverless, 22 languages.">
   <meta name="twitter:image" content="https://nutristatic.org/nutritea-small.png">
   <script>
@@ -20,7 +20,7 @@
     // via postMessage instead of refetching.
     (function () {
       var params = new URLSearchParams(location.search);
-      var url = new URL(params.get("index") || "./en-wiki.index", location.href).href;
+      var url = new URL(params.get("index") || "/en-wiki.index", location.href).href;
       window.__earlyIndex = {
         url: url,
         probe: fetch(url, { headers: { Range: "bytes=0-0" } })

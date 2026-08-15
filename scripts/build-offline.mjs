@@ -79,10 +79,10 @@ html = html
   .replace('href="./favicon.ico"', `href="${dataUri("web/public/favicon.ico", "image/x-icon")}"`);
 // The usage-guide and index-download links have no local target offline;
 // point them at the live site so they work whenever the user is online.
-html = html.replace(/"\.\/usage\.html/g, '"https://nutristatic.org/usage.html');
-html = html.replace(/"\.\/indexes\.html/g, '"https://nutristatic.org/indexes.html');
-html = html.replace(/"\.\/impressum\.html/g, '"https://nutristatic.org/impressum.html');
-html = html.replace(/"\.\/datenschutz\.html/g, '"https://nutristatic.org/datenschutz.html');
+html = html.replace(/"\.\/usage\.html/g, '"https://nutristatic.org/9000/usage.html');
+html = html.replace(/"\.\/indexes\.html/g, '"https://nutristatic.org/9000/indexes.html');
+html = html.replace(/"\.\/impressum\.html/g, '"https://nutristatic.org/9000/impressum.html');
+html = html.replace(/"\.\/datenschutz\.html/g, '"https://nutristatic.org/9000/datenschutz.html');
 // Drop the "download the offline version" link — this IS that file.
 html = html.replace(/<li id="offlinelink">[\s\S]*?<\/li>/, "");
 // Drop the installable-app links: a single file:// page has no manifest or

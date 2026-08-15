@@ -1,15 +1,15 @@
 {
-  "name": "nutristatic",
+  "name": "nutristatic9000",
   "version": "0.1.0",
   "description": "Client-side rewrite of Nutrimatic: pattern search over a phrase-frequency index, no server-side code",
   "type": "module",
   "license": "GPL-2.0",
   "scripts": {
     "test": "vitest run",
-    "dev": "vite web",
+    "dev": "vite web --port 5174",
     "build": "vite build web",
     "postbuild": "node scripts/build-offline.mjs && node scripts/build-sw.mjs",
-    "preview": "vite preview web",
+    "preview": "vite preview web --port 4318",
     "find-expr": "tsx cli/find-expr.ts",
     "make-index": "tsx cli/make-index.ts",
     "merge-indexes": "tsx cli/merge-indexes.ts",

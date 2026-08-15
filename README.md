@@ -1,4 +1,27 @@
-# Nutristatic — Nutrimatic, serverless
+# Nutristatic 9000
+
+**A fork of [Nutristatic](https://github.com/pssimon2/nutristatic) where new
+features are developed.** It is deployed alongside the original at
+**[nutristatic.org/9000/](https://nutristatic.org/9000/)** and shares the index
+files served from the site root, so no index data is duplicated. The two
+projects are developed independently: separate repositories, separate
+dependencies, separate dev/preview ports (`npm run dev` → 5174,
+`npm run preview` → 4318).
+
+Deployment notes specific to this fork:
+
+- Vite's `base` is relative (`"./"`), so the built app runs from any path;
+  the service worker derives its scope from its own URL and precaches
+  relative paths.
+- The index picker points at root-absolute index URLs (`/de-wiki.index`, …)
+  because those files are served from the site root; only `demo.index` ships
+  with the app.
+- Deploy target is `/srv/nutristatic9000` on the web host, served by Caddy
+  under `handle_path /9000/*`.
+
+Everything below describes the engine, which is unchanged from upstream.
+
+---
 
 A rewrite of [Nutrimatic](https://nutrimatic.org/) ([upstream
 source](https://github.com/PuzzleTechHub/nutrimatic)) that runs with **no

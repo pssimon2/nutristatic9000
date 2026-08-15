@@ -12,29 +12,29 @@ const RANGE_STEP_CEILING = 8000000;
 const PER_RUN_RESULTS = 1000;
 
 const BUNDLED_INDEXES: Array<[string, string]> = [
-  ["./en-wiki.index", "English Wikipedia (1.3 GB)"],
-  ["./de-wiki.index", "German Wikipedia – Deutsch (591 MB)"],
-  ["./fr-wiki.index", "French Wikipedia – Français (491 MB)"],
-  ["./es-wiki.index", "Spanish Wikipedia – Español (436 MB)"],
-  ["./it-wiki.index", "Italian Wikipedia – Italiano (360 MB)"],
-  ["./pt-wiki.index", "Portuguese Wikipedia – Português (255 MB)"],
-  ["./nl-wiki.index", "Dutch Wikipedia – Nederlands (222 MB)"],
-  ["./pl-wiki.index", "Polish Wikipedia – Polski (216 MB)"],
-  ["./sv-wiki.index", "Swedish Wikipedia – Svenska (199 MB)"],
-  ["./ca-wiki.index", "Catalan Wikipedia – Català (173 MB)"],
-  ["./id-wiki.index", "Indonesian Wikipedia – Bahasa Indonesia (123 MB)"],
-  ["./cs-wiki.index", "Czech Wikipedia – Čeština (113 MB)"],
-  ["./hu-wiki.index", "Hungarian Wikipedia – Magyar (107 MB)"],
-  ["./no-wiki.index", "Norwegian Wikipedia – Norsk (Bokmål) (102 MB)"],
-  ["./ro-wiki.index", "Romanian Wikipedia – Română (101 MB)"],
-  ["./tr-wiki.index", "Turkish Wikipedia – Türkçe (88 MB)"],
-  ["./fi-wiki.index", "Finnish Wikipedia – Suomi (85 MB)"],
-  ["./da-wiki.index", "Danish Wikipedia – Dansk (51 MB)"],
-  ["./eo-wiki.index", "Esperanto Wikipedia – Esperanto (51 MB)"],
-  ["./sl-wiki.index", "Slovenian Wikipedia – Slovenščina (41 MB)"],
-  ["./hr-wiki.index", "Croatian Wikipedia – Hrvatski (41 MB)"],
-  ["./sk-wiki.index", "Slovak Wikipedia – Slovenčina (36 MB)"],
-  ["./simple-wiki.index", "Simple English Wikipedia (41 MB)"],
+  ["/en-wiki.index", "English Wikipedia (1.3 GB)"],
+  ["/de-wiki.index", "German Wikipedia – Deutsch (591 MB)"],
+  ["/fr-wiki.index", "French Wikipedia – Français (491 MB)"],
+  ["/es-wiki.index", "Spanish Wikipedia – Español (436 MB)"],
+  ["/it-wiki.index", "Italian Wikipedia – Italiano (360 MB)"],
+  ["/pt-wiki.index", "Portuguese Wikipedia – Português (255 MB)"],
+  ["/nl-wiki.index", "Dutch Wikipedia – Nederlands (222 MB)"],
+  ["/pl-wiki.index", "Polish Wikipedia – Polski (216 MB)"],
+  ["/sv-wiki.index", "Swedish Wikipedia – Svenska (199 MB)"],
+  ["/ca-wiki.index", "Catalan Wikipedia – Català (173 MB)"],
+  ["/id-wiki.index", "Indonesian Wikipedia – Bahasa Indonesia (123 MB)"],
+  ["/cs-wiki.index", "Czech Wikipedia – Čeština (113 MB)"],
+  ["/hu-wiki.index", "Hungarian Wikipedia – Magyar (107 MB)"],
+  ["/no-wiki.index", "Norwegian Wikipedia – Norsk (Bokmål) (102 MB)"],
+  ["/ro-wiki.index", "Romanian Wikipedia – Română (101 MB)"],
+  ["/tr-wiki.index", "Turkish Wikipedia – Türkçe (88 MB)"],
+  ["/fi-wiki.index", "Finnish Wikipedia – Suomi (85 MB)"],
+  ["/da-wiki.index", "Danish Wikipedia – Dansk (51 MB)"],
+  ["/eo-wiki.index", "Esperanto Wikipedia – Esperanto (51 MB)"],
+  ["/sl-wiki.index", "Slovenian Wikipedia – Slovenščina (41 MB)"],
+  ["/hr-wiki.index", "Croatian Wikipedia – Hrvatski (41 MB)"],
+  ["/sk-wiki.index", "Slovak Wikipedia – Slovenčina (36 MB)"],
+  ["/simple-wiki.index", "Simple English Wikipedia (41 MB)"],
   ["./demo.index", "web words + bigrams (20 MB)"],
 ];
 const DEFAULT_INDEX = BUNDLED_INDEXES[0][0];
@@ -578,7 +578,7 @@ dlFull.addEventListener("click", () => {
 function applyQuery(query: string): void {
   if (query) {
     qInput.value = query;
-    document.title = `${query} - Nutristatic`;
+    document.title = `${query} - Nutristatic 9000`;
     home.hidden = true;
     resultsView.hidden = false;
     if (indexReady) startSearch(query);
@@ -587,7 +587,7 @@ function applyQuery(query: string): void {
       setStatus("loading index…");
     }
   } else {
-    document.title = "Nutristatic";
+    document.title = "Nutristatic 9000";
     home.hidden = false;
     resultsView.hidden = true;
     worker.postMessage({ type: "stop" });

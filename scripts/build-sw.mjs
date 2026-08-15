@@ -12,9 +12,11 @@ if (!fs.existsSync(swPath)) {
   process.exit(1);
 }
 
+// The app shell. Paths are RELATIVE to sw.js so the same worker serves the
+// app at the site root or under a path prefix (this fork ships at /9000/).
 // The app shell: the entry HTML, a couple of small statics, and every
 // content-hashed asset (the main bundle, the search worker, the WASM kernel).
-const precache = ["/index.html"];
+const precache = ["index.html"];
 for (const name of [
   "favicon.ico",
   "nutritea-small.png",
@@ -23,12 +25,12 @@ for (const name of [
   "apple-touch-icon.png",
   "icon-192.png",
 ]) {
-  if (fs.existsSync(path.join(dist, name))) precache.push("/" + name);
+  if (fs.existsSync(path.join(dist, name))) precache.push(name);
 }
 const assetsDir = path.join(dist, "assets");
 if (fs.existsSync(assetsDir)) {
   for (const f of fs.readdirSync(assetsDir).sort()) {
-    precache.push("/assets/" + f);
+    precache.push("assets/" + f);
   }
 }
 

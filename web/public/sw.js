@@ -6,8 +6,12 @@
 //
 // The precache list and cache version are injected at build time by
 // scripts/build-sw.mjs from the content-hashed asset filenames.
-const CACHE = "nutristatic-shell-__VERSION__";
+const CACHE = "nutristatic9000-shell-__VERSION__";
+// Precache entries are relative to this script, so the same worker serves the
+// app whether it is deployed at the site root or under a path (/9000/).
 const PRECACHE = [/*__PRECACHE__*/];
+const BASE = new URL("./", location.href).pathname;
+const SHELL = BASE + "index.html";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -25,7 +29,7 @@ self.addEventListener("activate", (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith("nutristatic-shell-") && k !== CACHE)
+          .filter((k) => k.startsWith("nutristatic9000-shell-") && k !== CACHE)
           .map((k) => caches.delete(k)),
       );
       await self.clients.claim();
@@ -49,7 +53,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       (async () => {
         const cache = await caches.open(CACHE);
-        const key = url.pathname === "/" ? "/index.html" : url.pathname;
+        const key = url.pathname === BASE ? SHELL : url.pathname;
         try {
           const net = await fetch(req);
           if (net && net.ok) cache.put(key, net.clone());
@@ -57,7 +61,7 @@ self.addEventListener("fetch", (event) => {
         } catch {
           return (
             (await cache.match(key)) ||
-            (await cache.match("/index.html")) ||
+            (await cache.match(SHELL)) ||
             Response.error()
           );
         }
