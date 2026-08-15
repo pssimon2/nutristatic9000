@@ -140,6 +140,12 @@
         (also <em>&lt;</em>, <em>&lt;=</em>, <em>&gt;</em>, <em>&gt;=</em>,
         <em>{sum=50..60:expr}</em>)</li>
       <li><em>{scrabble&gt;25:expr}</em> - same, with Scrabble tile values</li>
+      <li><em>{count(e)=2:expr}</em> - letter counts; also classes:
+        <em>{count(vowel)&lt;=1:expr}</em></li>
+      <li><em>{distinct:expr}</em> - no letter repeated
+        (<em>{maxrep=2:expr}</em> - none more than twice)</li>
+      <li><em>{all(aeiou):expr}</em> - uses every one of these letters</li>
+      <li><em>{letters=11:expr}</em>, <em>{words=3:expr}</em> - totals</li>
     </ul>
     <p>Results that are the same phrase seen through a different index window
     are folded together; a link under the results restores them.</p>

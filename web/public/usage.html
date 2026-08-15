@@ -166,6 +166,26 @@ an open-ended <tt>A*</tt> stops wandering.
 <br>(Note that a space is a literal character, so write
 <tt>expr&amp;expr</tt> without spaces around the <tt>&amp;</tt>.)
 
+<li><b>Occurrence and multiset constraints.</b> Same machinery, counting
+letters instead of scoring them, and taking the same comparisons
+(<tt>=</tt>, <tt>&lt;</tt>, <tt>&lt;=</tt>, <tt>&gt;</tt>, <tt>&gt;=</tt>,
+<tt>a..b</tt>):
+<ul>
+<li><tt>{count(e)=2:expr}</tt> — exactly two E's. The argument may be several
+letters (<tt>{count(aeiou)=3:...}</tt>) or a class name: <tt>vowel</tt>,
+<tt>consonant</tt> (y counts, as in <tt>C</tt>), <tt>letter</tt>,
+<tt>digit</tt>.
+<li><tt>{distinct:expr}</tt> — no letter used twice;
+<tt>{maxrep=2:expr}</tt> — none used more than twice.
+<li><tt>{all(aeiou):expr}</tt> — every one of those letters appears.
+<li><tt>{letters=11:expr}</tt> — eleven letters, however the spaces fall;
+<tt>{words=3:expr}</tt> — exactly three words.
+</ul>
+<tt><a href="/9000/?q=%7Bdistinct%3AA%7B6%7D%7D">{distinct:A{6}}</a></tt>
+finds six-letter words with no repeated letter. "No letter repeated" is
+expressed as 26 independent two-state counters rather than one machine over
+sets of letters, which is why it costs almost nothing.
+
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,

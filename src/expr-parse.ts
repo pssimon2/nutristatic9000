@@ -31,7 +31,7 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
-import { VALUE_TABLES, parseValueRange, valueNfa } from "./value-constraint.js";
+import { namedConstraint } from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
 
@@ -310,14 +310,11 @@ function parseNamedConstraint(
 ): number | null {
   const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
-  const name = head[1].toLowerCase();
-  const table = VALUE_TABLES[name];
-  if (!table) return null;
-  const range = parseValueRange(head[2]);
-  if (!range) return null;
+  const conjuncts = namedConstraint(head[1].toLowerCase(), head[2]);
+  if (!conjuncts) return null;
   const p = parseExprBox(s, i + head[0].length, box, quoted);
   if (p === null || s[p] !== "}") return null;
-  box.and.push(valueNfa(table, range));
+  box.and.push(...conjuncts);
   return p + 1;
 }
 

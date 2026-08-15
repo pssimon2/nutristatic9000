@@ -96,3 +96,88 @@ export function valueNfa(table: number[], range: ValueRange): Nfa {
   }
   return nfa;
 }
+
+const SPACE = " ".charCodeAt(0);
+
+/** A table scoring 1 for each character in `set`, 0 elsewhere. */
+function markTable(set: Iterable<number>): number[] {
+  const t = new Array(128).fill(0);
+  for (const c of set) t[c] = 1;
+  return t;
+}
+
+const LETTERS = Array.from({ length: 26 }, (_, i) => A + i);
+const NAMED_SETS: Record<string, number[]> = {
+  vowel: [..."aeiou"].map((c) => c.charCodeAt(0)),
+  consonant: LETTERS.filter((c) => !"aeiou".includes(String.fromCharCode(c))),
+  letter: LETTERS,
+  digit: Array.from({ length: 10 }, (_, i) => "0".charCodeAt(0) + i),
+};
+
+/** `(aeiou)` or `(vowel)` → the characters it names. */
+function parseSet(spec: string): { set: number[]; rest: string } | null {
+  const m = /^\s*\(([a-z0-9]+)\)\s*/i.exec(spec);
+  if (!m) return null;
+  const body = m[1].toLowerCase();
+  const set = NAMED_SETS[body] ?? [...body].map((c) => c.charCodeAt(0));
+  return set.length === 0 ? null : { set, rest: spec.slice(m[0].length) };
+}
+
+/**
+ * Build the conjunct automata for a named constraint, or null if the name is
+ * unknown or the spec malformed.
+ *
+ * Multiset constraints decompose into one small automaton per letter rather
+ * than one automaton over sets of letters: "no letter repeated" is 26
+ * independent two-state counters, not a 2^26-state subset machine. The engine
+ * intersects conjuncts lazily, so this is the cheap way to say it.
+ */
+export function namedConstraint(name: string, spec: string): Nfa[] | null {
+  const table = VALUE_TABLES[name];
+  if (table) {
+    const range = parseValueRange(spec);
+    return range ? [valueNfa(table, range)] : null;
+  }
+
+  switch (name) {
+    case "letters": {
+      const range = parseValueRange(spec);
+      return range ? [valueNfa(markTable(LETTERS), range)] : null;
+    }
+    case "words": {
+      // A match has no trailing space, so N words means N-1 spaces.
+      const range = parseValueRange(spec);
+      if (!range) return null;
+      const hi = range.hi === Infinity ? Infinity : range.hi - 1;
+      if (hi < 0) return null; // every match has at least one word
+      const lo = Math.max(0, range.lo - 1);
+      return [valueNfa(markTable([SPACE]), { lo, hi })];
+    }
+    case "count": {
+      const parsed = parseSet(spec);
+      if (!parsed) return null;
+      const range = parseValueRange(parsed.rest);
+      return range ? [valueNfa(markTable(parsed.set), range)] : null;
+    }
+    case "all": {
+      const parsed = parseSet(spec);
+      if (!parsed || parsed.rest.trim() !== "") return null;
+      return parsed.set.map((c) =>
+        valueNfa(markTable([c]), { lo: 1, hi: Infinity }),
+      );
+    }
+    case "distinct": {
+      if (spec.trim() !== "") return null;
+      return LETTERS.map((c) => valueNfa(markTable([c]), { lo: 0, hi: 1 }));
+    }
+    case "maxrep": {
+      const range = parseValueRange(spec);
+      if (!range || range.hi === Infinity) return null;
+      return LETTERS.map((c) =>
+        valueNfa(markTable([c]), { lo: 0, hi: range.hi }),
+      );
+    }
+    default:
+      return null;
+  }
+}
