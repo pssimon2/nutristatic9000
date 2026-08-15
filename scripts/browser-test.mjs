@@ -183,6 +183,27 @@ for (const w of sums) {
   }
 }
 
+// Ciphers, and the shift each result used (without it the tool solves the
+// puzzle and discards the answer).
+await page.fill("#q", "{caesar:kdhv}");
+await page.click("input[type=submit]");
+await waitDone();
+const cipher = await page.$eval("#results span.r", (e) => ({
+  word: e.firstChild.textContent,
+  note: e.querySelector(".from")?.textContent?.trim(),
+}));
+console.log("caesar:", JSON.stringify(cipher));
+if (!/^caesar \+\d+$/.test(cipher.note ?? "")) throw new Error("no shift reported");
+{
+  const shift = +/\d+/.exec(cipher.note)[0];
+  const rot = (w, n) =>
+    [...w].map((c) => String.fromCharCode(97 + ((c.charCodeAt(0) - 97 + n) % 26))).join("");
+  if (rot("kdhv", shift) !== cipher.word) throw new Error("reported shift is wrong");
+}
+await page.fill("#q", "<aaagmnr>");
+await page.click("input[type=submit]");
+await waitDone();
+
 // Full download -> disk mode -> WASM engine.
 await page.click("#dlfull");
 await waitInfo("device storage");

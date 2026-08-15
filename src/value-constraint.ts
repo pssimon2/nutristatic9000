@@ -308,3 +308,74 @@ export function editConstraint(name: string, spec: string, word: string): Nfa | 
   if (!ops.del && !ops.add && !ops.subst) return null;
   return editNfa(word, ops, { lo: n, hi: n });
 }
+
+/** Shift a letter by `n` places, leaving anything else alone. */
+function shiftChar(c: number, n: number): number {
+  if (c < A || c > Z) return c;
+  return A + ((c - A + n) % 26);
+}
+
+/** Atbash: a<->z, b<->y, … */
+function atbashChar(c: number): number {
+  return c >= A && c <= Z ? Z - (c - A) : c;
+}
+
+/** An automaton matching exactly the given literal string. */
+function literalNfa(chars: number[]): Nfa {
+  const nfa = new Nfa();
+  let state = nfa.addState();
+  nfa.setStart(state);
+  for (const c of chars) {
+    const next = nfa.addState();
+    nfa.addArc(state, c, next);
+    state = next;
+  }
+  nfa.setFinal(state);
+  return nfa;
+}
+
+/**
+ * Cipher transforms over a literal: `{caesar:kdhv}` evaluates all 25 shifts at
+ * once and lets the corpus say which one is a phrase, `{rot13:cvmmn}` and
+ * `{caesar+5:…}` apply a known shift, `{atbash:gsv}` reflects the alphabet.
+ *
+ * Only the unknown-shift case really earns its keep — a known shift is
+ * something you could have typed yourself — but the whole family desugars to
+ * an alternation of literals before the automaton is built, so it costs
+ * essentially nothing.
+ *
+ * Transforms operate on literals only: shifting a character class would mean
+ * "the 21-letter class you get by shifting the consonants", which nobody wants.
+ */
+export function cipherNfa(name: string, spec: string, text: string): Nfa | null {
+  const chars = [...text.toLowerCase()].map((c) => c.charCodeAt(0));
+  if (chars.length === 0) return null;
+  for (const c of chars) {
+    if (c !== SPACE && !(c >= A && c <= Z)) return null;
+  }
+  const shifts: number[] = [];
+  if (name === "atbash") {
+    if (spec.trim() !== "") return null;
+    return literalNfa(chars.map(atbashChar));
+  }
+  if (name === "rot") {
+    if (!/^\d+$/.test(spec.trim())) return null;
+    shifts.push(parseInt(spec, 10) % 26);
+  } else if (name === "caesar") {
+    const s = spec.trim();
+    if (s === "") {
+      for (let n = 1; n < 26; ++n) shifts.push(n); // every shift but identity
+    } else if (/^\+?\d+$/.test(s)) {
+      shifts.push(parseInt(s.replace("+", ""), 10) % 26);
+    } else {
+      return null;
+    }
+  } else {
+    return null;
+  }
+  const nfa = literalNfa(chars.map((c) => shiftChar(c, shifts[0])));
+  for (const n of shifts.slice(1)) {
+    nfa.union(literalNfa(chars.map((c) => shiftChar(c, n))));
+  }
+  return nfa;
+}

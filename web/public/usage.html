@@ -207,6 +207,17 @@ them (and, being "at most", still matches the word itself). Edits insert and
 swap letters and digits only — never spaces, so a word is never split in two.
 Up to 5 edits on words up to 40 characters.
 
+<li><b>Ciphers — <tt>{caesar:kdhv}</tt>, <tt>{rot13:cvmmn}</tt>,
+<tt>{caesar+5:…}</tt>, <tt>{atbash:gsv}</tt></b>. The unknown-shift form is the
+one that earns its keep: it evaluates all 25 shifts at once and lets the corpus
+say which is a phrase — and <b>the matched shift is shown beside each
+result</b>, so you get the key as well as the plaintext.
+<tt><a href="/9000/?q=%7Brot13%3Acvmmn%7D">{rot13:cvmmn}</a></tt> gives PIZZA;
+<tt><a href="/9000/?q=%7Batbash%3Agsv%7D">{atbash:gsv}</a></tt> gives THE.
+Transforms take a literal, never a character class: rotating <tt>C</tt> would
+mean "the class you get by shifting the consonants", which is no use to
+anyone.
+
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,

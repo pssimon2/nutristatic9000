@@ -31,7 +31,12 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
-import { bankConstraint, editConstraint, namedConstraint } from "./value-constraint.js";
+import {
+  bankConstraint,
+  cipherNfa,
+  editConstraint,
+  namedConstraint,
+} from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
 
@@ -319,6 +324,15 @@ function parseNamedConstraint(
   const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
   const name = head[1].toLowerCase();
+  if (["caesar", "rot", "atbash"].includes(name)) {
+    // Ciphers transform a literal, so the atom is the transformed text.
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const cipher = cipherNfa(name, head[2], s.slice(i + head[0].length, close));
+    if (!cipher) return null;
+    box.and = [cipher];
+    return close + 1;
+  }
   if (["del", "add", "subst", "edit"].includes(name)) {
     // Edits also take a literal word rather than a pattern.
     const close = s.indexOf("}", i);

@@ -232,3 +232,30 @@ describe("edit-distance operators", () => {
     }
   });
 });
+
+describe("cipher transforms", () => {
+  it("tries every shift when the shift is unknown", () => {
+    expect(matches("{caesar:kdhv}", "pima")).toBe(true); // +5
+    expect(matches("{caesar:kdhv}", "haes")).toBe(true); // +23
+    expect(matches("{caesar:kdhv}", "kdhv")).toBe(false); // identity excluded
+    expect(matches("{caesar:kdhv}", "pimb")).toBe(false); // inconsistent shift
+  });
+
+  it("applies a known shift", () => {
+    expect(matches("{rot13:cvmmn}", "pizza")).toBe(true);
+    expect(matches("{caesar+3:zoo}", "crr")).toBe(true);
+    expect(matches("{caesar+3:zoo}", "zoo")).toBe(false);
+  });
+
+  it("reflects the alphabet for atbash", () => {
+    expect(matches("{atbash:gsv}", "the")).toBe(true);
+    expect(matches("{atbash:gsv}", "gsv")).toBe(false);
+  });
+
+  it("rejects non-literal or malformed arguments", () => {
+    const nfa = new Nfa();
+    for (const bad of ["{caesar:}", "{caesar:a1}", "{rot:abc}", "{atbash=1:gsv}"]) {
+      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+    }
+  });
+});

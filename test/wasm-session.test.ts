@@ -58,6 +58,7 @@ describe("WasmSession parity", () => {
     "{distinct:A{6}}", // 26 conjuncts, just under the kernel's MAX_CONJ
     "<<washington>>",
     "{edit<=1:cargo}",
+    "{caesar:kdhv}",
   ];
 
   for (const q of QUERIES) {

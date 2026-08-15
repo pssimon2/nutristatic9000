@@ -240,6 +240,10 @@ let queryLiterals: string[] = [];
 // Set when the query is wrapped in `{at …:…}`: results render as the picked
 // letters rather than the whole match.
 let extractSpec: ExtractSpec | null = null;
+// The ciphertext of a lone unknown-shift `{caesar:…}`: each result is
+// annotated with the shift that produced it. Without that the tool solves the
+// puzzle and throws the answer away.
+let caesarText: string | null = null;
 // Set when the query is wrapped in `{rank …:…}`: a window into the ranked
 // stream, so mid-frequency answers are reachable without scrolling.
 let rankSpec: RankSpec | null = null;
@@ -287,6 +291,24 @@ function isVariantOfShown(text: string): boolean {
   return false;
 }
 
+/** Which Caesar shift maps the query's ciphertext to `text`, if consistent. */
+function shiftNote(text: string): string | null {
+  if (caesarText === null) return null;
+  const got = text.replace(/ /g, "");
+  const src = caesarText.replace(/ /g, "");
+  if (got.length !== src.length) return null;
+  let shift: number | null = null;
+  for (let i = 0; i < got.length; ++i) {
+    const a = got.charCodeAt(i) - 97;
+    const b = src.charCodeAt(i) - 97;
+    if (a < 0 || a > 25 || b < 0 || b > 25) return null;
+    const s = (a - b + 26) % 26;
+    if (shift === null) shift = s;
+    else if (shift !== s) return null;
+  }
+  return shift === null ? null : `caesar +${shift}`;
+}
+
 function renderResult(score: number, text: string): void {
   const span = document.createElement("span");
   span.className = "r";
@@ -302,6 +324,14 @@ function renderResult(score: number, text: string): void {
     span.append(from);
   } else {
     span.textContent = text;
+  }
+  const note = shiftNote(text);
+  if (note) {
+    span.dataset.copy ??= text; // the note is annotation, not part of the answer
+    const tag = document.createElement("span");
+    tag.className = "from";
+    tag.textContent = ` ${note}`;
+    span.append(tag);
   }
   span.title = `score ${score.toPrecision(4)} · click to copy`;
   resultsEl.append(span, document.createElement("br"));
@@ -439,6 +469,12 @@ function startSearch(query: string): void {
     setStatus(e instanceof ExtractError ? e.message : String(e), true);
     return;
   }
+  // Only a lone unknown-shift caesar can be annotated unambiguously.
+  const caesars = pattern.match(/\{\s*caesar\s*:([a-z ]+)\}/gi) ?? [];
+  caesarText =
+    caesars.length === 1
+      ? /\{\s*caesar\s*:([a-z ]+)\}/i.exec(caesars[0])![1].trim()
+      : null;
   queryLiterals = literalsOf(pattern);
   // Local step budget from the live URL's comp (not the load-time snapshot) so
   // back/forward through raised-budget entries picks up the right value.
