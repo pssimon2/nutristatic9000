@@ -31,7 +31,7 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
-import { bankConstraint, namedConstraint } from "./value-constraint.js";
+import { bankConstraint, editConstraint, namedConstraint } from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
 
@@ -319,6 +319,15 @@ function parseNamedConstraint(
   const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
   const name = head[1].toLowerCase();
+  if (["del", "add", "subst", "edit"].includes(name)) {
+    // Edits also take a literal word rather than a pattern.
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const edit = editConstraint(name, head[2], s.slice(i + head[0].length, close));
+    if (!edit) return null;
+    box.and = [edit];
+    return close + 1;
+  }
   if (name === "sub" || name === "bank") {
     // These take a literal bag of letters, not a pattern: the atom *is* the
     // constraint, so there is nothing further to parse inside.

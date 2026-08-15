@@ -192,3 +192,43 @@ describe("letter banks and sub-anagrams", () => {
     }
   });
 });
+
+describe("edit-distance operators", () => {
+  it("deletes exactly one letter", () => {
+    for (const w of ["best", "east", "beat", "bast", "beas"]) {
+      expect(matches("{del1:beast}", w)).toBe(true);
+    }
+    expect(matches("{del1:beast}", "beast")).toBe(false); // no edit spent
+    expect(matches("{del1:beast}", "bes")).toBe(false); // two deletions
+  });
+
+  it("adds and substitutes", () => {
+    expect(matches("{add1:cargo}", "cargos")).toBe(true);
+    expect(matches("{add1:cargo}", "cargo")).toBe(false);
+    expect(matches("{subst1:cargo}", "fargo")).toBe(true);
+    expect(matches("{subst1:cargo}", "cargo")).toBe(false);
+    // Each operator does only its own kind of edit.
+    expect(matches("{del1:cargo}", "fargo")).toBe(false);
+    expect(matches("{add1:cargo}", "fargo")).toBe(false);
+  });
+
+  it("mixes edits up to a bound", () => {
+    expect(matches("{edit<=1:cargo}", "cargo")).toBe(true); // zero edits allowed
+    expect(matches("{edit<=1:cargo}", "fargo")).toBe(true);
+    expect(matches("{edit<=1:cargo}", "argo")).toBe(true);
+    expect(matches("{edit<=2:cargo}", "farg")).toBe(true); // sub + del
+    expect(matches("{edit<=1:cargo}", "farg")).toBe(false);
+  });
+
+  it("does not edit across spaces", () => {
+    // Inserting a space would turn one word into two; edits stay letters.
+    expect(matches("{add1:cargo}", "car go")).toBe(false);
+  });
+
+  it("rejects unusable words and bounds", () => {
+    const nfa = new Nfa();
+    for (const bad of ["{del1:}", "{del0:cargo}", "{edit<=9:cargo}", "{del1:ab!}"]) {
+      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+    }
+  });
+});

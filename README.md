@@ -28,6 +28,7 @@ Deployment notes specific to this fork:
 | Rank windows | `{rank 200-2000:expr}` | Reaches mid-frequency answers without scrolling |
 | Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`; prunes the search |
 | Letter banks / sub-anagrams | `<<washington>>`, `{bank:…}`, `{sub:cryptography}` | Per-letter bounds plus an alphabet restriction |
+| Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}` | Levenshtein automaton over a literal word; letters/digits only, never spaces |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
 
 `{at …}` and `{rank …}` are output wrappers stripped before the engine runs.

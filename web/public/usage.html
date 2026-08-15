@@ -196,6 +196,17 @@ a sub-anagram: any subset of those letters, respecting how many of each you
 have, so it spells "crypt" but not "ccc". Both take letters, not a pattern,
 and compose like any other atom.
 
+<li><b>Edit distance — <tt>{del1:beast}</tt>, <tt>{add1:cargo}</tt>,
+<tt>{subst1:cargo}</tt>, <tt>{edit&lt;=2:cargo}</tt></b>. Deleted-letter and
+added-letter puzzles otherwise mean brute force or leaving the tool.
+<tt><a href="/9000/?q=%7Bdel1%3Abeast%7D">{del1:beast}</a></tt> finds BEST,
+EAST, BEAT and BAST; <tt>{add1:cargo}</tt> finds CARGOS;
+<tt>{subst1:cargo}</tt> finds FARGO and LARGO. Each numbered operator spends
+exactly that many edits of its own kind, while <tt>{edit&lt;=2:...}</tt> mixes
+them (and, being "at most", still matches the word itself). Edits insert and
+swap letters and digits only — never spaces, so a word is never split in two.
+Up to 5 edits on words up to 40 characters.
+
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,

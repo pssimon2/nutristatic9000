@@ -7,7 +7,7 @@
 // that would otherwise wander is pruned by the ceiling, because a state whose
 // sum can no longer reach the target has no outgoing arc at all.
 
-import { ALPHABET, Nfa } from "./automata.js";
+import { ALPHABET, EPSILON, Nfa } from "./automata.js";
 
 const A = "a".charCodeAt(0);
 const Z = "z".charCodeAt(0);
@@ -226,4 +226,85 @@ export function bankConstraint(letters: string, mode: "sub" | "bank"): Nfa[] | n
     );
   }
   return conjuncts;
+}
+
+/** Characters an edit may insert or substitute in: letters and digits, not spaces. */
+const EDITABLE = [...LETTERS, ...NAMED_SETS.digit];
+
+export interface EditOps {
+  del: boolean; // the match omits a letter of the word
+  add: boolean; // the match has an extra letter
+  subst: boolean; // the match swaps a letter for another
+}
+
+/**
+ * A Levenshtein automaton over a fixed word: state (i, e) means "matched i
+ * characters of the word using e edits". Small, finite, and deterministic in
+ * shape, which is the one place automata theory hands puzzles exactly what
+ * they want — deleted-letter and added-letter puzzles are otherwise brute
+ * force or a trip outside the tool.
+ *
+ * `range` bounds the edits that may be spent, and which totals are accepted:
+ * {del1:cargo} wants exactly one, {edit<=2:cargo} anything up to two.
+ */
+export function editNfa(
+  word: string,
+  ops: EditOps,
+  range: ValueRange,
+): Nfa | null {
+  const w = [...word.toLowerCase()].map((c) => c.charCodeAt(0));
+  if (w.length === 0 || w.length > 40) return null;
+  for (const c of w) {
+    if (c !== SPACE && !(c >= A && c <= Z) && !NAMED_SETS.digit.includes(c)) {
+      return null;
+    }
+  }
+  const k = range.hi;
+  if (!Number.isFinite(k) || k < 1 || k > 5) return null;
+
+  const nfa = new Nfa();
+  const id: number[][] = [];
+  for (let i = 0; i <= w.length; ++i) {
+    id.push([]);
+    for (let e = 0; e <= k; ++e) id[i].push(nfa.addState());
+  }
+  nfa.setStart(id[0][0]);
+  for (let i = 0; i <= w.length; ++i) {
+    for (let e = 0; e <= k; ++e) {
+      const from = id[i][e];
+      if (i === w.length && e >= range.lo && e <= range.hi) nfa.setFinal(from);
+      if (i < w.length) {
+        nfa.addArc(from, w[i], id[i + 1][e]); // match
+        if (e < k && ops.del) nfa.addArc(from, EPSILON, id[i + 1][e + 1]);
+        if (e < k && ops.subst) {
+          for (const c of EDITABLE) {
+            if (c !== w[i]) nfa.addArc(from, c, id[i + 1][e + 1]);
+          }
+        }
+      }
+      if (e < k && ops.add) {
+        for (const c of EDITABLE) nfa.addArc(from, c, id[i][e + 1]);
+      }
+    }
+  }
+  return nfa;
+}
+
+/** `{del1:cargo}`, `{add2:…}`, `{subst1:…}`, `{edit<=2:…}` → its automaton. */
+export function editConstraint(name: string, spec: string, word: string): Nfa | null {
+  if (name === "edit") {
+    const range = parseValueRange(spec);
+    return range
+      ? editNfa(word, { del: true, add: true, subst: true }, range)
+      : null;
+  }
+  if (!/^\d+$/.test(spec.trim())) return null;
+  const n = parseInt(spec, 10);
+  const ops: EditOps = {
+    del: name === "del",
+    add: name === "add",
+    subst: name === "subst",
+  };
+  if (!ops.del && !ops.add && !ops.subst) return null;
+  return editNfa(word, ops, { lo: n, hi: n });
 }
