@@ -114,6 +114,37 @@ if (hiddenShare > 0.25) {
   throw new Error("collapsed on a literal the query requires");
 }
 
+// `{at N:…}` extraction: results render as the picked letters, with the match
+// they came from alongside, and copying yields the extraction not the word.
+await page.fill("#q", "{at 1:<aaagmnr>}");
+await page.click("input[type=submit]");
+await waitDone();
+const ex = await page.$eval("#results span.r", (e) => ({
+  picked: e.firstChild.textContent,
+  from: e.querySelector(".from")?.textContent?.trim(),
+}));
+console.log("extract {at 1}:", JSON.stringify(ex));
+if (ex.picked !== "a" || ex.from !== "anagram") throw new Error("bad extraction");
+await page.click("#results span.r");
+const exClip = await page.evaluate(() => navigator.clipboard.readText());
+if (exClip !== "a") throw new Error(`extract copy gave ${JSON.stringify(exClip)}`);
+await page.fill("#q", "{at -1:<aaagmnr>}");
+await page.click("input[type=submit]");
+await waitDone();
+const last = await page.$eval("#results span.r", (e) => e.firstChild.textContent);
+console.log("extract {at -1}:", last);
+if (last !== "m") throw new Error("bad negative-position extraction");
+// A malformed wrapper explains itself rather than failing as pattern syntax.
+await page.fill("#q", "{at 0:A*}");
+await page.click("input[type=submit]");
+await page.waitForFunction(() => document.getElementById("status").className === "error");
+console.log("extract error:", await page.textContent("#status"));
+// Leave a valid query behind: the download below re-runs whatever is in the
+// box, and a rejected one would never produce a "done".
+await page.fill("#q", "<aaagmnr>");
+await page.click("input[type=submit]");
+await waitDone();
+
 // Full download -> disk mode -> WASM engine.
 await page.click("#dlfull");
 await waitInfo("device storage");

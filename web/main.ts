@@ -1,3 +1,10 @@
+import {
+  ExtractError,
+  type ExtractSpec,
+  applyExtract,
+  parseExtract,
+} from "../src/extract-spec.js";
+
 // UI thread: form handling, URL state (?q=...&comp=...&index=...), and
 // rendering of streamed results — mirroring the upstream CGI's pages, but
 // with the search running in a Web Worker in the visitor's browser.
@@ -228,6 +235,9 @@ let lastDoneStatus = "";
 // not evidence of repetition: `.*administration.*` must not collapse its own
 // matches into one.
 let queryLiterals: string[] = [];
+// Set when the query is wrapped in `{at …:…}`: results render as the picked
+// letters rather than the whole match.
+let extractSpec: ExtractSpec | null = null;
 let pageResults: Array<{ score: number; text: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
@@ -273,8 +283,20 @@ function isVariantOfShown(text: string): boolean {
 
 function renderResult(score: number, text: string): void {
   const span = document.createElement("span");
+  span.className = "r";
   span.style.fontSize = `${fontSize(score)}em`;
-  span.textContent = text;
+  if (extractSpec) {
+    const picked = applyExtract(extractSpec, text);
+    if (picked === null) return; // match too short for these positions
+    span.textContent = picked;
+    span.dataset.copy = picked; // copy the extraction, not the source word
+    const from = document.createElement("span");
+    from.className = "from";
+    from.textContent = ` ${text}`;
+    span.append(from);
+  } else {
+    span.textContent = text;
+  }
   span.title = `score ${score.toPrecision(4)} · click to copy`;
   resultsEl.append(span, document.createElement("br"));
   ++resultCount;
@@ -318,11 +340,11 @@ function resetResultCollapsing(): void {
 // until used: no extra chrome, just the cursor, the title hint, and a brief
 // flash on the word itself.
 resultsEl.addEventListener("click", (ev) => {
-  const span = (ev.target as HTMLElement | null)?.closest?.("span");
+  const span = (ev.target as HTMLElement | null)?.closest?.("span.r");
   if (!span || !resultsEl.contains(span)) return;
   // Don't hijack a drag-selection of the text.
   if (!(window.getSelection()?.isCollapsed ?? true)) return;
-  const text = span.textContent ?? "";
+  const text = (span as HTMLElement).dataset.copy ?? span.textContent ?? "";
   if (!text) return;
   void navigator.clipboard?.writeText(text).then(
     () => {
@@ -388,7 +410,21 @@ function startSearch(query: string): void {
   afterEl.textContent = "";
   resultCount = 0;
   resetResultCollapsing();
-  queryLiterals = literalsOf(transliterate(query));
+  // `{at …:…}` is an output wrapper: strip it here so the engine only ever
+  // sees the pattern itself.
+  let pattern = transliterate(query);
+  extractSpec = null;
+  try {
+    const extract = parseExtract(pattern);
+    if (extract) {
+      extractSpec = extract.spec;
+      pattern = extract.inner;
+    }
+  } catch (e) {
+    setStatus(e instanceof ExtractError ? e.message : String(e), true);
+    return;
+  }
+  queryLiterals = literalsOf(pattern);
   // Local step budget from the live URL's comp (not the load-time snapshot) so
   // back/forward through raised-budget entries picks up the right value.
   currentComp =
@@ -397,7 +433,7 @@ function startSearch(query: string): void {
   setStatus("searching…");
   worker.postMessage({
     type: "search",
-    query: transliterate(query),
+    query: pattern,
     maxResults: PER_RUN_RESULTS,
     ...runBudget(),
   });

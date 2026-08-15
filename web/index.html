@@ -83,6 +83,9 @@
        it for free from quirks mode. */
     #results { line-height: 0; }
     #results span { line-height: 1.15; cursor: pointer; }
+    /* `{at N:…}` mode: the picked letters lead, the match they came from
+       trails in smaller muted type. */
+    #results .from { font-size: 0.55em; color: #767676; }
     /* Brief confirmation that a clicked result was copied. */
     #results span.copied { background: #ffe58a; background: light-dark(#ffe58a, #5a4a12); }
     #status { color: #767676; }
@@ -129,7 +132,11 @@
       <li><em>A</em> - alphabetic: [a-z]</li>
       <li><em>C</em> - consonant (including y)</li>
       <li><em>V</em> - vowel ([aeiou], not y)</li>
+      <li><em>{at 3:expr}</em> - show the 3rd letter of each match instead of
+        the whole match (<em>-1</em> = last, <em>3,5,7</em> = several)</li>
     </ul>
+    <p>Results that are the same phrase seen through a different index window
+    are folded together; a link under the results restores them.</p>
 
     <h3>Examples</h3>
     <ul id="examples"></ul>
