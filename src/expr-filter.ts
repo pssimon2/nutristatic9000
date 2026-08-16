@@ -20,6 +20,8 @@ export interface Filter {
   isAccepting(state: number): boolean;
   /** Next state on `ch` (a character code), or -1 if no transition. */
   transition(state: number, ch: number): number;
+  /** Lazy DFA states built so far, for Stats. Free to read. */
+  readonly stateCount: number;
 }
 
 export class ExprFilter implements Filter {
@@ -29,6 +31,11 @@ export class ExprFilter implements Filter {
   private trans: Int32Array; // [state*NSYM+sym]: target, DEAD, or UNCOMPUTED
   private accepting: number[] = [];
   private members: number[][] = []; // NFA state set per DFA state
+
+  /** Lazy DFA states interned so far. */
+  get stateCount(): number {
+    return this.members.length;
+  }
   private readonly setIds = new Map<string, number>();
   private readonly closures: Array<number[] | null>;
 
@@ -158,6 +165,16 @@ export class ProductFilter implements Filter {
   // with a Map keyed by tuple.
   private pool = new Int32Array(0);
   private count = 0;
+
+  /**
+   * Product states interned, plus every sub-filter's own — the sub-DFAs are
+   * where the states actually accumulate on an anagram.
+   */
+  get stateCount(): number {
+    let n = this.count;
+    for (const sub of this.subs) n += sub.stateCount;
+    return n;
+  }
   private slots = new Int32Array(1 << 12); // power of two, 0 = empty
   private slotMask = (1 << 12) - 1;
 

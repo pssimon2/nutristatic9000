@@ -153,7 +153,16 @@ Goal: mechanical, low-risk changes that everything later depends on.
   CLAUDE.md): the two-speed doctrine (GR3), the layering rules (S4), the
   frozen-format contract (GR1), the parity requirement (GR4), and "a
   feature is a file" (E1) as the extendability acceptance test.
-- [ ] **S6. Engine perf counters.** A `Stats` object on the session:
+- [x] **S6. Engine perf counters.** *(done 2026-08-16)* `src/stats.ts`: steps,
+  results, frontier peak, lazy DFA states, bytes fetched, requests, chunk
+  hit/miss, predicate checks/passed. `find-expr --stats` prints them to stderr
+  (stdout is the result stream); `?debug=1` shows them in the page.
+  Collected from the components that already keep the numbers rather than
+  accumulated through the walk — the inner loops are kernel tier, and the only
+  addition to one is a single comparison per frontier push, benchmarked at no
+  measurable cost (~1.2M steps/s either way). The WASM kernel reports steps
+  only, and the panel says so instead of showing zeros as measurements.
+  Original text: A `Stats` object on the session:
   steps, lazy-DFA states interned, frontier peak size, bytes fetched,
   chunk-cache hit/miss, predicate checks run/passed, results emitted.
   Several exist ad hoc (`bytesFetched`, `requests`, `steps`) — unify.

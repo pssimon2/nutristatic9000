@@ -24,6 +24,8 @@ import { Filter } from "./expr-filter.js";
  */
 class Frontier {
   size = 0;
+  /** Largest `size` ever reached — the query's real memory cost. */
+  peak = 0;
   crumb = new Int32Array(1024);
   state = new Int32Array(1024);
   ch = new Int32Array(1024);
@@ -79,6 +81,7 @@ class Frontier {
   ): void {
     if (this.size === this.crumb.length) this.grow();
     let i = this.size++;
+    if (this.size > this.peak) this.peak = this.size;
     const pri = count * scale;
     // Bubble the hole up, then write the entry once.
     while (i > 0) {
@@ -165,6 +168,11 @@ export interface SearchDriverOptions {
 export class SearchDriver {
   text: string | null = null;
   score = 0;
+
+  /** Largest the frontier reached; see Stats. */
+  get frontierPeak(): number {
+    return this.frontier.peak;
+  }
 
   private readonly frontier = new Frontier();
   private readonly crumbs = new Crumbs();

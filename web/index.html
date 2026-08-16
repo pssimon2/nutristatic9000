@@ -86,6 +86,13 @@
     /* `{at N:…}` mode: the picked letters lead, the match they came from
        trails in smaller muted type. */
     #results .from { font-size: 0.55em; color: #767676; }
+    #stats {
+      margin: .6em 0; padding: .5em .7em; font-size: 12px;
+      font-family: ui-monospace, monospace; color: GrayText;
+      border-left: 3px solid ButtonBorder;
+      background: color-mix(in srgb, CanvasText 4%, Canvas);
+      max-width: 34em;
+    }
     #qwrap { position: relative; display: inline-block; }
     /* Amber that reads on either theme; the fixed #c60 vanished on dark. */
     #q.bad { border-color: #d2691e; box-shadow: 0 0 0 1px #d2691e; }

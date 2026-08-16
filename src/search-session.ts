@@ -7,6 +7,8 @@ import { IndexReader } from "./index-reader.js";
 import { compileQuery, DEFAULT_RESTART, makeDriver } from "./find-expr.js";
 import { SessionContext } from "./session-context.js";
 import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
+import { Filter } from "./expr-filter.js";
+import { SourceStats, Stats, emptyStats } from "./stats.js";
 
 export interface SearchResult {
   score: number;
@@ -17,7 +19,13 @@ export type SessionStatus = "limit" | "results" | "exhausted";
 
 export class SearchSession {
   private driver: SearchDriver;
+  private readonly filter: Filter;
+  private readonly source: SourceStats;
   steps = 0;
+  results = 0;
+  /** Result-predicate outcomes, reported by whoever runs them. */
+  predicateChecks = 0;
+  predicatePassed = 0;
 
   constructor(
     reader: IndexReader,
@@ -26,7 +34,28 @@ export class SearchSession {
     restart = DEFAULT_RESTART,
     opts: SearchDriverOptions = {},
   ) {
-    this.driver = makeDriver(reader, compileQuery(query, ctx), restart, opts);
+    this.filter = compileQuery(query, ctx);
+    this.source = reader.source as SourceStats;
+    this.driver = makeDriver(reader, this.filter, restart, opts);
+  }
+
+  /**
+   * What the search has cost so far. Gathered from the pieces that already
+   * keep the numbers rather than accumulated during the walk — see stats.ts.
+   */
+  stats(): Stats {
+    const s = emptyStats();
+    s.steps = this.steps;
+    s.results = this.results;
+    s.frontierPeak = this.driver.frontierPeak;
+    s.dfaStates = this.filter.stateCount;
+    s.bytesFetched = this.source.bytesFetched ?? 0;
+    s.requests = this.source.requests ?? 0;
+    s.chunkHits = this.source.chunkHits ?? 0;
+    s.chunkMisses = this.source.chunkMisses ?? 0;
+    s.predicateChecks = this.predicateChecks;
+    s.predicatePassed = this.predicatePassed;
+    return s;
   }
 
   /**
@@ -60,6 +89,7 @@ export class SearchSession {
       if (r instanceof Promise) r = await r;
       if (r) {
         if (this.driver.text === null) return "exhausted";
+        ++this.results;
         onResult({
           score: this.driver.score,
           text: this.driver.text.replace(/ +$/, ""),

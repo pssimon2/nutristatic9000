@@ -24,6 +24,11 @@ import { SessionContext } from "../src/session-context.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { applyResultFilter } from "../src/result-predicate.js";
 import { makeWordChecker } from "../src/index-words.js";
+import {
+  SourceStats,
+  emptyStats,
+  formatStats,
+} from "../src/stats.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
   if (e.code === "EPIPE") process.exit(0);
@@ -31,10 +36,12 @@ process.stdout.on("error", (e: NodeJS.ErrnoException) => {
 });
 
 const USAGE =
-  "usage: find-expr [--max-steps N] input.index expression\n" +
+  "usage: find-expr [--max-steps N] [--stats] input.index expression\n" +
   "  N: step limit (default 1000000; 0 = unlimited)";
 
 const args = process.argv.slice(2);
+const wantStats = args.includes("--stats");
+if (wantStats) args.splice(args.indexOf("--stats"), 1);
 // Same default computation limit as the upstream website; upstream's CLI
 // instead runs unbounded, which exhausts memory on open-ended patterns.
 let maxSteps = 1000000;
@@ -142,13 +149,19 @@ let rawRank = 0;
  * to print. Order matches the browser — corpus filter, then rank window, then
  * extraction.
  */
+let predicateChecks = 0;
+let predicatePassed = 0;
+let emitted = 0;
+
 async function present(score: number, text: string): Promise<string | null> {
   let note = "";
   if (resultFilter) {
+    ++predicateChecks;
     // Same rule as the browser (src/result-predicate.ts); only the formatting
     // differs — a line suffix here, a `note` field over postMessage there.
     const verdict = await applyResultFilter(resultFilter, text, ctx, isWord);
     if (!verdict.keep) return null;
+    ++predicatePassed;
     if (verdict.note !== null) note = `  ${verdict.note}`;
   }
   ++rawRank;
@@ -175,8 +188,28 @@ try {
       if (driver.text === null) break;
       const text = driver.text.replace(/ +$/, "");
       const line = await present(driver.score, text);
-      if (line !== null) process.stdout.write(`${line}\n`);
+      if (line !== null) {
+        ++emitted;
+        process.stdout.write(`${line}\n`);
+      }
     }
+  }
+  if (wantStats) {
+    const src = reader.source as SourceStats;
+    const s = emptyStats();
+    s.steps = count;
+    s.results = emitted;
+    s.frontierPeak = driver.frontierPeak;
+    s.dfaStates = filter.stateCount;
+    s.bytesFetched = src.bytesFetched ?? 0;
+    s.requests = src.requests ?? 0;
+    s.chunkHits = src.chunkHits ?? 0;
+    s.chunkMisses = src.chunkMisses ?? 0;
+    s.predicateChecks = predicateChecks;
+    s.predicatePassed = predicatePassed;
+    // On stderr: stdout is the result stream, and a caller piping it should
+    // not have to filter the summary back out.
+    for (const line of formatStats(s)) console.error(`# ${line}`);
   }
 } catch (e) {
   // "pattern too complex" (filter state cap) or "index error: ..." — a

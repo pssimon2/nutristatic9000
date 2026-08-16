@@ -208,6 +208,9 @@ export class HttpRangeSource implements ByteSource {
   private pinLast = -1;
   bytesFetched = 0;
   requests = 0;
+  /** Chunk cache outcomes: the ratio is what makes range mode viable. */
+  chunkHits = 0;
+  chunkMisses = 0;
   // Live estimates of link bandwidth (bytes/s) and round-trip time (s),
   // driving the read-ahead size (bandwidth-delay product): the index is
   // written post-order, so a node's descendants lie contiguously BEFORE it —
@@ -309,10 +312,12 @@ export class HttpRangeSource implements ByteSource {
     for (let c = first; c <= last; ++c) {
       const hit = this.cache.get(c);
       if (hit) {
+        ++this.chunkHits;
         // Refresh LRU position (Map preserves insertion order).
         this.cache.delete(c);
         this.cache.set(c, hit);
       } else {
+        ++this.chunkMisses;
         (missing ??= []).push(c);
       }
     }

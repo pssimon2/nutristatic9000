@@ -149,7 +149,7 @@ class ParseCache {
 
 export class IndexReader {
   private constructor(
-    private readonly source: ByteSource,
+    readonly source: ByteSource,
     private readonly total: number,
   ) {}
 

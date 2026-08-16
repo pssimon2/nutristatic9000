@@ -632,6 +632,25 @@ await page.waitForFunction(
   () => document.getElementById("qerr").hidden, null, { timeout: 30000 });
 console.log("inline error cleared on a valid query");
 
+// ?debug=1 shows what the search cost.
+await page.goto(
+  base + "?index=./demo.index&debug=1&q=" + encodeURIComponent("A{5}"),
+);
+await page.waitForFunction(
+  () => { const e = document.getElementById("stats"); return e && !e.hidden; },
+  null, { timeout: 60000 });
+const statsText = (await page.textContent("#stats")).replace(/\s+/g, " ").trim();
+console.log("debug panel:", statsText.slice(0, 90));
+if (!/steps: [\d,]+/.test(statsText)) throw new Error("no step count in debug panel");
+if (!/results: [\d,]+/.test(statsText)) throw new Error("no result count");
+
+// …and stays out of the way without it.
+await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("A{5}"));
+await page.waitForFunction(() => document.querySelectorAll("#results span.r").length > 0,
+  null, { timeout: 60000 });
+if (await page.$("#stats:not([hidden])")) throw new Error("debug panel shown without ?debug=1");
+console.log("debug panel hidden by default");
+
 // Dark mode: the menu and the explanation must be legible, not merely
 // present. Fixed greys passed every existing assertion while being invisible.
 const dark = await browser.newContext({ colorScheme: "dark" });

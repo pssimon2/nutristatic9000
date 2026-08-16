@@ -112,6 +112,8 @@ export class CompressedRangeSource implements ByteSource {
   private readonly inflight = new Map<number, Promise<void>>();
   bytesFetched = 0; // compressed bytes over the wire
   requests = 0;
+  chunkHits = 0;
+  chunkMisses = 0;
   private ewmaBw = 1e6;
   private ewmaRtt = 0.08;
 
@@ -198,9 +200,11 @@ export class CompressedRangeSource implements ByteSource {
     for (let b = first; b <= last; ++b) {
       const hit = this.cache.get(b);
       if (hit) {
+        ++this.chunkHits;
         this.cache.delete(b);
         this.cache.set(b, hit);
       } else {
+        ++this.chunkMisses;
         (missing ??= []).push(b);
       }
     }

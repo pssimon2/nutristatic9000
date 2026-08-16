@@ -6,6 +6,7 @@ import {
 } from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg } from "./worker/protocol.js";
 import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
+import { type Stats, formatStats } from "../src/stats.js";
 import { type Completion, completionsAt } from "../src/complete.js";
 import type { WikiLists } from "../src/word-lists.js";
 
@@ -902,6 +903,7 @@ worker.onmessage = (ev) => {
       break;
     case "done":
       setStatus("");
+      if (DEBUG) showStats(msg.stats as Stats | null);
       if (msg.engine === "wasm" && !indexInfo.textContent!.includes("WASM")) {
         indexInfo.textContent += " · WASM engine";
       }
@@ -1099,6 +1101,34 @@ function showCheck(error: { detail: string; at: number } | null): void {
     qErrEl.append(where);
   }
   qErrEl.hidden = false;
+}
+
+/**
+ * `?debug=1` shows what the search cost. Off by default and cheap when off:
+ * the numbers are collected by the engine either way, so this only decides
+ * whether anything is rendered.
+ */
+const DEBUG = params.get("debug") === "1";
+const statsEl = document.createElement("div");
+statsEl.id = "stats";
+statsEl.hidden = true;
+afterEl.after(statsEl);
+
+function showStats(stats: Stats | null): void {
+  statsEl.textContent = "";
+  if (!stats) {
+    // The WASM kernel reports steps and nothing else; saying so beats
+    // rendering zeros that look like measurements.
+    statsEl.textContent = "WASM engine — detailed counters are JS-engine only";
+    statsEl.hidden = false;
+    return;
+  }
+  for (const line of formatStats(stats)) {
+    const div = document.createElement("div");
+    div.textContent = line;
+    statsEl.append(div);
+  }
+  statsEl.hidden = false;
 }
 
 form.addEventListener("submit", (ev) => {

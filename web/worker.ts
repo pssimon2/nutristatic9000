@@ -783,8 +783,10 @@ async function runSession(
     }
     for (const r of pending) {
       if (token !== runToken) return;
+      if (active instanceof SearchSession) ++active.predicateChecks;
       const verdict = await applyResultFilter(filter, r.text, ctx, isIndexedWord);
       if (!verdict.keep) continue;
+      if (active instanceof SearchSession) ++active.predicatePassed;
       post({
         type: "result",
         score: r.score,
@@ -841,6 +843,10 @@ async function runSession(
       type: "done",
       status, // "limit" (step budget), "results" (page full), "exhausted"
       steps: searchStepBase + active.steps,
+      // Only the JS engine keeps the detailed counters; the kernel reports
+      // steps and nothing else, which the panel says rather than showing
+      // zeros as though they were measurements.
+      stats: active instanceof SearchSession ? active.stats() : null,
       engine: engineOf(active),
       fetched: rangeSource?.bytesFetched,
       requests: rangeSource?.requests,

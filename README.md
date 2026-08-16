@@ -225,6 +225,14 @@ find text -type f | xargs cat | npm run make-index -- wikipedia
 npm run merge-indexes -- 5 wikipedia.*.index wiki-merged.index
 ```
 
+## What a search cost
+
+`npm run find-expr -- --stats INDEX 'PATTERN'` prints steps, results, frontier
+peak, lazy DFA states, bytes fetched and predicate outcomes to stderr; the same
+numbers appear in the page under `?debug=1`. They are what makes an expensive
+query legible — `{palindrome:A{5}}` reports 103,302 predicate checks for 377
+results, which is the filter's real cost rather than a guess.
+
 ## Measured performance (2026-08-15 baseline)
 
 Production, cold browser context, first result on screen: **0.3–0.8 s on
