@@ -391,6 +391,39 @@ function parseAtom(
  * user gets the standard "can't parse" pointer at the offending text.
  */
 /** The `{…}` construct starting at `i`, for error messages. */
+/**
+ * A construct spelled correctly but given no argument: `{rot13}`, `{caesar}`,
+ * `{sum=52}`.
+ *
+ * Dispatch needs the colon, so these never reached the construct that would
+ * have explained itself, and came back as `can't parse "{rot13}"` — the one
+ * message that cannot help, because it suggests the name is wrong when the
+ * name is the only part that was right. Every construct already carries a
+ * summary and a worked example for the generated reference, so the answer is
+ * to say those.
+ *
+ * Throws when it recognises the name and returns otherwise, leaving `{5}` and
+ * every other brace-shaped thing to be parsed as whatever it is.
+ */
+function bareConstruct(s: string, i: number): void {
+  const bare = /^\{\s*([a-z][a-z.]*)\s*([^:}]*)\}/i.exec(s.slice(i));
+  if (!bare) return;
+  const token = bare[1].toLowerCase();
+  const typed = token.slice(token.lastIndexOf(".") + 1);
+  const { name } = foldName(typed, bare[2]);
+  const info = findConstruct(name);
+  if (!info) return;
+  // Named as it was typed, not as it folds: someone who wrote `{rot13}` is
+  // not helped by a message about `{rot…}`, which is a name they have never
+  // seen. `bare[2]` carries the digits back, since the name lexes as letters.
+  const shown = `${typed}${bare[2].trim()}`;
+  throw new ParseError(
+    constructText(s, i),
+    `{${shown}…} takes an argument after a colon — ${info.summary}. ` +
+      `Try ${info.example}`,
+  );
+}
+
 function constructText(s: string, i: number): string {
   const close = s.indexOf("}", i);
   return close < 0 ? s.slice(i) : s.slice(i, close + 1);
@@ -404,7 +437,10 @@ function parseNamedConstraint(
   ctx: SessionContext,
 ): number | null {
   const head = /^\{\s*([a-z][a-z.]*)\s*([^:}]*):/i.exec(s.slice(i));
-  if (!head) return null;
+  if (!head) {
+    bareConstruct(s, i);
+    return null;
+  }
   // Names lex as letters, so trailing digits land in the spec — that is what
   // makes {del1:…} and {rot13:…} work. Two names are genuinely digit-bearing;
   // fold them back before dispatching.
@@ -431,6 +467,12 @@ function parseNamedConstraint(
         constructText(s, i),
         "{kind:…} needs the category data, which this build could not load",
         true,
+      );
+    }
+    if (word === "") {
+      throw new ParseError(
+        constructText(s, i),
+        "{kind:…} needs a category name — e.g. {kind:bird}",
       );
     }
     const kinds = kindsOf(ctx.categories, word);
@@ -530,6 +572,13 @@ function parseNamedConstraint(
     const list = listNfa(s.slice(i + head[0].length, close), ctx.lists);
     if (!list) {
       const asked = s.slice(i + head[0].length, close).trim();
+      if (asked === "") {
+        throw new ParseError(
+          constructText(s, i),
+          "{list:…} needs a list name — e.g. {list:greek} — or your own " +
+            "entries separated by commas",
+        );
+      }
       const near = suggestList(asked, ctx.lists);
       throw new ParseError(
         constructText(s, i),

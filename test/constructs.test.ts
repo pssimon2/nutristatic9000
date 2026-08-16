@@ -164,3 +164,55 @@ describe("suggestions and misplacement", () => {
     expect(errorOf("{at 1:A*}")).toMatch(/changes what is shown/);
   });
 });
+
+// A construct named correctly but given no argument.
+//
+// Dispatch needs the colon, so `{rot13}` never reached the code that would
+// have explained it and came back as `can't parse "{rot13}"` — the one
+// message that cannot help, since it points at the name, which is the only
+// part that was right. Every construct already carries a summary and a worked
+// example for the generated reference; these say those.
+describe("a construct with its argument missing", () => {
+  it("explains itself instead of blaming the syntax", () => {
+    const err = errorOf("{rot13}")!;
+    expect(err).not.toMatch(/can't parse/);
+    expect(err).toMatch(/takes an argument after a colon/);
+    // The summary and the runnable example, both from the catalogue.
+    expect(err).toMatch(/a literal shifted by a known amount/);
+    expect(err).toMatch(/\{rot13:cvmmn\}/);
+  });
+
+  it("names the construct as it was typed, not as it folds", () => {
+    // `rot13` lexes as `rot` + `13`, and a message about `{rot…}` would name
+    // something the reader has never seen.
+    expect(errorOf("{rot13}")).toMatch(/\{rot13…\}/);
+    expect(errorOf("{sum=52}")).toMatch(/\{sum=52…\}/);
+  });
+
+  it("covers the constructs whose argument is easy to forget", () => {
+    for (const q of ["{caesar}", "{sum=52}", "{atbash}", "{t9}"]) {
+      expect(errorOf(q), q).toMatch(/takes an argument after a colon/);
+    }
+  });
+
+  it("leaves quantifiers and everything else alone", () => {
+    // `{5}` is a repeat count, not a construct, and must still parse.
+    for (const q of ["A{5}", "A{2,5}", "A{3,}", "{sum=52:A*}", "{rot13:cvmmn}"]) {
+      expect(errorOf(q), q).toBeNull();
+    }
+  });
+
+  it("says nothing special about a name it does not know", () => {
+    // Still the unknown-construct message, which suggests a near match.
+    expect(errorOf("{zzz}")).not.toMatch(/takes an argument after a colon/);
+  });
+});
+
+describe("an argument that is present but empty", () => {
+  it("asks for a list name rather than reporting one that is blank", () => {
+    const err = errorOf("{list:}")!;
+    expect(err).not.toMatch(/no such list ""/);
+    expect(err).toMatch(/needs a list name/);
+    expect(err).toMatch(/\{list:greek\}/);
+  });
+});
