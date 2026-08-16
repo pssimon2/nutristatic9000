@@ -61,7 +61,17 @@ self.addEventListener("fetch", (event) => {
         const hit = await cache.match(req);
         if (hit) return hit;
         const net = await fetch(req);
-        if (net && net.ok) cache.put(req, net.clone());
+        if (net && net.ok) {
+          await cache.put(req, net.clone());
+          // These URLs carry a version, so drop any earlier copy of the same
+          // file rather than keeping every version ever fetched.
+          for (const old of await cache.keys()) {
+            const oldPath = new URL(old.url).pathname;
+            if (oldPath === url.pathname && old.url !== req.url) {
+              await cache.delete(old);
+            }
+          }
+        }
         return net;
       })(),
     );

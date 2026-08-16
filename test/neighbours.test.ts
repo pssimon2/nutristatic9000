@@ -38,11 +38,30 @@ describe("semantic neighbours", () => {
   it("finds words a thesaurus would miss", () => {
     // The whole reason for this alongside {like:…}: WordNet groups RELUCTANT
     // with LOATH, but not with these.
-    const near = nearestTo("reluctant", 48)!;
+    const near = nearestTo("reluctant", 40)!;
     expect(near).toContain("reluctant"); // the word itself leads
-    expect(near.some((w) => ["willing", "refused", "opposed"].includes(w))).toBe(
-      true,
-    );
+    expect(near).toContain("unwilling");
+    expect(near).toContain("hesitant");
+  });
+
+  it("reaches the vocabulary a solver actually needs", () => {
+    // Words like these are why the vocabulary runs to 60k rather than 20k.
+    for (const w of ["cipher", "azure", "treachery", "obelisk"]) {
+      expect(nearestTo(w), w).not.toBeNull();
+    }
+    expect(nearestTo("cipher", 40)).toContain("cryptography");
+    expect(nearestTo("azure", 40)).toContain("cerulean");
+  });
+
+  it("keeps WordNet's antonyms out", () => {
+    // Every embedding tested put opposites in the top 40 (38-63% of gold
+    // pairs); the build strips the ones WordNet can name.
+    expect(nearestTo("quick", 40)).not.toContain("slow");
+    expect(nearestTo("hot", 40)).not.toContain("cold");
+    expect(nearestTo("increase", 40)).not.toContain("decrease");
+    // ...without costing the synonyms.
+    expect(nearestTo("quick", 40)).toContain("rapid");
+    expect(nearestTo("hot", 40)).toContain("scorching");
   });
 
   it("honours the requested count", () => {

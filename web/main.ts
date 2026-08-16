@@ -78,6 +78,12 @@ function setDlMsg(text: string): void {
   dlMsg.hidden = text === "";
 }
 
+// Bump when a side dataset is rebuilt: it versions their URLs, which is what
+// makes a cached copy fall out of use.
+const DATA_VERSION = "2";
+const dataUrl = (file: string): string | null =>
+  OFFLINE ? null : new URL(`./${file}?v=${DATA_VERSION}`, location.href).href;
+
 const params = new URLSearchParams(location.search);
 // Resolve against the page URL: the worker would otherwise resolve relative
 // paths against its own script URL.
@@ -583,9 +589,12 @@ function runNextSlot(): void {
     type: "search",
     query: pattern,
     // Resolved here: the page knows its own base, the worker script does not.
-    phoneticsUrl: OFFLINE ? null : new URL("./phonetics.txt", location.href).href,
-    thesaurusUrl: OFFLINE ? null : new URL("./thesaurus.txt", location.href).href,
-    neighboursUrl: OFFLINE ? null : new URL("./neighbours.bin", location.href).href,
+    // The version is part of the URL because the side datasets are cached
+    // permanently — without it, a rebuilt dataset would never reach anyone who
+    // had already fetched the old one.
+    phoneticsUrl: dataUrl("phonetics.txt"),
+    thesaurusUrl: dataUrl("thesaurus.txt"),
+    neighboursUrl: dataUrl("neighbours.bin"),
     // Only the head of each slot matters; the extraction reads the top answer.
     maxResults: 3,
     ...runBudget(),
@@ -659,9 +668,12 @@ function startSearch(query: string): void {
     type: "search",
     query: pattern,
     // Resolved here: the page knows its own base, the worker script does not.
-    phoneticsUrl: OFFLINE ? null : new URL("./phonetics.txt", location.href).href,
-    thesaurusUrl: OFFLINE ? null : new URL("./thesaurus.txt", location.href).href,
-    neighboursUrl: OFFLINE ? null : new URL("./neighbours.bin", location.href).href,
+    // The version is part of the URL because the side datasets are cached
+    // permanently — without it, a rebuilt dataset would never reach anyone who
+    // had already fetched the old one.
+    phoneticsUrl: dataUrl("phonetics.txt"),
+    thesaurusUrl: dataUrl("thesaurus.txt"),
+    neighboursUrl: dataUrl("neighbours.bin"),
     // A rank window has to be reached before it can be shown; ask the engine
     // for enough results to cover it (bounded, so a huge "to" can't run away).
     maxResults: rankSpec

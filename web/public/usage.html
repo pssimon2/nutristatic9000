@@ -317,11 +317,19 @@ reaches KINGDOM, ROYALTY, MAJESTY, MONARCH and PRESLEY. Use <tt>{like:…}</tt>
 when you want a synonym and <tt>{near:…}</tt> when you want whatever the clue
 is gesturing at. <tt>{near 8:word}</tt> narrows the net, <tt>{near 40:word}</tt>
 widens it (default 32).
-<br>No model runs in your browser: the embeddings are computed when the site is
-built, and only each word's nearest neighbours are shipped — about 5 MB,
-fetched once, covering the 60,000 commonest words (CIPHER, AZURE, ANAGRAM,
-TUNDRA and the like, not just everyday vocabulary). Anything rarer than that
-says so; <tt>{like:…}</tt> covers a far larger dictionary.
+<br>No model runs in your browser: neighbours are computed when the site is
+built and only the lists are shipped — about 5 MB, fetched once, covering
+60,000 words (CIPHER, AZURE, TREACHERY, OBELISK and the like, not just
+everyday vocabulary). Anything rarer says so; <tt>{like:…}</tt> covers a far
+larger dictionary.
+<br>The vectors are ConceptNet Numberbatch, chosen by measurement rather than
+reputation: against WordNet's own synonym pairs it found a third more of them
+in the top 40 than the best sentence-transformer tried. <b>Opposites are the
+known weakness</b> of every such model — words like HOT and COLD appear in the
+same contexts, so they sit close together. The pairs WordNet can name are
+removed when the table is built, which is why <tt>{near:quick}</tt> does not
+offer SLOW; opposites it does not list will still turn up, so read the list
+with that in mind.
 <br><b>What {like:…} is and isn't:</b> a thesaurus, not a semantic model. It
 answers "what else means roughly this", from the senses WordNet groups a word
 into — every sense of it, since the pattern is what narrows things down. It
@@ -666,7 +674,10 @@ the search string is good if you don't expect the answer to contain multiple
 words (or you know where word breaks go).</p>
 
 <hr>
-<address>The rhyme and homophone data is derived from the
+<address>The meaning neighbours are derived from
+<a href="https://github.com/commonsense/conceptnet-numberbatch">ConceptNet
+Numberbatch</a> (CC BY-SA 4.0), with antonym pairs from WordNet removed.
+The rhyme and homophone data is derived from the
 <a href="https://www.speech.cs.cmu.edu/cgi-bin/cmudict">CMU Pronouncing
 Dictionary</a> (Carnegie Mellon University, free to use). The meaning data is
 derived from <a href="https://wordnet.princeton.edu/">WordNet 3.1</a>,

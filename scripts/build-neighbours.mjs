@@ -12,9 +12,19 @@
 
 import fs from "node:fs";
 import { pipeline } from "@huggingface/transformers";
+import { loadAntonyms } from "./wordnet-antonyms.mjs";
 
+const argv = process.argv.slice(2);
+const flag = (name) => {
+  const at = argv.indexOf(`--${name}`);
+  return at === -1 ? null : argv[at + 1];
+};
+// Precomputed word vectors (word2vec/GloVe text format) instead of a model.
+const VEC_FILE = flag("vec");
+// WordNet dictionary directory, to drop antonyms from the neighbour lists.
+const ANTONYM_DIR = flag("antonyms");
 const [listPath, outPath = "web/public/neighbours.bin", vocabArg, kArg] =
-  process.argv.slice(2);
+  argv.filter((a) => !a.startsWith("--") && argv[argv.indexOf(a) - 1] !== "--vec" && argv[argv.indexOf(a) - 1] !== "--antonyms");
 if (!listPath) {
   console.error("usage: build-neighbours.mjs count_1w.txt [out.bin] [vocab] [K]");
   process.exit(2);
@@ -28,36 +38,70 @@ if (VOCAB > 65535) {
 }
 
 // Frequency-ordered, letters only: puzzle answers are words, not tokens.
-const words = [];
+const candidates = [];
 for (const line of fs.readFileSync(listPath, "utf8").split("\n")) {
   const word = line.split(/\s+/)[0]?.toLowerCase();
-  if (word && /^[a-z]{3,20}$/.test(word)) words.push(word);
-  if (words.length >= VOCAB) break;
+  if (word && /^[a-z]{3,20}$/.test(word)) candidates.push(word);
 }
-console.log(`vocabulary: ${words.length} words`);
 
-const extract = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
-  dtype: "fp32",
-});
-
-// Embed in batches, unit-normalised so cosine is a plain dot product.
-const DIM = 384;
-const vectors = new Float32Array(words.length * DIM);
-const BATCH = 256;
+let words;
+let DIM;
+let vectors;
 const started = Date.now();
-for (let i = 0; i < words.length; i += BATCH) {
-  const slice = words.slice(i, i + BATCH);
-  const out = await extract(slice, { pooling: "mean", normalize: true });
-  vectors.set(out.data.slice(0, slice.length * DIM), i * DIM);
-  if (i % (BATCH * 20) === 0) {
-    const done = i + slice.length;
-    const rate = done / ((Date.now() - started) / 1000);
-    process.stdout.write(
-      `\r  embedded ${done}/${words.length} (${rate.toFixed(0)}/s)   `,
-    );
+
+if (VEC_FILE) {
+  // Take the vocabulary from the intersection, in frequency order: a
+  // frequency list contains tokens no vector set knows, and a vector set
+  // contains words too rare to be worth a slot.
+  const have = new Map();
+  for (const line of fs.readFileSync(VEC_FILE, "utf8").split("\n")) {
+    const sp = line.indexOf(" ");
+    if (sp <= 0) continue;
+    const word = line.slice(0, sp).toLowerCase();
+    if (!have.has(word)) have.set(word, line.slice(sp + 1));
   }
+  words = candidates.filter((w) => have.has(w)).slice(0, VOCAB);
+  DIM = have.get(words[0]).trim().split(" ").length;
+  vectors = new Float32Array(words.length * DIM);
+  for (let i = 0; i < words.length; ++i) {
+    const nums = have.get(words[i]).trim().split(" ");
+    let norm = 0;
+    for (let d = 0; d < DIM; ++d) {
+      const v = Number(nums[d]);
+      vectors[i * DIM + d] = v;
+      norm += v * v;
+    }
+    norm = Math.sqrt(norm) || 1;
+    for (let d = 0; d < DIM; ++d) vectors[i * DIM + d] /= norm;
+  }
+  console.log(`vocabulary: ${words.length} words (${DIM}d, from ${VEC_FILE})`);
+  console.log(`  vectors loaded in ${((Date.now() - started) / 1000).toFixed(0)}s`);
+} else {
+  words = candidates.slice(0, VOCAB);
+  console.log(`vocabulary: ${words.length} words`);
+  const extract = await pipeline(
+    "feature-extraction",
+    "Xenova/all-MiniLM-L6-v2",
+    { dtype: "fp32" },
+  );
+  DIM = 384;
+  vectors = new Float32Array(words.length * DIM);
+  const BATCH = 256;
+  for (let i = 0; i < words.length; i += BATCH) {
+    const slice = words.slice(i, i + BATCH);
+    const out = await extract(slice, { pooling: "mean", normalize: true });
+    vectors.set(out.data.slice(0, slice.length * DIM), i * DIM);
+  }
+  console.log(`  embedding done in ${((Date.now() - started) / 1000).toFixed(0)}s`);
 }
-console.log(`\n  embedding done in ${((Date.now() - started) / 1000).toFixed(0)}s`);
+
+// Opposites sit very close in every embedding tested (38-63% of WordNet
+// antonym pairs landed in the top 40), and a wrong answer that looks right is
+// the worst kind. Drop the pairs WordNet can name.
+const antonyms = ANTONYM_DIR ? loadAntonyms(ANTONYM_DIR) : new Map();
+if (ANTONYM_DIR) {
+  console.log(`  antonym pairs known: ${antonyms.size} words`);
+}
 
 // Top-K per word. Blocked so the inner loop stays in cache; the whole thing is
 // one dense matrix multiply that never has to be materialised.
@@ -76,12 +120,14 @@ for (let a = 0; a < words.length; a += BLOCK) {
     topScore.fill(-2);
     topIdx.fill(0);
     let worst = -2;
+    const banned = antonyms.get(words[i]);
     for (let j = 0; j < words.length; ++j) {
       if (j === i) continue;
       let dot = 0;
       const jb = j * DIM;
       for (let d = 0; d < DIM; ++d) dot += vectors[base + d] * vectors[jb + d];
       if (dot <= worst) continue;
+      if (banned && banned.has(words[j])) continue;
       // Slide it into place, dropping the current worst off the front.
       let at = 0;
       while (at < K - 1 && topScore[at + 1] < dot) {
@@ -106,11 +152,19 @@ for (let a = 0; a < words.length; a += BLOCK) {
 }
 console.log(`\n  neighbours done in ${((Date.now() - t1) / 1000).toFixed(0)}s`);
 
-// NSEM1: u32 count, u16 K, u32 wordBytes, words (newline-joined), then
-// count*K u16 indices into the word list.
-const wordBytes = Buffer.from(words.join("\n"), "utf8");
-const header = Buffer.alloc(15); // 5 magic + u32 + u16 + u32
-header.write("NSEM1", 0, "ascii");
+// NSEM2: 16-byte header (5 magic + u32 count + u16 K + u32 wordBytes + pad),
+// the newline-joined words padded to an even length, then count*K u16 indices.
+//
+// Both paddings exist so the index array starts 2-byte aligned: a Uint16Array
+// view cannot begin at an odd offset, and with a 15-byte header that depended
+// on whether the word list happened to have an odd length.
+const rawWords = Buffer.from(words.join("\n"), "utf8");
+const wordBytes =
+  rawWords.length % 2 === 0
+    ? rawWords
+    : Buffer.concat([rawWords, Buffer.from("\n")]);
+const header = Buffer.alloc(16);
+header.write("NSEM2", 0, "ascii");
 header.writeUInt32LE(words.length, 5);
 header.writeUInt16LE(K, 9);
 header.writeUInt32LE(wordBytes.length, 11);
