@@ -167,7 +167,24 @@ Goal: mechanical, low-risk changes that everything later depends on.
   chunk-cache hit/miss, predicate checks run/passed, results emitted.
   Several exist ad hoc (`bytesFetched`, `requests`, `steps`) — unify.
   Expose via CLI `--stats` and a `?debug=1` panel in the web UI.
-- [ ] **S7. Benchmark matrix as CI regression gate.** Promote
+- [x] **S7. Benchmark matrix as CI regression gate.** *(done 2026-08-16)*
+  `npm run bench` runs nine query shapes — literal, prefix, class-heavy,
+  anagram, big list, negation, counter, multiset, phrase — against the
+  *committed* `demo.index` and pins steps, results, lazy DFA states and
+  frontier peak against `test/fixtures/bench-baseline.json`. In CI.
+  Two decisions the item left open. **Step counts gate, wall-clock does
+  not**: a step count is exact and reproducible for a given index and query,
+  so a change means the engine explores differently; wall-clock on a shared
+  runner is not reproducible and gating on it buys flaky builds. Time is
+  printed, because a slowdown at identical step counts is still worth seeing.
+  **demo.index, not simple-wiki**: the old script read a gitignored index and
+  so failed outright in a clean checkout. `scripts/bench-all.mjs` now runs the
+  gate first and the big-corpus measurements only when `data/` is present.
+  Verified by planting an engine change (restart penalty 1e-6 → 1e-5) and
+  confirming the gate fails.
+  Index modes beyond memory are not covered; steps are source-independent, so
+  a range-mode row would pin fetch counts rather than traversal.
+  Original text: Promote
   `scripts/bench-all.mjs` from measurement to gate: a grid of
   (query shape × index mode) cells — literal/prefix, heavy anagram,
   big-list construct, multi-word phrase, negation-heavy, multi-slot ×

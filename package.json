@@ -10,6 +10,8 @@
     "build-docs": "tsx scripts/build-docs.mjs",
     "check-docs": "tsx scripts/build-docs.mjs --check",
     "check-layers": "node scripts/check-layers.mjs",
+    "bench": "tsx scripts/bench.mjs",
+    "bench:update": "tsx scripts/bench.mjs --update",
     "dev": "vite web --port 5174",
     "build": "vite build web",
     "postbuild": "node scripts/build-offline.mjs && node scripts/build-sw.mjs",

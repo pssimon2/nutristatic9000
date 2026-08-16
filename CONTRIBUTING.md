@@ -13,6 +13,7 @@ parts that look odd. `ROADMAP.md` is what to build next; this is how.
 | `npm test` | 381 unit tests over `src/` |
 | `npm run check-layers` | engine↛app imports, and import cycles |
 | `npm run check-docs` | the usage guide's construct reference matches the catalogue |
+| `npm run bench` | nine query shapes still explore the index identically |
 | `npm run build && npm run test:browser` | the only end-to-end coverage of `web/worker.ts` and `web/main.ts` |
 | `npm run test:offline` | the single-file `file://` build |
 
@@ -43,7 +44,10 @@ undefined class at run time.
 `index-reader.ts` inner loops, `wasm-kernel/kernel.c` and its bridge. Typed
 arrays, struct-of-arrays, no allocation in loops, monomorphic call sites. The
 frontier is millions of entries at 44 bytes each; one object per entry would be
-roughly ten times worse. Benchmark before and after.
+roughly ten times worse. Benchmark before and after — `npm run bench` pins how
+the engine explores, and if a change is *meant* to alter that,
+`npm run bench:update` rewrites the baseline and the diff becomes the evidence
+that it did what was intended. Say so in the commit message.
 
 **Glue tier** — everything else. Written for clarity; allocation is fine.
 

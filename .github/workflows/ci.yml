@@ -27,6 +27,8 @@ jobs:
         run: npm run check-layers
       - name: Unit tests
         run: npm test
+      - name: Engine behaviour is unchanged
+        run: npm run bench
 
   # The only end-to-end coverage of web/worker.ts and web/main.ts, which have
   # no unit tests at all. Slower (it installs a browser and builds the site),

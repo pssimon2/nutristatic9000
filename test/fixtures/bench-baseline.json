@@ -1,0 +1,56 @@
+{
+  "literal": {
+    "steps": 156743,
+    "results": 11344,
+    "dfaStates": 14,
+    "frontierPeak": 14194
+  },
+  "prefix": {
+    "steps": 34,
+    "results": 10,
+    "dfaStates": 9,
+    "frontierPeak": 7
+  },
+  "class-heavy": {
+    "steps": 200000,
+    "results": 5351,
+    "dfaStates": 23,
+    "frontierPeak": 2150347
+  },
+  "anagram": {
+    "steps": 300000,
+    "results": 58,
+    "dfaStates": 5286,
+    "frontierPeak": 399829
+  },
+  "big-list": {
+    "steps": 1871,
+    "results": 195,
+    "dfaStates": 1356,
+    "frontierPeak": 188
+  },
+  "negation": {
+    "steps": 200000,
+    "results": 23295,
+    "dfaStates": 37,
+    "frontierPeak": 126265
+  },
+  "counter": {
+    "steps": 200000,
+    "results": 3193,
+    "dfaStates": 214,
+    "frontierPeak": 87792
+  },
+  "multiset": {
+    "steps": 200000,
+    "results": 14802,
+    "dfaStates": 79650,
+    "frontierPeak": 123523
+  },
+  "phrase": {
+    "steps": 200000,
+    "results": 5607,
+    "dfaStates": 12,
+    "frontierPeak": 95434
+  }
+}
