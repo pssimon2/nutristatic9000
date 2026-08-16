@@ -9,6 +9,8 @@
 // in tandem — but checked per candidate, both are a single string operation
 // and at most one index lookup.
 
+import { namesAtLevel, resolveConstruct } from "./constructs.js";
+
 export type FilterSpec =
   | { kind: "compound"; pieces: number }
   | { kind: "palindrome" }
@@ -18,7 +20,7 @@ export type FilterSpec =
 
 export class FilterError extends Error {}
 
-const NAMES = ["compound", "palindrome", "reversible", "syllables", "stress"];
+const NAMES = namesAtLevel("predicate");
 
 /** Letters and digits of `text`, spaces dropped. */
 export function letters(text: string): string {
@@ -47,9 +49,15 @@ export function parseFilterWrapper(
   query: string,
 ): { spec: FilterSpec; inner: string } | null {
   const q = query.trim();
-  const m = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(q);
+  const m = /^\{\s*([a-z][a-z.]*)\s*([^:}]*):/i.exec(q);
   if (!m) return null;
-  const name = m[1].toLowerCase();
+  const token = m[1].toLowerCase();
+  // The group prefix is optional here too: {match.palindrome:…}.
+  if (token.includes(".")) {
+    const resolved = resolveConstruct(token, m[2]);
+    if (resolved && "error" in resolved) throw new FilterError(resolved.error);
+  }
+  const name = token.slice(token.lastIndexOf(".") + 1);
   if (!NAMES.includes(name)) return null;
   if (!q.endsWith("}")) {
     throw new FilterError(`{${name} …} must wrap the whole pattern`);

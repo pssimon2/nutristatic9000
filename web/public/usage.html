@@ -412,6 +412,31 @@ dactyl (PRIVACY, GENERAL, HISTORY), useful for verse and lyrics. A phrase adds
 up word by word, and a word the dictionary doesn't know is left out rather
 than guessed at.
 
+<li><b>Construct groups — <tt>{cipher.rot13:…}</tt></b>. Every
+<tt>{name:…}</tt> construct can be written with a prefix naming its family.
+The bare name still works everywhere, so old links keep working; the prefix is
+there for when two names look related and are not. <tt>rot13</tt> decodes a
+shifted literal and <tt>rot180</tt> is the set of letters that survive being
+turned upside down — written out as
+<tt><a href="/9000/?q=%7Bcipher.rot13%3Auryyb%7D">{cipher.rot13:uryyb}</a></tt>
+and <tt><a href="/9000/?q=%7Bshape.rot180%3AA%7B4%7D%7D">{shape.rot180:A{4}}</a></tt>
+they can no longer be mistaken for each other. Naming the wrong group is an
+error that tells you the right one, rather than a silent reinterpretation.
+<ul>
+<li><b>word</b> — look words up in a dictionary or the corpus: <tt>word.rhyme</tt>, <tt>word.homo</tt>, <tt>word.like</tt>, <tt>word.near</tt>, <tt>word.kind</tt>, <tt>word.list</tt>
+<li><b>count</b> — count letters, values or occurrences: <tt>count.sum</tt>, <tt>count.scrabble</tt>, <tt>count</tt>, <tt>count.letters</tt>, <tt>count.words</tt>, <tt>count.all</tt>, <tt>count.distinct</tt>, <tt>count.maxrep</tt>
+<li><b>bag</b> — restrict which letters are available: <tt>bag.sub</tt>, <tt>bag.bank</tt>
+<li><b>edit</b> — match something a few letters away: <tt>edit.del</tt>, <tt>edit.add</tt>, <tt>edit.subst</tt>, <tt>edit</tt>
+<li><b>cipher</b> — decode a literal that has been shifted or reflected: <tt>cipher.caesar</tt>, <tt>cipher.rot</tt>, <tt>cipher.rot13</tt>, <tt>cipher.atbash</tt>
+<li><b>spell</b> — spell the match some other way: <tt>spell.t9</tt>, <tt>spell.enum</tt>, <tt>spell.morse</tt>, <tt>spell.elements</tt>
+<li><b>shape</b> — restrict letters by how they look or where they are typed: <tt>shape.roman</tt>, <tt>shape.rot180</tt>, <tt>shape.mirror</tt>, <tt>shape.sevenseg</tt>, <tt>shape.holes</tt>, <tt>shape.row1</tt>, <tt>shape.row2</tt>, <tt>shape.row3</tt>, <tt>shape.ascending</tt>, <tt>shape.descending</tt>
+<li><b>match</b> — ask a question of each finished match: <tt>match.compound</tt>, <tt>match.palindrome</tt>, <tt>match.reversible</tt>, <tt>match.syllables</tt>, <tt>match.stress</tt>
+<li><b>out</b> — change what is shown rather than what matches: <tt>out.at</tt>, <tt>out.rank</tt>
+</ul>
+A construct whose name is its own group is written bare: <tt>{edit&lt;=2:…}</tt>,
+not <tt>{edit.edit&lt;=2:…}</tt>. The <b>match</b> and <b>out</b> families wrap
+the whole query; the rest compose anywhere.
+
 <li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing
 and composes with everything:

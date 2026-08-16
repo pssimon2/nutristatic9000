@@ -34,13 +34,19 @@ import {
 } from "./automata.js";
 import { ParseError } from "./find-expr.js";
 import { SessionContext } from "./session-context.js";
+import {
+  findConstruct,
+  foldName,
+  levelAdvice,
+  resolveConstruct,
+  suggestConstruct,
+} from "./constructs.js";
 import { homophonesOf, rhymesOf } from "./phonetics.js";
 import { MAX_CATEGORY, kindsOf } from "./categories.js";
 import { nearestTo } from "./neighbours.js";
 import { relatedTo } from "./thesaurus.js";
 import { entriesNfa, listNfa, normalizeEntry } from "./word-lists.js";
 import {
-  CONSTRUCT_NAMES,
   MAX_COUNTER_STATES,
   MAX_PATTERN_LENGTH,
   bankConstraint,
@@ -51,7 +57,6 @@ import {
   encodingNfa,
   morseNfa,
   namedConstraint,
-  suggestConstruct,
 } from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
@@ -364,20 +369,25 @@ function parseNamedConstraint(
   quoted: boolean,
   ctx: SessionContext,
 ): number | null {
-  const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
+  const head = /^\{\s*([a-z][a-z.]*)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
   // Names lex as letters, so trailing digits land in the spec — that is what
   // makes {del1:…} and {rot13:…} work. Two names are genuinely digit-bearing;
   // fold them back before dispatching.
-  let name = head[1].toLowerCase();
+  const token = head[1].toLowerCase();
   let spec = head[2];
-  if (name === "t" && spec.trim() === "9") {
-    name = "t9";
-    spec = "";
-  } else if (name === "rot" && spec.trim() === "180") {
-    name = "rot180"; // the visual class, not a 180-place shift
-    spec = "";
+  // An optional group prefix: {cipher.rot13:…} says which family this is, and
+  // is rejected if it names the wrong one. The bare form stays valid — every
+  // shared query URL uses it.
+  if (token.includes(".")) {
+    const resolved = resolveConstruct(token, spec);
+    if (resolved && "error" in resolved) {
+      throw new ParseError(constructText(s, i), resolved.error);
+    }
   }
+  const folded = foldName(token.slice(token.lastIndexOf(".") + 1), spec);
+  const name = folded.name;
+  spec = folded.spec;
   if (name === "kind") {
     const close = s.indexOf("}", i);
     if (close < 0) return null;
@@ -582,12 +592,18 @@ function parseNamedConstraint(
   const conjuncts = namedConstraint(name, spec) ?? classConstraint(name, spec);
   if (!conjuncts) {
     const whole = s.slice(i, s.indexOf("}", i) + 1 || undefined);
-    if (!CONSTRUCT_NAMES.includes(name)) {
+    const known = findConstruct(name);
+    if (!known) {
       const near = suggestConstruct(name);
       throw new ParseError(
         whole,
         `no such constraint "${name}"${near ? ` — did you mean "${near}"?` : ""}`,
       );
+    }
+    if (known.level !== "automaton") {
+      // It exists — it just cannot be nested. Saying "no such constraint" here
+      // sent people looking for a typo in a name that was spelled correctly.
+      throw new ParseError(whole, levelAdvice(known));
     }
     const big = /(\d{4,})/.exec(spec);
     throw new ParseError(

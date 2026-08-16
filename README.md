@@ -44,6 +44,32 @@ Deployment notes specific to this fork:
 | Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}`, `{del1(a):…}` | Levenshtein automaton over a word **or any inner pattern** — `{del1:{kind:instrument}}` is "one letter off some instrument", and `{kind:instrument}&{add1:{kind:bird}}` is "an instrument that becomes a bird when you drop a letter". A parenthesised set names the letter involved (`{del1(a):…}`, `{add1(vowel):…}`), which also shrinks the automaton. Edits are letters/digits only, never spaces |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
 
+### Construct groups
+
+Every `{name:…}` construct may be written with a group prefix saying which
+family it belongs to. The bare name is still valid everywhere — shared query
+URLs use it — but the prefixed form is the one to reach for when two names
+look related and are not: `{cipher.rot13:…}` decodes a shifted literal,
+`{shape.rot180:…}` is the set of letters that survive being turned upside
+down. A prefix naming the wrong group is an error, not a silent
+reinterpretation.
+
+| Prefix | What the family does | Constructs |
+|---|---|---|
+| `word.` | look words up in a dictionary or the corpus | `word.rhyme`, `word.homo`, `word.like`, `word.near`, `word.kind`, `word.list` |
+| `count.` | count letters, values or occurrences | `count.sum`, `count.scrabble`, `count`, `count.letters`, `count.words`, `count.all`, `count.distinct`, `count.maxrep` |
+| `bag.` | restrict which letters are available | `bag.sub`, `bag.bank` |
+| `edit.` | match something a few letters away | `edit.del`, `edit.add`, `edit.subst`, `edit` |
+| `cipher.` | decode a literal that has been shifted or reflected | `cipher.caesar`, `cipher.rot`, `cipher.rot13`, `cipher.atbash` |
+| `spell.` | spell the match some other way | `spell.t9`, `spell.enum`, `spell.morse`, `spell.elements` |
+| `shape.` | restrict letters by how they look or where they are typed | `shape.roman`, `shape.rot180`, `shape.mirror`, `shape.sevenseg`, `shape.holes`, `shape.row1`, `shape.row2`, `shape.row3`, `shape.ascending`, `shape.descending` |
+| `match.` | ask a question of each finished match | `match.compound`, `match.palindrome`, `match.reversible`, `match.syllables`, `match.stress` |
+| `out.` | change what is shown rather than what matches | `out.at`, `out.rank` |
+
+A construct whose name is its own group is written bare: `{edit<=2:…}`, not
+`{edit.edit<=2:…}`. `match.` and `out.` constructs wrap the whole query; the
+rest compose anywhere. The catalogue lives in `src/constructs.ts`.
+
 The rhyme/homophone data comes from the CMU Pronouncing Dictionary and the
 meaning data from WordNet 3.1 (Copyright 2011 The Trustees of Princeton
 University, used under the WordNet licence); both are reduced to lookup
