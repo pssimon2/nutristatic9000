@@ -141,7 +141,15 @@ Goal: mechanical, low-risk changes that everything later depends on.
   `dependency-cruiser` (or eslint `import/no-restricted-paths`) to CI:
   engine imports nothing outside engine; data/io import engine types only,
   never each other; apps import all, export nothing.
-- [ ] **S5. Write the doctrine down.** `CONTRIBUTING.md` (or extend
+- [x] **S5. Write the doctrine down.** *(done 2026-08-16)* `CONTRIBUTING.md`:
+  what "green" actually means (`npm test` neither typechecks nor touches
+  `web/`), the layering rules and why cycles are banned, the two-speed
+  doctrine, the frozen-format contract *with* an honest note on how far it is
+  verified, the parity requirement and what the parity test really asserts,
+  how to add a construct, and the habits this codebase learned the hard way —
+  test the thing with the slow feedback loop, check a regression test fails
+  without its fix, prefer a check that is a number.
+  Original text: `CONTRIBUTING.md` (or extend
   CLAUDE.md): the two-speed doctrine (GR3), the layering rules (S4), the
   frozen-format contract (GR1), the parity requirement (GR4), and "a
   feature is a file" (E1) as the extendability acceptance test.

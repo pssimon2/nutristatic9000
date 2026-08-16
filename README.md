@@ -123,6 +123,10 @@ recorded as an expectation (see the note in `test/merge.test.ts`). A committed
 upstream-built fixture would close the gap; until then, treat byte
 compatibility as carefully maintained rather than continuously proven.
 
+Working on this: see [CONTRIBUTING.md](CONTRIBUTING.md) for the layering
+rules, the two-speed code doctrine, what counts as "green", and how to add a
+construct.
+
 ## How it works
 
 - `src/` — the engine, a faithful port of upstream's C++:
