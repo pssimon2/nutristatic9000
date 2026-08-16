@@ -130,9 +130,15 @@ export async function inflateRawBlock(
   data: Uint8Array,
   maxBytes?: number,
 ): Promise<Uint8Array | null> {
-  const stream = new Blob([data as BlobPart])
-    .stream()
-    .pipeThrough(new DecompressionStream("deflate-raw"));
+  // `new Response(data).body` rather than `new Blob([data]).stream()`: the two
+  // produce the same bytes, but the Blob route is 4.8x slower per block in
+  // Chromium — 0.29 ms against 0.06 ms for a 32 KB block, measured in the
+  // browser. A cold search over the range-mode index inflates on the order of
+  // a thousand blocks, so the difference is a quarter of a second of the time
+  // to first result, spent constructing Blobs.
+  const stream = new Response(data as BodyInit).body!.pipeThrough(
+    new DecompressionStream("deflate-raw"),
+  );
   if (maxBytes === undefined) {
     return new Uint8Array(await new Response(stream).arrayBuffer());
   }
