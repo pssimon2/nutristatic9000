@@ -204,6 +204,41 @@ await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
+// Multi-slot: several patterns at once, with their picked letters assembled.
+await page.fill("#q", "{at 1:<aaagmnr>} ; {at 2:solar s_stem} ; {at 1:A{5}&.*zz.*}");
+await page.click("input[type=submit]");
+await page.waitForFunction(
+  () => document.getElementById("after")?.textContent?.includes("slots"),
+  null,
+  { timeout: 90000 },
+);
+const extraction = await page.$eval("p.extraction", (e) => e.textContent);
+const slotRows = await page.$$eval("table.slots tr", (rs) =>
+  rs.map((r) => r.cells[1].textContent.trim()),
+);
+console.log("multi-slot:", JSON.stringify(extraction), slotRows.length, "slots");
+if (extraction !== "aop") throw new Error(`bad extraction: ${extraction}`);
+if (slotRows.length !== 3) throw new Error("wrong slot count");
+// The assembled letters copy as one string.
+await page.click("p.extraction");
+const exClip2 = await page.evaluate(() => navigator.clipboard.readText());
+if (exClip2 !== "aop") throw new Error(`extraction copy gave ${exClip2}`);
+
+// Slots without extraction just run the patterns and show the top matches.
+await page.fill("#q", "<aaagmnr> ; solar s_stem");
+await page.click("input[type=submit]");
+await page.waitForFunction(
+  () => document.getElementById("after")?.textContent?.includes("slots"),
+  null,
+  { timeout: 90000 },
+);
+if (await page.$("p.extraction")) throw new Error("extraction shown without {at}");
+const plainRows = await page.$$eval("table.slots tr", (rs) =>
+  rs.map((r) => r.cells[1].textContent.trim().split(" ")[0]),
+);
+console.log("slots without extraction:", JSON.stringify(plainRows));
+if (plainRows[0] !== "anagram") throw new Error("slot did not run");
+
 // Palindromes are a result filter, not an automaton: a length-n palindrome
 // would need 26^(n/2) states, but one string check per candidate is free.
 await page.fill("#q", "{palindrome:A{5}}");

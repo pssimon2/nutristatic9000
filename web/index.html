@@ -92,6 +92,14 @@
     #status.error { color: #c00000; color: light-dark(#c00000, #ff6a6a); font-weight: bold; }
     #dlmsg { display: block; margin-top: 0.4em; color: #c00000; color: light-dark(#c00000, #ff6a6a); font-weight: bold; }
     #indexline { font-size: 0.8em; color: #767676; margin-top: 2em; }
+    /* Multi-slot: one row per pattern, with the assembled extraction above. */
+    table.slots { border-collapse: collapse; line-height: 1.4; }
+    table.slots td { padding: 0 0.8em 0 0; vertical-align: baseline; }
+    td.slotq { color: #767676; font-family: monospace; white-space: nowrap; }
+    /* #results zeroes line-height for tight result packing; restore it here
+       or this paragraph collapses to nothing. */
+    p.extraction { font-size: 1.6em; font-weight: bold; letter-spacing: 0.12em;
+      cursor: pointer; margin: 0.2em 0 0.8em; line-height: 1.3; }
     /* Example queries read as code, not as a wall of links. */
     #extensions a { text-decoration: none; }
     #extensions li { margin-bottom: 0.25em; }
@@ -182,6 +190,9 @@
         <a href="?q=%7Breversible%3AA%7B6%7D%7D">{reversible:A{6}}</a>,
         <a href="?q=%7Blist%3Agreek%7D">{list:greek}</a>,
         <a href="?q=%7Blist%3Ared%2Cgreen%2Cblue%7D">{list:red,green,blue}</a></li>
+      <li><b>Several answers at once</b>: separate patterns with
+        <em>;</em> to run them together and read the extraction across them —
+        <a href="?q=%7Bat%201%3A%3Caaagmnr%3E%7D%20%3B%20%7Bat%202%3Asolar%20s_stem%7D%20%3B%20%7Bat%201%3AA%7B5%7D%26.%2Azz.%2A%7D">{at 1:&lt;aaagmnr&gt;} ; {at 2:solar s_stem} ; {at 1:A{5}&amp;.*zz.*}</a></li>
       <li><b>What you get back</b>:
         <a href="?q=%7Bat%203%3AA%7B7%7D%7D">{at 3:A{7}}</a>,
         <a href="?q=%7Brank%20200-2000%3AA%7B5%7D%7D">{rank 200-2000:A{5}}</a>,

@@ -392,7 +392,9 @@ function resetResultCollapsing(): void {
 // until used: no extra chrome, just the cursor, the title hint, and a brief
 // flash on the word itself.
 resultsEl.addEventListener("click", (ev) => {
-  const span = (ev.target as HTMLElement | null)?.closest?.("span.r");
+  const span = (ev.target as HTMLElement | null)?.closest?.(
+    "span.r, p.extraction",
+  );
   if (!span || !resultsEl.contains(span)) return;
   // Don't hijack a drag-selection of the text.
   if (!(window.getSelection()?.isCollapsed ?? true)) return;
@@ -457,7 +459,139 @@ function runBudget(): { maxSteps: number; byteBudget: number; timeMs: number } {
   return { maxSteps: currentComp, byteBudget: 0, timeMs: 0 };
 }
 
+// Multi-slot: several patterns in one query, separated by ";". A hunt rarely
+// has one slot — it has twelve answers and an extraction that reads a letter
+// from each — and that is work solvers currently do by hand *between*
+// queries. Each slot is an ordinary query (its own {at …} and all), run in
+// turn, with the picked letters assembled into the answer string.
+interface Slot {
+  query: string;
+  extract: ExtractSpec | null;
+  results: Array<{ score: number; text: string }>;
+  done: boolean;
+}
+let slots: Slot[] | null = null;
+let slotIndex = 0;
+const slotsEl = document.createElement("div");
+
+/** Split on ";" — not a character the pattern language uses. */
+function splitSlots(query: string): string[] {
+  return query
+    .split(";")
+    .map((q) => q.trim())
+    .filter((q) => q !== "");
+}
+
+function slotLetters(slot: Slot): string | null {
+  if (!slot.extract || slot.results.length === 0) return null;
+  return applyExtract(slot.extract, slot.results[0].text);
+}
+
+function renderSlots(): void {
+  const done = slots!.every((s) => s.done);
+  slotsEl.textContent = "";
+
+  // The payoff line: the letters each slot contributes, in order.
+  const picked = slots!.map((s) => slotLetters(s) ?? (s.done ? "?" : "·"));
+  if (slots!.some((s) => s.extract)) {
+    const line = document.createElement("p");
+    line.className = "extraction";
+    line.textContent = picked.join("");
+    line.title = "click to copy";
+    line.dataset.copy = picked.join("");
+    slotsEl.append(line);
+  }
+
+  const table = document.createElement("table");
+  table.className = "slots";
+  slots!.forEach((slot, i) => {
+    const row = document.createElement("tr");
+    const q = document.createElement("td");
+    q.className = "slotq";
+    q.textContent = slot.query;
+    const answer = document.createElement("td");
+    if (!slot.done && i === slotIndex) {
+      answer.textContent = "searching…";
+      answer.className = "from";
+    } else if (slot.results.length === 0) {
+      answer.textContent = slot.done ? "no match" : "";
+      answer.className = "from";
+    } else {
+      const top = document.createElement("span");
+      const letters = slotLetters(slot);
+      top.className = "r";
+      top.textContent = letters ?? slot.results[0].text;
+      top.dataset.copy = letters ?? slot.results[0].text;
+      answer.append(top);
+      const rest = document.createElement("span");
+      rest.className = "from";
+      rest.textContent = letters
+        ? ` ${slot.results.map((r) => r.text).join(", ")}`
+        : slot.results.length > 1
+          ? ` (also ${slot.results.slice(1).map((r) => r.text).join(", ")})`
+          : "";
+      answer.append(rest);
+    }
+    row.append(q, answer);
+    table.append(row);
+  });
+  slotsEl.append(table);
+  if (!resultsEl.contains(slotsEl)) resultsEl.append(slotsEl);
+  if (done) setStatus("");
+}
+
+/** Run the next unfinished slot, or finish. */
+function runNextSlot(): void {
+  if (!slots) return;
+  if (slotIndex >= slots.length) {
+    renderSlots();
+    afterEl.textContent = `${slots.length} slots.`;
+    return;
+  }
+  const slot = slots[slotIndex];
+  renderSlots();
+  let pattern = transliterate(slot.query);
+  try {
+    const extract = parseExtract(pattern);
+    if (extract) {
+      slot.extract = extract.spec;
+      pattern = extract.inner;
+    }
+  } catch (e) {
+    slot.done = true;
+    ++slotIndex;
+    runNextSlot();
+    return;
+  }
+  worker.postMessage({
+    type: "search",
+    query: pattern,
+    // Only the head of each slot matters; the extraction reads the top answer.
+    maxResults: 3,
+    ...runBudget(),
+  });
+}
+
+function startMultiSlot(queries: string[]): void {
+  resultsEl.textContent = "";
+  afterEl.textContent = "";
+  resultCount = 0;
+  slots = queries.map((q) => ({ query: q, extract: null, results: [], done: false }));
+  slotIndex = 0;
+  currentComp =
+    parseInt(new URLSearchParams(location.search).get("comp") || "", 10) ||
+    MAX_COMPUTATION;
+  setStatus("searching…");
+  runNextSlot();
+}
+
 function startSearch(query: string): void {
+  const parts = splitSlots(query);
+  if (parts.length > 1) {
+    startMultiSlot(parts);
+    return;
+  }
+  slots = null;
   resultsEl.textContent = "";
   afterEl.textContent = "";
   resultCount = 0;
@@ -610,6 +744,13 @@ worker.onmessage = (ev) => {
       annotateOfflineCopies(new Set(msg.urls));
       break;
     case "result":
+      if (slots) {
+        const slot = slots[slotIndex];
+        if (slot && slot.results.length < 3) {
+          slot.results.push({ score: msg.score, text: msg.text });
+        }
+        break;
+      }
       addResult(msg.score, msg.text, msg.note);
       break;
     case "progress":
@@ -658,6 +799,13 @@ worker.onmessage = (ev) => {
       setStatus("");
       if (msg.engine === "wasm" && !indexInfo.textContent!.includes("WASM")) {
         indexInfo.textContent += " · WASM engine";
+      }
+      if (slots) {
+        const slot = slots[slotIndex];
+        if (slot) slot.done = true;
+        ++slotIndex;
+        runNextSlot();
+        break;
       }
       lastDoneStatus = msg.status;
       renderAfterSearch(msg.status);
