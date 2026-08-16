@@ -96,8 +96,16 @@ Goal: mechanical, low-risk changes that everything later depends on.
   `downloadViaSidecar`, `downloadToOpfs`, `openOpfsIndex`), reporting through
   a `DownloadReporter` and taking the validator as an argument, so they carry
   no worker state. worker.ts 1,849 → 1,097 lines across five modules.
-  **Still to extract:** the run lifecycle into `worker/orchestrator.ts` — it
-  has to move ~20 module-level mutable bindings, so it wants its own commit.
+  The result-filter rule (five branches, duplicated verbatim between
+  `cli/find-expr.ts` and `web/worker.ts`) is now one `applyResultFilter` in
+  `src/result-predicate.ts`, returning `{keep, note}` so each front end
+  formats the annotation its own way — 20 tests, where both copies had none.
+  That is also the shape C1 needs.
+  **Deliberately not done:** a separate `worker/orchestrator.ts`. worker.ts is
+  *already* the orchestrator — what remains in it is exactly the open/search/
+  continue lifecycle plus the message entry — so that split would rename a
+  file and leave a three-line shim, moving ~20 mutable bindings for no
+  testability gain. Revisit if S4's directory reshape makes it natural.
   Outbound (worker→page) messages are still untyped; typing them has to
   account for `postReady`'s replay.
 - [ ] **S3. Lift query-language knowledge out of `web/main.ts`.**

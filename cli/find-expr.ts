@@ -12,19 +12,16 @@ import {
 } from "../src/extract-spec.js";
 import {
   type FilterSpec,
-  isPalindrome,
-  letters,
   parseFilterWrapper,
-  reversed,
 } from "../src/result-filter.js";
 import fs from "node:fs";
-import { splitWords } from "../src/compound.js";
 import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
 import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
 import { needsCategories, parseCategories } from "../src/categories.js";
-import { needsStress, parseStress, shapeOf, syllablesOf } from "../src/stress.js";
+import { needsStress, parseStress } from "../src/stress.js";
 import { needsNeighbours, parseNeighbours } from "../src/neighbours.js";
 import { SessionContext } from "../src/session-context.js";
+import { applyResultFilter } from "../src/result-predicate.js";
 import { makeWordChecker } from "../src/index-words.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
@@ -146,27 +143,11 @@ let rawRank = 0;
 async function present(score: number, text: string): Promise<string | null> {
   let note = "";
   if (resultFilter) {
-    if (resultFilter.kind === "compound") {
-      const parts = await splitWords(text, resultFilter.pieces, isWord);
-      if (!parts) return null;
-      note = `  ${parts.join("·")}`;
-    } else if (resultFilter.kind === "syllables") {
-      const n = syllablesOf(ctx.stress, text);
-      if (n === null || n < resultFilter.lo || n > resultFilter.hi) return null;
-      note = `  ${n} syll`;
-    } else if (resultFilter.kind === "stress") {
-      const shape = shapeOf(ctx.stress, text);
-      if (!shape || shape.replace(/2/g, "1") !== resultFilter.shape.replace(/2/g, "1")) {
-        return null;
-      }
-      note = `  ${shape}`;
-    } else if (resultFilter.kind === "palindrome") {
-      if (!isPalindrome(text)) return null;
-    } else {
-      const back = reversed(text);
-      if (back === letters(text) || !(await isWord(back))) return null;
-      note = `  ← ${back}`;
-    }
+    // Same rule as the browser (src/result-predicate.ts); only the formatting
+    // differs — a line suffix here, a `note` field over postMessage there.
+    const verdict = await applyResultFilter(resultFilter, text, ctx, isWord);
+    if (!verdict.keep) return null;
+    if (verdict.note !== null) note = `  ${verdict.note}`;
   }
   ++rawRank;
   if (rank && (rawRank < rank.from || rawRank > rank.to)) return null;

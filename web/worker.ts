@@ -11,15 +11,12 @@ import {
 import { CompressedRangeSource } from "../src/compressed-source.js";
 import { FileRangeSource } from "../src/file-source.js";
 import { IndexReader } from "../src/index-reader.js";
-import { splitWords } from "../src/compound.js";
 import { makeWordChecker } from "../src/index-words.js";
 import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
 import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
 import {
   needsStress,
   parseStress,
-  shapeOf,
-  syllablesOf,
 } from "../src/stress.js";
 import { needsCategories, parseCategories } from "../src/categories.js";
 import {
@@ -28,6 +25,7 @@ import {
   parseNeighbours,
 } from "../src/neighbours.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
+import { applyResultFilter, nearOrderKey } from "../src/result-predicate.js";
 import type { InMsg, OpenMsg } from "./worker/protocol.js";
 import {
   DownloadReporter,
@@ -58,10 +56,7 @@ import {
 import {
   FilterError,
   type FilterSpec,
-  isPalindrome,
-  letters,
   parseFilterWrapper,
-  reversed,
 } from "../src/result-filter.js";
 import { ParseError } from "../src/find-expr.js";
 import { SearchSession } from "../src/search-session.js";
@@ -766,17 +761,10 @@ async function runSession(
     const filter = resultFilter;
     if (!filter && !nearOrder) return;
     if (nearOrder) {
-      // Closest first; a phrase ranks by its nearest word, and anything the
-      // list doesn't mention sorts after everything it does.
-      const at = (text: string): number => {
-        let best = Infinity;
-        for (const word of text.split(" ")) {
-          const i = nearOrder!.get(word);
-          if (i !== undefined && i < best) best = i;
-        }
-        return best;
-      };
-      pending.sort((a, b) => at(a.text) - at(b.text));
+      const order = nearOrder;
+      pending.sort(
+        (a, b) => nearOrderKey(order, a.text) - nearOrderKey(order, b.text),
+      );
     }
     if (!filter) {
       for (const r of pending) {
@@ -787,32 +775,14 @@ async function runSession(
     }
     for (const r of pending) {
       if (token !== runToken) return;
-      if (filter.kind === "compound") {
-        const parts = await splitWords(r.text, filter.pieces, isIndexedWord);
-        // Show the cut, so a weak reading (FOLLOW·ING) is visible as one.
-        if (parts) {
-          post({ type: "result", score: r.score, text: r.text, note: parts.join("·") });
-        }
-      } else if (filter.kind === "syllables") {
-        const n = syllablesOf(ctx.stress, r.text);
-        if (n !== null && n >= filter.lo && n <= filter.hi) {
-          post({ type: "result", score: r.score, text: r.text, note: `${n} syll` });
-        }
-      } else if (filter.kind === "stress") {
-        const shape = shapeOf(ctx.stress, r.text);
-        // A secondary stress reads as stressed for metrical purposes.
-        if (shape && shape.replace(/2/g, "1") === filter.shape.replace(/2/g, "1")) {
-          post({ type: "result", score: r.score, text: r.text, note: shape });
-        }
-      } else if (filter.kind === "palindrome") {
-        if (isPalindrome(r.text)) post({ type: "result", score: r.score, text: r.text });
-      } else {
-        // Reversal without a reverse index: ask whether the mirror is a word.
-        const back = reversed(r.text);
-        if (back !== letters(r.text) && (await isIndexedWord(back))) {
-          post({ type: "result", score: r.score, text: r.text, note: `← ${back}` });
-        }
-      }
+      const verdict = await applyResultFilter(filter, r.text, ctx, isIndexedWord);
+      if (!verdict.keep) continue;
+      post({
+        type: "result",
+        score: r.score,
+        text: r.text,
+        ...(verdict.note === null ? {} : { note: verdict.note }),
+      });
     }
   };
   activeRunSession = active;
