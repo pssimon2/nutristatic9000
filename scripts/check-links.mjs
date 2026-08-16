@@ -15,6 +15,11 @@
 //     from `/9000/` and an absolute link silently leaves the fork.
 //
 // A label containing an ellipsis is prose, not a query, and is skipped.
+//
+// The label pattern allows markup inside the anchor, because the recipes page
+// writes `<a …><tt>{kind:bird}</tt></a>`. Requiring bare text made this skip
+// all 24 of that page's links while reporting the other 140 as OK — it was
+// not passing them, it had never seen them, and every one was absolute.
 
 import * as fs from "node:fs";
 
@@ -34,9 +39,17 @@ let checked = 0;
 for (const file of FILES) {
   if (!fs.existsSync(file)) continue;
   const html = fs.readFileSync(file, "utf8");
-  for (const m of html.matchAll(/<a href="([^"?]*)\?q=([^"]*)"[^>]*>([^<]+)<\/a>/g)) {
-    const [, prefix, encoded, text] = m;
-    const label = unescape(text).split(/\s+/).join(" ").trim();
+  for (const m of html.matchAll(/<a href="([^"?]*)\?q=([^"]*)"[^>]*>(.*?)<\/a>/gs)) {
+    const [, prefix, encoded, inner] = m;
+    // The label may be marked up — `<tt>{kind:bird}</tt>` is the house style
+    // on the recipes page — so strip tags before comparing. Requiring bare
+    // text made this skip all 24 links in recipes.html while reporting the
+    // other 142 as "OK", which is the failure mode a checker must not have:
+    // it was not passing them, it had never seen them.
+    const label = unescape(inner.replace(/<[^>]*>/g, ""))
+      .split(/\s+/)
+      .join(" ")
+      .trim();
     if (label.includes("…")) continue; // prose, not a runnable query
     ++checked;
 
@@ -53,11 +66,35 @@ for (const file of FILES) {
   }
 }
 
+// Navigation links have the same invariant and were not being checked at all:
+// usage.html sent "back to search" to `/` (leaving the fork for the parent)
+// and recipes.html sent it to `/9000/` (dragging the parent into the fork).
+// Site-wide files that really do live at the root are exempt.
+const ROOT_FILES = /^\/(favicon\.ico|impressum\.html|datenschutz\.html|robots\.txt)$/;
+for (const file of FILES) {
+  if (!fs.existsSync(file)) continue;
+  const html = fs.readFileSync(file, "utf8");
+  for (const m of html.matchAll(/<a href="(\/[^"?]*)"/g)) {
+    const href = m[1];
+    if (ROOT_FILES.test(href)) continue;
+    problems.push(
+      `${file}: navigation link to ${href} is absolute — it leaves the ` +
+        `deployment the page is served from; use "./"`,
+    );
+  }
+}
+
 if (problems.length > 0) {
-  console.error("example links that do not do what they say:\n");
+  console.error("links that do not do what they say:\n");
   for (const p of problems) console.error(`  ${p}`);
-  console.error(`\n${problems.length} of ${checked} example links are wrong.`);
+  console.error(
+    `\n${problems.length} problem${problems.length === 1 ? "" : "s"}, ` +
+      `across ${checked} example queries and every navigation link.`,
+  );
   process.exit(1);
 }
 
-console.error(`links OK: ${checked} example queries match their labels`);
+console.error(
+  `links OK: ${checked} example queries match their labels, ` +
+    `and no page links out of its own deployment`,
+);
