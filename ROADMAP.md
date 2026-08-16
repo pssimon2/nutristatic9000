@@ -489,9 +489,16 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Now consulted every step; the predicate is a field read and a compare, and
   the worker reads the clock — the expensive half — only every 1,024 calls.
   Two tests pin it, both failing on the old stride.
-  This does not make those queries *succeed*: they need a deep walk that the
-  budget was never going to buy, and the page already offers the whole-index
-  download that does. It stops them costing 150 MB to fail.
+  Enforcing the cap properly would on its own have *removed* answers people
+  were getting — `<aaagmnr>`, a front-page example, was reaching its first
+  result at ~44 MB, i.e. only because the cap was overshot — so the budget
+  goes to 64 MB in the same change. Measured live, that is the line where all
+  four front-page examples work (`<aaagmnr>` 43 MB, `"_ ___ ___ _*burger"`
+  51 MB, the other two under 4). Past it, streaming stops being the better
+  deal: `{distinct:A{6}}` wanted 172 MB and `{sum=100:A*}` 453 MB against a
+  785 MB whole-index download that then makes *every* query instant, which is
+  what the page recommends there. Actual transfers land ~10% over the cap,
+  since fetches already in flight still complete.
 - [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
   pattern language + only predicate-level narrowing ⇒ warn "unbounded
   search; the {palindrome} filter cannot prune — add a length or a

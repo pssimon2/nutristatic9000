@@ -19,7 +19,16 @@ const MAX_COMPUTATION = 1000000; // local step budget (same default as upstream)
 // Range mode: step count is a poor proxy for cost (a cached step is free, a
 // fetched step is a network round-trip), so cap on bytes fetched and elapsed
 // time instead. The step count is just a safety ceiling remotely.
-const RANGE_BYTE_BUDGET = 32 * 1024 * 1024; // ~32 MB fetched per run…
+// Enough for the examples on the front page that a streamed search can answer
+// at all. Measured against the 1.3 GB en-wiki index: `<aaagmnr>` needs ~44 MB
+// to reach its first result, `867-####` needs 2. The two that need more —
+// `"C*aC*eC*iC*oC*uC*yC*"` and `"_ ___ ___ _*burger"` — do not become
+// answerable at 189 MB either, so no budget short of the whole index buys
+// them, and the page offers that download instead. This was 32 MB when the
+// cap was only consulted every 2,000 steps, i.e. when it was routinely
+// overshot by 5x; enforcing it properly at 32 MB would have taken away
+// answers people were getting.
+const RANGE_BYTE_BUDGET = 64 * 1024 * 1024; // ~64 MB fetched per run…
 const RANGE_TIME_MS = 20000; //               …or ~20 s, whichever comes first
 const RANGE_STEP_CEILING = 8000000;
 const PER_RUN_RESULTS = 1000;
