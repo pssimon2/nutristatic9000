@@ -6,7 +6,8 @@
 // overflow) — both engines emit identical score-streams, so a fallback can
 // replay a query and suppress already-emitted results.
 
-import { ALPHABET, Nfa, NSYM, trim } from "./automata.js";
+import { ALPHABET, Nfa, NSYM, complement, trim } from "./automata.js";
+import { isNegated } from "./conjunct.js";
 import { DEFAULT_RESTART, compileConjuncts } from "./find-expr.js";
 import type { SearchResult, SessionStatus } from "./search-session.js";
 import { SessionContext } from "./session-context.js";
@@ -15,6 +16,18 @@ import { SessionContext } from "./session-context.js";
 export class WasmCapacityError extends Error {
   constructor() {
     super("WASM kernel capacity exceeded");
+  }
+}
+
+/**
+ * The query uses something the kernel has no representation for; run it on the
+ * JS engine instead. Unlike a capacity failure this is a property of the query
+ * and says nothing about the environment, so the caller must not conclude the
+ * kernel is broken and stop trying it.
+ */
+export class WasmUnsupportedError extends Error {
+  constructor(what: string) {
+    super(`the WASM kernel does not support ${what}`);
   }
 }
 
@@ -251,7 +264,21 @@ export class WasmSession {
   ) {
     // Same conjuncts as the JS engine (same ParseError contract), kept
     // unmaterialized for the kernel's lazy filters.
-    engine.beginQuery(compileConjuncts(query, ctx).map((c) => trim(c)));
+    // The kernel is seeded with flattened conjunct NFAs, and a negated
+    // conjunct is not one — it is a complement the JS engine walks lazily
+    // (`ComplementFilter`). Building it out here is how the kernel can still
+    // run the negations it always could: `!.*ee.*` complements to 18 states,
+    // and giving that up to the JS engine would be a real loss of speed for
+    // no gain. The blowup case is the one that cannot be built out, and there
+    // the whole query goes to the JS engine rather than the kernel getting a
+    // gigabyte of arcs.
+    const conjuncts = compileConjuncts(query, ctx).map((c) => {
+      if (!isNegated(c)) return c;
+      const built = complement(c.not);
+      if (!built) throw new WasmUnsupportedError("a negation this large");
+      return built;
+    });
+    engine.beginQuery(conjuncts.map((c) => trim(c)));
     engine.owner = this;
   }
 

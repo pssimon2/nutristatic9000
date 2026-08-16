@@ -7,6 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import { formatPlan, languageSize, planQuery } from "../src/plan.js";
+import { innerNfa } from "../src/conjunct.js";
 import { compileConjuncts } from "../src/find-expr.js";
 import { SessionContext } from "../src/session-context.js";
 
@@ -15,8 +16,8 @@ const plan = (q: string) => planQuery(q, ctx);
 
 /** Language size of a query's single conjunct. */
 function sizeOf(query: string) {
-  const [nfa] = compileConjuncts(query, ctx);
-  return languageSize(nfa);
+  const [c] = compileConjuncts(query, ctx);
+  return languageSize(innerNfa(c));
 }
 
 describe("finiteness", () => {

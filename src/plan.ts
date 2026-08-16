@@ -12,6 +12,7 @@
 // this; the numbers themselves are useful long before anything acts on them.
 
 import { Nfa, trim } from "./automata.js";
+import { innerNfa, isNegated } from "./conjunct.js";
 import { compileConjuncts } from "./find-expr.js";
 import { makeFilter } from "./expr-filter.js";
 import { SessionContext } from "./session-context.js";
@@ -31,6 +32,12 @@ const COUNT_CAP = 1_000_000;
 export interface ConjunctPlan {
   /** The query fragment this came from, when the split lines up. */
   source: string | null;
+  /**
+   * True when the conjunct is a complement, walked lazily at search time. Its
+   * measurements below describe the automaton being complemented, which is
+   * what determines the cost — the complement itself is never built.
+   */
+  negated: boolean;
   states: number;
   arcs: number;
   /** False when the automaton has a reachable, productive cycle. */
@@ -165,17 +172,19 @@ export function planQuery(query: string, ctx: SessionContext): QueryPlan {
     pattern = wrapper.inner;
   }
 
-  const nfas = compileConjuncts(pattern, ctx);
+  const compiled = compileConjuncts(pattern, ctx);
   // The textual split lines up with the compiled conjuncts only when the query
   // is a plain intersection; anything else (a union, a construct expanding to
   // several) does not, and guessing would mislabel them.
   const sources = topLevelConjuncts(pattern);
-  const aligned = sources.length === nfas.length ? sources : null;
+  const aligned = sources.length === compiled.length ? sources : null;
 
-  const conjuncts = nfas.map((nfa, i) => {
+  const conjuncts = compiled.map((c, i) => {
+    const nfa = innerNfa(c);
     const { finite, size } = languageSize(nfa);
     return {
       source: aligned ? aligned[i] : null,
+      negated: isNegated(c),
       states: nfa.arcs.length,
       arcs: arcCount(nfa),
       finite,
@@ -187,7 +196,11 @@ export function planQuery(query: string, ctx: SessionContext): QueryPlan {
     pattern,
     conjuncts,
     filterKind:
-      nfas.length === 0 ? "empty" : nfas.length === 1 ? "single" : "product",
+      compiled.length === 0
+        ? "empty"
+        : compiled.length === 1
+          ? "single"
+          : "product",
     predicate,
     transforms,
     dataNeeds: dataNeedsOf(query),
@@ -209,8 +222,8 @@ export function formatPlan(plan: QueryPlan): string[] {
         : `finite, ${c.size.toLocaleString("en-US")} string${c.size === 1 ? "" : "s"}`
       : "unbounded";
     out.push(
-      `  [${i}] ${c.states} states, ${c.arcs} arcs — ${language}` +
-        (c.source ? `   ${c.source}` : ""),
+      `  [${i}] ${c.negated ? "NOT " : ""}${c.states} states, ${c.arcs} arcs` +
+        ` — ${language}${c.source ? `   ${c.source}` : ""}`,
     );
   });
   if (plan.predicate) {

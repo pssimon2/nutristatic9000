@@ -26,12 +26,14 @@
 
 import {
   EPSILON,
+  MAX_COMPLEMENT_STATES,
   Nfa,
   complement,
   equivalent,
   intersectExprs,
   optimize,
 } from "./automata.js";
+import { Conjunct, isNegated } from "./conjunct.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import {
@@ -66,9 +68,9 @@ import {
 
 const CODE_SPACE = 0x20;
 
-/** An expression as an intersection of one or more NFAs. */
+/** An expression as an intersection of one or more conjuncts. */
 export class Box {
-  and: Nfa[] = [];
+  and: Conjunct[] = [];
 
   static single(nfa: Nfa): Box {
     const box = new Box();
@@ -76,14 +78,39 @@ export class Box {
     return box;
   }
 
-  /** Collapse to a single NFA (eager product); cached. */
+  /**
+   * Collapse to a single NFA (eager product); cached.
+   *
+   * Callers are the places an NFA is structurally required and a lazy filter
+   * will not do: a union, a quantifier, concatenation. A negated conjunct has
+   * to be complemented for real here, which means determinizing it, which is
+   * the cost the lazy path exists to avoid — so this is also the only place
+   * negation can still hit a limit, and it says so.
+   */
   materialize(): Nfa {
+    if (this.and.some(isNegated)) {
+      this.and = this.and.map((c) => {
+        if (!isNegated(c)) return c;
+        const done = complement(c.not);
+        if (!done) {
+          throw new ParseError(
+            "",
+            `this negation has to be built out in full here — inside a ` +
+              `quantifier, a union or a longer pattern — and it is over the ` +
+              `${MAX_COMPLEMENT_STATES}-state limit for that. On its own, or ` +
+              `joined with "&", the same negation is checked as the search ` +
+              `runs and has no limit.`,
+          );
+        }
+        return done;
+      });
+    }
     if (this.and.length > 1) {
       const merged = new Nfa();
-      intersectExprs(this.and, merged);
+      intersectExprs(this.and as Nfa[], merged);
       this.and = [merged];
     }
-    return this.and[0];
+    return this.and[0] as Nfa;
   }
 }
 
@@ -160,9 +187,11 @@ function parseFactor(
     const inner = new Box();
     const p = parseFactor(s, i + 1, inner, quoted, ctx);
     if (p === null || p === i + 1) return null; // nothing to negate
-    const negated = complement(inner.materialize());
-    if (!negated) return null; // too large to determinize
-    box.and = [negated];
+    // Left unmaterialized: `ComplementFilter` walks it lazily at search time,
+    // and only `Box.materialize` — a union or a quantifier around the
+    // negation, where an NFA is structurally required — has to pay for the
+    // eager complement.
+    box.and = [{ not: inner.materialize() }];
     return p;
   }
   box.and = [epsilonNfa()];

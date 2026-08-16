@@ -9,6 +9,7 @@
 // that would blow up eagerly become pay-as-you-go.
 
 import { ALPHABET, CHAR_TO_SYM, EPSILON, NSYM, Nfa, trim } from "./automata.js";
+import { Conjunct, isNegated } from "./conjunct.js";
 
 const UNCOMPUTED = -2;
 const DEAD = -1;
@@ -147,15 +148,69 @@ export class ExprFilter implements Filter {
 }
 
 /**
+ * Everything the inner filter rejects, and nothing it accepts.
+ *
+ * Complementing needs a *deterministic* automaton — you cannot flip acceptance
+ * on an NFA, since one word can have both an accepting and a non-accepting run
+ * — and it needs a *complete* one, since a word the inner automaton rejects by
+ * running out of transitions is one the complement must accept. `ExprFilter`
+ * supplies the first for free: its lazy subset construction is a DFA, just one
+ * whose states appear as the search asks for them. This wrapper supplies the
+ * second, without building the completed transition table that made the eager
+ * path expensive: the missing transitions all lead to a single sink, so the
+ * sink is a constant rather than a state.
+ *
+ * The sink accepts and never leaves itself: once a word has left the inner
+ * language it cannot re-enter, and every extension of it is also outside.
+ *
+ * State ids are the inner filter's, shifted by one so that id 0 can be the
+ * sink. The shift is why this cannot simply delegate.
+ */
+export class ComplementFilter implements Filter {
+  readonly startState: number;
+
+  /** The accepting, absorbing state standing in for the inner DEAD. */
+  private static readonly SINK = 0;
+
+  constructor(private readonly inner: Filter) {
+    this.startState = inner.startState + 1;
+  }
+
+  /** The inner filter's states, plus the sink. */
+  get stateCount(): number {
+    return this.inner.stateCount + 1;
+  }
+
+  isAccepting(state: number): boolean {
+    if (state === ComplementFilter.SINK) return true;
+    return !this.inner.isAccepting(state - 1);
+  }
+
+  transition(state: number, ch: number): number {
+    // The language is over ALPHABET, so a character outside it is outside the
+    // complement too — not something the sink should swallow.
+    if (ch >= 128 || CHAR_TO_SYM[ch] === -1) return DEAD;
+    if (state === ComplementFilter.SINK) return ComplementFilter.SINK;
+    const t = this.inner.transition(state - 1, ch);
+    return t === DEAD ? ComplementFilter.SINK : t + 1;
+  }
+}
+
+/**
  * Lazy product of per-conjunct lazy filters: the intersection semantics of
  * `a&b` (and of an anagram's constraint set) without ever materializing the
  * product automaton. States are interned tuples of component states; a
  * transition exists iff every component has one.
+ *
+ * The components are `Filter`s rather than `ExprFilter`s so that a complement
+ * can be one of them: `A{6}&!{distinct:A{6}}` is a product containing a
+ * complement, and materializing either side to build it would give back the
+ * cost both lazy forms exist to avoid.
  */
 export class ProductFilter implements Filter {
   readonly startState: number;
 
-  private readonly subs: ExprFilter[];
+  private readonly subs: Filter[];
   private readonly width: number; // ints per tuple
   private trans = new Int32Array(0);
   private accepting: number[] = [];
@@ -178,8 +233,8 @@ export class ProductFilter implements Filter {
   private slots = new Int32Array(1 << 12); // power of two, 0 = empty
   private slotMask = (1 << 12) - 1;
 
-  constructor(conjuncts: Nfa[]) {
-    this.subs = conjuncts.map((nfa) => new ExprFilter(nfa));
+  constructor(subs: Filter[]) {
+    this.subs = subs;
     this.width = this.subs.length;
     this.startState = this.intern(this.subs.map((f) => f.startState));
   }
@@ -293,8 +348,15 @@ export class ProductFilter implements Filter {
   }
 }
 
+/** The lazy filter deciding one conjunct's language. */
+export function conjunctFilter(c: Conjunct): Filter {
+  return isNegated(c)
+    ? new ComplementFilter(new ExprFilter(c.not))
+    : new ExprFilter(c);
+}
+
 /** Build the appropriate filter for a conjunct list. */
-export function makeFilter(conjuncts: Nfa[]): Filter {
-  if (conjuncts.length === 1) return new ExprFilter(conjuncts[0]);
-  return new ProductFilter(conjuncts);
+export function makeFilter(conjuncts: Conjunct[]): Filter {
+  if (conjuncts.length === 1) return conjunctFilter(conjuncts[0]);
+  return new ProductFilter(conjuncts.map(conjunctFilter));
 }

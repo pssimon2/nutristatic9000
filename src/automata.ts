@@ -140,7 +140,7 @@ export const EMPTY_DFA: Dfa = {
 const MAX_DFA_STATES = 500000;
 
 /** Subset construction with epsilon closures folded in. */
-export function determinize(nfa: Nfa): Dfa {
+export function determinize(nfa: Nfa, maxStates = MAX_DFA_STATES): Dfa {
   if (nfa.start === -1) return EMPTY_DFA;
 
   const n = nfa.arcs.length;
@@ -180,7 +180,7 @@ export function determinize(nfa: Nfa): Dfa {
     let id = subsetIds.get(key);
     if (id !== undefined) return id;
     id = subsets.length;
-    if (id >= MAX_DFA_STATES) throw new Error("pattern too complex");
+    if (id >= maxStates) throw new TooManyStates(maxStates);
     subsetIds.set(key, id);
     subsets.push(states);
     accepting.push(states.some((s) => nfa.finals.has(s)) ? 1 : 0);
@@ -451,8 +451,26 @@ export function product(a: Dfa, b: Dfa): Dfa {
  * than letting a subpattern explode. Short, literal-ish subpatterns — the
  * ones people actually negate — stay far below it.
  */
-export function complement(nfa: Nfa, maxStates = 5000): Nfa | null {
-  const dfa = determinize(nfa);
+export const MAX_COMPLEMENT_STATES = 5000;
+
+/** Determinizing ran past the ceiling it was given. */
+export class TooManyStates extends Error {
+  constructor(readonly limit: number) {
+    super("pattern too complex");
+  }
+}
+
+export function complement(nfa: Nfa, maxStates = MAX_COMPLEMENT_STATES): Nfa | null {
+  // Bounded, not measured afterwards: determinizing to half a million states
+  // and then reporting that 5,000 was the limit is the whole cost of the
+  // answer spent on discovering it cannot be given.
+  let dfa: Dfa;
+  try {
+    dfa = determinize(nfa, Math.min(maxStates, MAX_DFA_STATES));
+  } catch (e) {
+    if (e instanceof TooManyStates) return null;
+    throw e;
+  }
   if (dfa.start === -1) {
     // The empty language complements to everything.
     const all = new Nfa();
@@ -463,7 +481,6 @@ export function complement(nfa: Nfa, maxStates = 5000): Nfa | null {
     return all;
   }
   const n = dfa.accepting.length;
-  if (n > maxStates) return null;
   // Complete the DFA with a sink, then flip acceptance: a word the original
   // rejects by having no transition is one the complement must accept.
   const sink = n;

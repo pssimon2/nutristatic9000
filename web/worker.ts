@@ -70,7 +70,12 @@ import {
   parseRank,
 } from "../src/extract-spec.js";
 import { SearchSession } from "../src/search-session.js";
-import { WasmCapacityError, WasmEngine, WasmSession } from "../src/wasm-session.js";
+import {
+  WasmCapacityError,
+  WasmEngine,
+  WasmSession,
+  WasmUnsupportedError,
+} from "../src/wasm-session.js";
 import kernelUrl from "../wasm-kernel/kernel.wasm?url";
 
 // Indexes up to this size are simply downloaded; everything bigger defaults
@@ -1010,7 +1015,12 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             // Engine unavailable here (instantiation/memory/capacity):
             // quietly use the JS engine, and stop retrying environmental
             // failures every search.
-            if (!(e instanceof WasmCapacityError)) wasmBroken = true;
+            if (
+              !(e instanceof WasmCapacityError) &&
+              !(e instanceof WasmUnsupportedError)
+            ) {
+              wasmBroken = true;
+            }
             session = null;
           }
         }

@@ -31,9 +31,9 @@
   },
   "negation": {
     "steps": 200000,
-    "results": 23295,
-    "dfaStates": 37,
-    "frontierPeak": 126265
+    "results": 22839,
+    "dfaStates": 76,
+    "frontierPeak": 128095
   },
   "counter": {
     "steps": 200000,

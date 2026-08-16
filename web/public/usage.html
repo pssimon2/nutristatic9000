@@ -286,9 +286,14 @@ The ambiguity is exactly what the corpus is for.
 letters with no double E, and <tt>A{4}&amp;!.*[aeiou].*</tt> finds four-letter
 strings with no vowel at all. <tt>!</tt> applies to the whole factor, so
 <tt>!.*ee.*</tt> reads as "no double E" rather than binding to the first
-piece. Negation has to determinize what it negates, so it is capped: negate
-short, literal-ish subpatterns, and an over-large one is refused rather than
-allowed to explode.
+piece. What you negate can be as large as you like — including a whole
+construct, so
+<tt><a href="./?q=A%7B6%7D%26!%7Bdistinct%3AA%7B6%7D%7D">A{6}&amp;!{distinct:A{6}}</a></tt>
+is six letters with a repeat somewhere. The complement is worked out as the
+search runs, so only the part of it your search reaches is ever built. The one
+place a limit remains is a negation wrapped in a quantifier, a union or a
+longer pattern — <tt>(!expr)*</tt> — where the complement has to be built out
+in full before the search starts; that says so when it happens.
 
 <li><b>Several slots at once — <tt>pattern ; pattern ; pattern</tt></b>. A hunt
 rarely has one slot: it has a dozen answers and an extraction that reads a

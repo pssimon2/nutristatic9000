@@ -90,9 +90,22 @@ html = html.replace(/<li id="offlinelink">[\s\S]*?<\/li>/, "");
 html = html.replace(/\n?\s*<link rel="manifest"[^>]*>/, "");
 html = html.replace(/\n?\s*<link rel="apple-touch-icon"[^>]*>/, "");
 // Swap the module <script src> for the inlined worker + main bundles.
+// The replacement is a *function* on purpose. Passing bundled JavaScript as a
+// replacement *string* hands it to `String.replace`'s `$` expansion, and
+// minified JavaScript contains `$&` for reasons no one chose: esbuild is free
+// to name a variable `$`, and when it named one that held 97 the comparison
+// `e >= $ && e <= de` came out as `e>=$&&e<=de`. Each of those four `$&`s
+// expanded to the matched <script> tag, so the bundle grew stray tags in the
+// middle of an expression and the page parsed as neither HTML nor JS.
+//
+// Nothing about that is stable: which identifier gets named `$` shifts with
+// any edit to the engine, so the build breaks for reasons unrelated to the
+// change that triggers it, and only the offline test notices. A function
+// replacer is not scanned for `$` at all.
 html = html.replace(
   /<script type="module" src="\.\/main\.ts"><\/script>/,
-  `<script>globalThis.__WORKER_CODE__=${safe(JSON.stringify(workerCode))}</script>\n` +
+  () =>
+    `<script>globalThis.__WORKER_CODE__=${safe(JSON.stringify(workerCode))}</script>\n` +
     `<script type="module">${safe(mainCode)}</script>`,
 );
 

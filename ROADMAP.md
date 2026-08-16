@@ -331,7 +331,29 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase E — Engine algebra & clarity dividends
 
-- [ ] **E1. Lazy complement.** `complement()` (`automata.ts:454`) eagerly
+- [x] **E1. Lazy complement.** *(done 2026-08-16)* `src/expr-filter.ts`:
+  `ComplementFilter` wraps any `Filter`, flipping acceptance and mapping DEAD
+  to an accepting absorbing sink, so `!expr` is walked as the search asks for
+  it. A conjunct is now `Nfa | {not: Nfa}` (`src/conjunct.ts`) and
+  `ProductFilter` takes `Filter[]` (the half of E2 that E1 needs, since
+  `A{6}&!{distinct:A{6}}` is a product *containing* a complement).
+  Measured on the 1.3 GB index: that query was refused outright before; the
+  eager complement would run it in 27.8 s at 2,005 MB peak, the lazy one does
+  it in 9.9 s at 1,645 MB. Appending the required trailing space needed an
+  argument, since ¬A·" " ≠ ¬(A·" "): the two agree on words that end in a
+  space, which every positive conjunct already forces, so an all-negated query
+  gets an explicit "ends in a space" conjunct instead. Pinned by a
+  differential test against the eager `complement()` over every word up to
+  length 4. The eager path stays where an NFA is structurally required —
+  `Box.materialize` (quantifier, union, concatenation) and the WASM kernel,
+  which cannot take a lazy filter and so keeps running the small negations it
+  always could, falling back to JS only when the complement will not build.
+  Trade recorded: the eager path's `determinize` merges equivalent states
+  (37 vs 76 on the bench), so small negations explore ~2% less per step on the
+  JS engine. Over the limit the error now names it rather than claiming
+  `can't parse`, and `complement()` stops determinizing at the cap instead of
+  running to 500,000 states and then rejecting.
+  Original text: `complement()` (`automata.ts:454`) eagerly
   determinizes with a 5,000-state cap; over the cap the user gets a
   generic parse error (`expr-parse.ts:157` returns null, erasing the
   reason). Implement `ComplementFilter implements Filter`: lazy subset
@@ -339,7 +361,9 @@ Goal: mechanical, low-risk changes that everything later depends on.
   accepting self-loop sink. Removes the cap entirely. Keep the eager path
   only where an NFA is structurally required (inside quantifiers), with a
   proper ParseError naming the limit when it trips.
-- [ ] **E2. Filter-level boolean algebra.** Generalize
+- [ ] **E2. Filter-level boolean algebra.** *(partly done in E1: `subs` is
+  now `Filter[]` and products may contain complements; products of products
+  and `makeFilter` composing at the Filter level are still open.)* Generalize
   `ProductFilter.subs: ExprFilter[]` (`expr-filter.ts:151`) to `Filter[]`:
   products of products, products containing complements — all lazy, none
   materialized. `makeFilter` composes at the Filter level whenever the NFA
