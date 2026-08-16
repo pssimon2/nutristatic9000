@@ -58,6 +58,33 @@ export function stripApparatus(line: string): string {
     .replace(/\{\{.*$/, ""); // a template opened and not closed on this line
 }
 
+/** How much text may sit after a link before the cell is prose, not a name. */
+const CELL_SLACK = 16;
+
+/**
+ * The entry named by a table cell, or null. The link has to *begin* the cell
+ * and be substantially all of it.
+ *
+ * Taking the first link anywhere in the row is what put LOCH NESS MONSTER and
+ * ERROR HANDLER into the Pokémon list: those rows carry a description cell of
+ * running prose, and Lapras's description mentions the Loch Ness Monster while
+ * MissingNo.'s begins "An [[Exception handling|error handler]] whose name…".
+ * A cell that names a member is the name and almost nothing else; a cell that
+ * discusses one is a paragraph.
+ */
+function cellEntry(row: string): string | null {
+  // Cells are separated by "||" on one line; the row's own "|" starts the first.
+  const cells = row.replace(/^\|/, "").split("||");
+  for (const cell of cells) {
+    const t = cell.trim();
+    const m = /^\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/.exec(t);
+    if (!m) continue;
+    if (t.length - m[0].length > CELL_SLACK) continue; // prose about an entry
+    return m[2] || m[1];
+  }
+  return null;
+}
+
 /** The link naming this line's entry, or null if the line is not an entry. */
 export function entryLink(line: string): string | null {
   const t = stripApparatus(line).trim();
@@ -65,8 +92,7 @@ export function entryLink(line: string): string | null {
   if (bullet) return bullet[2] || bullet[1];
   // A table cell, but not the control lines {| |- |+ |} nor a header row (!).
   if (t.startsWith("|") && !/^\|[-+}]/.test(t) && !t.startsWith("|}")) {
-    const cell = /\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/.exec(t);
-    if (cell) return cell[2] || cell[1];
+    return cellEntry(t);
   }
   return null;
 }

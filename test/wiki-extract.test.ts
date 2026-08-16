@@ -68,6 +68,37 @@ describe("citations are apparatus, not members", () => {
   });
 });
 
+describe("a description cell is prose, not a member", () => {
+  // Straight from "List of generation I Pokémon", which shipped these as
+  // members three times. Each row has a description cell of running prose.
+  it("ignores a cell that merely mentions a link", () => {
+    expect(
+      entryLink(
+        "|Lapras have gentle hearts. Lapras is based on the [[Loch Ness Monster]] and the plesiosaur.",
+      ),
+    ).toBeNull();
+    expect(
+      entryLink(
+        '| An [[Exception handling|error handler]] whose name stands for "Missing Number", it was created to handle attempts at accessing data.',
+      ),
+    ).toBeNull();
+    expect(
+      entryLink(
+        "| Its design is inspired by the myth of the [[Thunderbird (mythology)|thunderbird]]. It is said to cause storms.",
+      ),
+    ).toBeNull();
+  });
+
+  it("still takes the name cell of the same row", () => {
+    expect(entryLink("| [[Lapras]] || Water/Ice || 131")).toBe("Lapras");
+    expect(entryLink("| 001 || [[Bulbasaur]] || Grass")).toBe("Bulbasaur");
+  });
+
+  it("allows a short qualifier after the name", () => {
+    expect(entryLink("| [[Eevee]] {{efn|note}}")).toBe("Eevee");
+  });
+});
+
 describe("the article stops being a list", () => {
   const article = [
     '{| class="wikitable"',

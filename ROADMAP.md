@@ -242,11 +242,17 @@ Goal: mechanical, low-risk changes that everything later depends on.
 - [ ] **E5. Frontier memory diet.** `search-driver.ts:25`: `ch` fits
   Uint8Array; evaluate narrowing `state`/`crumb`. Only with S7 numbers
   showing benefit; kernel-tier change (GR3).
-- [ ] **E6. Generated docs.** Build step rendering the construct registry's
-  `docs` metadata into the README feature table and
-  `web/public/usage.html` sections (currently hand-synced, already
-  drift-prone). Each construct's `example` runs against `demo.index` as a
-  smoke test in CI.
+- [x] **E6. Generated docs.** *(done 2026-08-16)* Every construct carries a
+  `summary` and a runnable `example` in `src/constructs.ts`;
+  `scripts/build-docs.mjs` renders the grouped reference into
+  `web/public/usage.html` between markers, and `npm run check-docs` fails CI
+  if it drifts — so a construct added without documentation cannot ship.
+  A unit test additionally compiles every construct's example *at that
+  construct's level* (predicates and output wrappers are peeled before the
+  engine sees them, so compiling one directly is meant to fail), which is
+  stricter than the "runs against demo.index" the item asked for and needs no
+  index. The README feature table is still hand-written: it describes
+  features, not constructs, so there is nothing to generate it from.
 
 ## Phase P — Query planner: right engine per query
 
