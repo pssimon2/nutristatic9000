@@ -18,6 +18,7 @@ const END = "<!-- REFERENCE:END -->";
 const { CONSTRUCTS, GROUP_BLURB, qualifiedName } = await import(
   "../src/constructs.js"
 );
+const { listNames } = await import("../src/word-lists.js");
 
 const ORDER = [
   "word",
@@ -64,7 +65,59 @@ if (from === -1 || to === -1) {
 }
 const updated = html.slice(0, from) + generated + html.slice(to + END.length);
 
+/**
+ * The README's feature table is written by hand — it describes features, not
+ * constructs, so there is nothing to generate it from — and it drifts. It has
+ * claimed that negation was "capped at 5000 states" after the cap was
+ * removed, pointed at a "why?" button after the button was deleted, and
+ * counted 26 built-in lists when there were 30.
+ *
+ * Prose cannot be checked. Two things in it can: every `{name:…}` it names
+ * must be a construct that exists, and the count of built-in lists must be
+ * the number there are. Both are exactly the claims that go stale silently,
+ * because nothing breaks when they do.
+ */
+function checkReadme() {
+  const readme = "README.md";
+  if (!fs.existsSync(readme)) return [];
+  const text = fs.readFileSync(readme, "utf8");
+  const bad = [];
+
+  const known = new Set(CONSTRUCTS.map((c) => c.name));
+  // The README explains the language as well as listing it, so it writes
+  // `{name:…}` and `{expr}` meaning "any of them". None of these is a
+  // construct, and none may become one without this noticing.
+  const PLACEHOLDERS = new Set(["name", "expr", "pattern"]);
+  for (const p of PLACEHOLDERS) {
+    if (known.has(p)) {
+      bad.push(`"${p}" is now a construct and can no longer be a placeholder`);
+    }
+  }
+  const seen = new Set();
+  for (const m of text.matchAll(/`\{([a-z][a-z0-9.]*)\s*[:<>=+(]/gi)) {
+    const raw = m[1].toLowerCase();
+    const name = raw.slice(raw.lastIndexOf(".") + 1).replace(/\d+$/, "");
+    if (seen.has(name) || PLACEHOLDERS.has(name)) continue;
+    seen.add(name);
+    if (!known.has(name) && !known.has(raw)) {
+      bad.push(`README.md names {${raw}:…}, which is not a construct`);
+    }
+  }
+
+  const claimed = /(\d+) shipped categories/.exec(text);
+  if (claimed && Number(claimed[1]) !== listNames().length) {
+    bad.push(
+      `README.md says ${claimed[1]} shipped categories; there are ` +
+        `${listNames().length}`,
+    );
+  }
+  return bad;
+}
+
 if (process.argv.includes("--check")) {
+  const readmeProblems = checkReadme();
+  for (const p of readmeProblems) console.error(p);
+  if (readmeProblems.length > 0) process.exit(1);
   if (updated !== html) {
     console.error(
       `${FILE} is out of date — run \`npm run build-docs\` and commit the result.`,
