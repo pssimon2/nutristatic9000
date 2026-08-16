@@ -74,6 +74,11 @@ A construct whose name is its own group is written bare: `{edit<=2:…}`, not
 `{edit.edit<=2:…}`. `match.` and `out.` constructs wrap the whole query; the
 rest compose anywhere. The catalogue lives in `src/constructs.ts`.
 
+The phrase-frequency indexes are built from Wikipedia database dumps, and the
+harvested `{list:…}` categories are extracted from the English Wikipedia; both
+are used under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+The smaller built-in categories come from Wikidata, which is CC0.
+
 The rhyme/homophone data comes from the CMU Pronouncing Dictionary and the
 meaning data from WordNet 3.1 (Copyright 2011 The Trustees of Princeton
 University, used under the WordNet licence); both are reduced to lookup
