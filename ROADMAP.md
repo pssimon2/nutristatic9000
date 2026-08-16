@@ -234,11 +234,6 @@ Goal: mechanical, low-risk changes that everything later depends on.
   22,350 (~57%), and one start branch instead of one per entry. Equivalence
   tests vs the old construction in `test/word-lists.test.ts`. A DAWG sharing
   suffixes is still on the table if sets get bigger.
-- [ ] ~~**E3. Trie-shaped `entriesNfa`.**~~ `word-lists.ts:69` builds
-  union-of-chains — for a 10k-entry `{kind:…}` that means thousands of
-  parallel start states and fat subset closures. Build a prefix trie
-  directly (share prefixes; optionally a DAWG sharing suffixes). Same
-  language; add an equivalence test vs the old construction on a sample.
 - [ ] **E4. Int-pool interning in `ExprFilter`.**
   `intern()` keys DFA states with `sorted.join(",")` (`expr-filter.ts:113`)
   — string building + Map hashing per novel subset. Port ProductFilter's
