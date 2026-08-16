@@ -1,0 +1,143 @@
+// Completions in the query box.
+//
+// The point of these is not that the menu looks nice: it is that the menu is
+// generated from the same catalogue the parser dispatches on, so it can never
+// offer something the engine will then reject. The tests below are mostly
+// about *where* the cursor is, which is the part that goes wrong.
+
+import { describe, expect, it } from "vitest";
+import { completionsAt, tokenAt } from "../src/complete.js";
+import { parseWikiLists } from "../src/word-lists.js";
+import { compileQuery } from "../src/find-expr.js";
+import { CONSTRUCTS } from "../src/constructs.js";
+import { parseFilterWrapper } from "../src/result-filter.js";
+import { parseExtract, parseRank } from "../src/extract-spec.js";
+import { SessionContext } from "../src/session-context.js";
+
+const lists = parseWikiLists("romandeities\tRoman deities\tjuno,mars,venus\n");
+const labels = (q: string, cur = q.length) =>
+  completionsAt(q, cur, lists).items.map((i) => i.label);
+const inserts = (q: string, cur = q.length) =>
+  completionsAt(q, cur, lists).items.map((i) => i.insert);
+
+describe("finding the token under the cursor", () => {
+  it("completes a construct name after a brace", () => {
+    expect(tokenAt("{rot", 4)).toEqual({
+      kind: "construct",
+      prefix: "rot",
+      start: 1,
+    });
+  });
+
+  it("completes a construct mid-query, not just at the start", () => {
+    expect(tokenAt("A{5}&{ci", 8)).toEqual({
+      kind: "construct",
+      prefix: "ci",
+      start: 6,
+    });
+  });
+
+  it("completes a list argument", () => {
+    expect(tokenAt("{list:gre", 9)).toEqual({
+      kind: "listname",
+      prefix: "gre",
+      start: 6,
+    });
+  });
+
+  it("offers nothing once the construct's argument is a pattern", () => {
+    expect(tokenAt("{sum=52:A*", 10).kind).toBe("none");
+    expect(tokenAt("abc", 3).kind).toBe("none");
+  });
+
+  it("reads the cursor, not the end of the text", () => {
+    // Cursor sits inside "{ro|t180}", so the token is "ro".
+    expect(tokenAt("{rot180}", 3)).toEqual({
+      kind: "construct",
+      prefix: "ro",
+      start: 1,
+    });
+  });
+
+  it("stops offering list names once an inline list is being written", () => {
+    // `{list:red,gre` is the user's own list; there is nothing to look up.
+    expect(tokenAt("{list:red,gre", 13).kind).toBe("none");
+  });
+
+  it("keeps digits, which are part of the name", () => {
+    expect(tokenAt("{rot13", 6).prefix).toBe("rot13");
+    expect(tokenAt("{row1", 5).prefix).toBe("row1");
+    // But a quantifier is not a construct.
+    expect(completionsAt("A{5", 3).items).toEqual([]);
+  });
+});
+
+describe("what is offered", () => {
+  it("offers the group when the family name is typed", () => {
+    expect(labels("{ci")).toContain("cipher.");
+  });
+
+  it("finds a construct through its group, and inserts that spelling", () => {
+    // Someone typing "ci" meant the cipher family; completing to a bare
+    // "rot:" would drop what they wrote.
+    expect(inserts("{ci")).toContain("cipher.rot13:");
+    expect(inserts("{ci")).not.toContain("rot13:");
+  });
+
+  it("inserts the bare name when the bare name was typed", () => {
+    expect(inserts("{rot1")).toContain("rot13:");
+  });
+
+  it("separates the two rot constructs by their families", () => {
+    const all = labels("{rot");
+    expect(all).toContain("rot13:");
+    expect(all).toContain("rot180:");
+  });
+
+  it("offers built-in and harvested lists together", () => {
+    expect(labels("{list:gre")).toContain("greek");
+    expect(labels("{list:roman")).toContain("romandeities");
+  });
+
+  it("says nothing about harvested lists before the catalogue arrives", () => {
+    // Until a query has needed it, the page only knows the built-ins.
+    const early = completionsAt("{list:roman", 11, null).items.map((i) => i.label);
+    expect(early).not.toContain("romandeities");
+  });
+
+  it("carries a summary and an example for each construct", () => {
+    const item = completionsAt("{palindrome", 11, lists).items[0];
+    expect(item.detail).toMatch(/backwards/);
+    expect(item.example).toMatch(/^\{palindrome/);
+  });
+});
+
+describe("every completion is something the engine accepts", () => {
+  const ctx = new SessionContext();
+
+  it("accepts the offered example for every construct, at its own level", () => {
+    // A menu that suggests what the parser rejects is worse than no menu. The
+    // level matters: a predicate or an output wrapper is peeled off before the
+    // engine ever sees it, so compiling one directly is *meant* to fail.
+    for (const c of CONSTRUCTS) {
+      let err: unknown = null;
+      try {
+        if (c.level === "automaton") compileQuery(c.example, ctx);
+        else if (c.level === "predicate") {
+          expect(parseFilterWrapper(c.example), c.name).not.toBeNull();
+        } else {
+          const wrapped =
+            c.name === "at" ? parseExtract(c.example) : parseRank(c.example);
+          expect(wrapped, c.name).not.toBeNull();
+        }
+      } catch (e) {
+        err = e;
+      }
+      // Data-backed constructs are fine to "fail" for want of a dataset this
+      // test deliberately does not load.
+      const dataMissing =
+        err !== null && (err as { dataMissing?: boolean }).dataMissing === true;
+      expect(err === null || dataMissing, `${c.name}: ${c.example}`).toBe(true);
+    }
+  });
+});

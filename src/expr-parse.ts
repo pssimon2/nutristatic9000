@@ -401,6 +401,7 @@ function parseNamedConstraint(
       throw new ParseError(
         constructText(s, i),
         "{kind:…} needs the category data, which this build could not load",
+        true,
       );
     }
     const kinds = kindsOf(ctx.categories, word);
@@ -427,6 +428,7 @@ function parseNamedConstraint(
       throw new ParseError(
         constructText(s, i),
         "{near:…} needs the meaning table, which this build could not load",
+        true,
       );
     }
     const words = nearestTo(ctx.neighbours, word, limit ? +limit[1] : 32);
@@ -450,6 +452,7 @@ function parseNamedConstraint(
       throw new ParseError(
         constructText(s, i),
         "{like:…} needs the thesaurus, which this build could not load",
+        true,
       );
     }
     const words = relatedTo(ctx.thesaurus, word);
@@ -473,6 +476,7 @@ function parseNamedConstraint(
         constructText(s, i),
         `{${name}:…} needs the pronunciation dictionary, which this build ` +
           "could not load",
+        true,
       );
     }
     const words =
@@ -503,6 +507,8 @@ function parseNamedConstraint(
         `no such list "${asked}"` +
           (near ? ` — did you mean "${near}"?` : "") +
           " — or write entries with commas to give your own",
+        // The harvested catalogue may simply not be fetched yet.
+        ctx.lists === null,
       );
     }
     box.and = [list];

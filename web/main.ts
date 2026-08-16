@@ -7,6 +7,8 @@ import {
   parseRank,
 } from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg } from "./worker/protocol.js";
+import { type Completion, completionsAt } from "../src/complete.js";
+import type { WikiLists } from "../src/word-lists.js";
 
 // UI thread: form handling, URL state (?q=...&comp=...&index=...), and
 // rendering of streamed results — mirroring the upstream CGI's pages, but
@@ -826,6 +828,16 @@ worker.onmessage = (ev) => {
     case "copies":
       annotateOfflineCopies(new Set(msg.urls));
       break;
+    case "checked":
+      // A stale answer for text that has since changed must not flash.
+      if (msg.seq === checkSeq) {
+        showCheck(msg.error as { detail: string; at: number } | null);
+      }
+      break;
+    case "lists-ready":
+      acLists = msg.lists as WikiLists;
+      updateCompletions();
+      break;
     case "explanation": {
       const why = resultsEl.querySelector(
         `button.why[data-match="${CSS.escape(msg.text as string)}"]`,
@@ -982,6 +994,137 @@ function renderAfterSearch(status: string): void {
       ),
     );
   }
+}
+
+
+// ---- as-you-type help: completions from the catalogue, errors from the
+// engine's own parser (asked over in the worker, so the underline can never
+// disagree with what a search would do).
+
+const acEl = $("ac") as HTMLUListElement;
+const qErrEl = $("qerr");
+let acItems: Completion[] = [];
+let acToken = { start: 0, prefix: "" };
+let acIndex = -1;
+let checkSeq = 0;
+/** The catalogue, once a query has caused the worker to fetch it. */
+let acLists: WikiLists | null = null;
+
+function closeCompletions(): void {
+  acEl.hidden = true;
+  acEl.textContent = "";
+  acItems = [];
+  acIndex = -1;
+  qInput.setAttribute("aria-expanded", "false");
+}
+
+function renderCompletions(): void {
+  acEl.textContent = "";
+  acItems.forEach((item, i) => {
+    const li = document.createElement("li");
+    li.setAttribute("role", "option");
+    li.setAttribute("aria-selected", String(i === acIndex));
+    li.dataset.i = String(i);
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = item.label;
+    const desc = document.createElement("span");
+    desc.className = "desc";
+    desc.textContent = item.detail;
+    li.append(name, desc);
+    if (item.example) {
+      const eg = document.createElement("span");
+      eg.className = "eg";
+      eg.textContent = item.example;
+      li.append(eg);
+    }
+    acEl.append(li);
+  });
+  acEl.hidden = acItems.length === 0;
+  qInput.setAttribute("aria-expanded", String(acItems.length > 0));
+}
+
+function applyCompletion(i: number): void {
+  const item = acItems[i];
+  if (!item) return;
+  const value = qInput.value;
+  const before = value.slice(0, acToken.start);
+  const after = value.slice(acToken.start + acToken.prefix.length);
+  qInput.value = before + item.insert + after;
+  const caret = before.length + item.insert.length;
+  qInput.setSelectionRange(caret, caret);
+  closeCompletions();
+  updateHelp();
+}
+
+function updateCompletions(): void {
+  const cursor = qInput.selectionStart ?? qInput.value.length;
+  const { token, items } = completionsAt(qInput.value, cursor, acLists);
+  acToken = { start: token.start, prefix: token.prefix };
+  acItems = items;
+  acIndex = items.length > 0 ? 0 : -1;
+  renderCompletions();
+}
+
+function updateHelp(): void {
+  updateCompletions();
+  // Ask the engine, not a second opinion: the worker compiles the query with
+  // the same compileQuery a search uses.
+  postToWorker({ type: "check", query: qInput.value, seq: ++checkSeq });
+}
+
+qInput.addEventListener("input", updateHelp);
+qInput.addEventListener("click", updateCompletions);
+qInput.addEventListener("blur", () => setTimeout(closeCompletions, 120));
+
+qInput.addEventListener("keydown", (ev) => {
+  if (acEl.hidden) return;
+  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+    ev.preventDefault();
+    acIndex =
+      (acIndex + (ev.key === "ArrowDown" ? 1 : acItems.length - 1)) %
+      acItems.length;
+    renderCompletions();
+    acEl.children[acIndex]?.scrollIntoView({ block: "nearest" });
+  } else if (ev.key === "Enter" || ev.key === "Tab") {
+    // Enter completes only while the menu is open with a choice made; the
+    // second Enter submits, which is what someone who ignored the menu expects.
+    if (acIndex >= 0) {
+      ev.preventDefault();
+      applyCompletion(acIndex);
+    }
+  } else if (ev.key === "Escape") {
+    closeCompletions();
+  }
+});
+
+acEl.addEventListener("mousedown", (ev) => {
+  const li = (ev.target as HTMLElement | null)?.closest?.("li");
+  if (!li) return;
+  ev.preventDefault(); // keep focus in the box
+  applyCompletion(Number((li as HTMLElement).dataset.i));
+});
+
+/** Show or clear the syntax complaint for the text as it stands. */
+function showCheck(error: { detail: string; at: number } | null): void {
+  qInput.classList.toggle("bad", error !== null);
+  if (!error) {
+    qErrEl.hidden = true;
+    qErrEl.textContent = "";
+    return;
+  }
+  qErrEl.textContent = "";
+  const msg = document.createElement("span");
+  msg.textContent = error.detail;
+  qErrEl.append(msg);
+  // Point at the offending character, which is more use than naming it.
+  if (error.at > 0 && error.at <= qInput.value.length) {
+    const where = document.createElement("span");
+    where.className = "where";
+    where.textContent = ` (at character ${error.at + 1})`;
+    qErrEl.append(where);
+  }
+  qErrEl.hidden = false;
 }
 
 form.addEventListener("submit", (ev) => {

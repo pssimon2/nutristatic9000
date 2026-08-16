@@ -60,7 +60,12 @@ import {
   type FilterSpec,
   parseFilterWrapper,
 } from "../src/result-filter.js";
-import { ParseError } from "../src/find-expr.js";
+import { ParseError, compileQuery } from "../src/find-expr.js";
+import {
+  ExtractError,
+  parseExtract,
+  parseRank,
+} from "../src/extract-spec.js";
 import { SearchSession } from "../src/search-session.js";
 import { WasmCapacityError, WasmEngine, WasmSession } from "../src/wasm-session.js";
 import kernelUrl from "../wasm-kernel/kernel.wasm?url";
@@ -901,6 +906,10 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
                   ctx.lists = parseWikiLists(await r.text());
                 },
               );
+              // Hand the catalogue to the page as well: it drives the
+              // completions in the box, which otherwise only ever knows the
+              // list names compiled into the bundle.
+              if (ctx.lists) post({ type: "lists-ready", lists: ctx.lists });
             }
             if (needsStress(currentQuery)) {
               await ensureExtra(
@@ -1072,6 +1081,39 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
       case "list-copies":
         post({ type: "copies", urls: await listOpfsCopies() });
         break;
+      case "check": {
+        // The same compileQuery a search runs, so "valid" means exactly what
+        // it will mean when they press enter. Side data it would need is *not*
+        // fetched: typing "{kind:b" must not pull a megabyte, so a
+        // data-unavailable complaint is reported as "still fine".
+        let error: { detail: string; at: number } | null = null;
+        const text = msg.query.trim();
+        if (text !== "") {
+          try {
+            // Peel what the engine never sees, in the same order the page
+            // and the worker peel it, so a wrapper mistake is reported too.
+            let inner = text;
+            const at = parseExtract(inner);
+            if (at) inner = at.inner;
+            const ranked = parseRank(inner);
+            if (ranked) inner = ranked.inner;
+            const wrapper = parseFilterWrapper(inner);
+            if (wrapper) inner = wrapper.inner;
+            compileQuery(inner, ctx);
+          } catch (e) {
+            if (e instanceof ParseError && !e.dataMissing) {
+              // `rest` is the tail the parser could not consume, so the
+              // offset is however much it did consume.
+              const at = Math.max(0, msg.query.length - e.rest.length);
+              error = { detail: e.message, at };
+            } else if (e instanceof FilterError || e instanceof ExtractError) {
+              error = { detail: (e as Error).message, at: 0 };
+            }
+          }
+        }
+        post({ type: "checked", seq: msg.seq, error });
+        break;
+      }
       case "explain": {
         // currentQuery is the engine-level pattern: the result filter and the
         // output wrappers have already been peeled off it, which is exactly

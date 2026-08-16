@@ -46,6 +46,10 @@ export interface ConstructInfo {
   name: string;
   level: ConstructLevel;
   group: ConstructGroup;
+  /** One line, lower case, no trailing stop: shown beside the name. */
+  summary: string;
+  /** A query fragment that works as written. */
+  example: string;
 }
 
 /** One line per group, for grouped help and generated docs. */
@@ -61,24 +65,89 @@ export const GROUP_BLURB: Record<ConstructGroup, string> = {
   out: "change what is shown rather than what matches",
 };
 
-const GROUPS: Array<[ConstructGroup, ConstructLevel, string[]]> = [
-  ["word", "automaton", ["rhyme", "homo", "like", "near", "kind", "list"]],
-  ["count", "automaton",
-    ["sum", "scrabble", "count", "letters", "words", "all", "distinct", "maxrep"]],
-  ["bag", "automaton", ["sub", "bank"]],
-  ["edit", "automaton", ["del", "add", "subst", "edit"]],
-  ["cipher", "automaton", ["caesar", "rot", "rot13", "atbash"]],
-  ["spell", "automaton", ["t9", "enum", "morse", "elements"]],
-  ["shape", "automaton",
-    ["roman", "rot180", "mirror", "sevenseg", "holes",
-     "row1", "row2", "row3", "ascending", "descending"]],
-  ["match", "predicate",
-    ["compound", "palindrome", "reversible", "syllables", "stress"]],
-  ["out", "transform", ["at", "rank"]],
+/**
+ * The catalogue proper: one row per construct, carrying the one-line summary
+ * and the worked example the UI offers while you type and the docs are built
+ * from. Written here rather than in the usage guide so the two cannot drift —
+ * a construct without a summary is a construct nobody can discover.
+ */
+const GROUPS: Array<
+  [ConstructGroup, ConstructLevel, Array<[string, string, string]>]
+> = [
+  ["word", "automaton", [
+    ["rhyme", "words that rhyme with one you name", "{rhyme:tree}"],
+    ["homo", "words that sound the same", "{homo:knight}"],
+    ["like", "words WordNet groups with this sense", "{like:reluctant}"],
+    ["near", "words close in meaning, by embedding", "{near:king}"],
+    ["kind", "anything below this word in WordNet", "{kind:bird}"],
+    ["list", "a named category, or your own commas", "{list:greek}"],
+  ]],
+  ["count", "automaton", [
+    ["sum", "letter values total a number (a=1…z=26)", "{sum=100:A*}"],
+    ["scrabble", "Scrabble tile values total a number", "{scrabble>25:A{5}}"],
+    ["count", "how many letters of a set appear", "{count(e)=2:A*}"],
+    ["letters", "how many letters, ignoring spaces", "{letters=11:A*}"],
+    ["words", "how many words", "{words=3:A*}"],
+    ["all", "every letter of a set appears", "{all(aeiou):A*}"],
+    ["distinct", "no letter is repeated", "{distinct:A{6}}"],
+    ["maxrep", "no letter repeats more than N times", "{maxrep=2:A*}"],
+  ]],
+  ["bag", "automaton", [
+    ["sub", "spellable from these letters, each used once", "{sub:cryptography}"],
+    ["bank", "uses every one of these letters, repeats allowed", "{bank:washington}"],
+  ]],
+  ["edit", "automaton", [
+    ["del", "the word with N letters removed", "{del1:beast}"],
+    ["add", "the word with N letters added", "{add1:cargo}"],
+    ["subst", "the word with N letters swapped", "{subst1:cargo}"],
+    ["edit", "within N edits of any kind", "{edit<=2:cargo}"],
+  ]],
+  ["cipher", "automaton", [
+    ["caesar", "every shift of a literal at once", "{caesar:kdhv}"],
+    ["rot", "a literal shifted by a known amount", "{rot13:cvmmn}"],
+    ["rot13", "a literal shifted by thirteen", "{rot13:cvmmn}"],
+    ["atbash", "a literal with the alphabet reflected", "{atbash:gsv}"],
+  ]],
+  ["spell", "automaton", [
+    ["t9", "every word those phone keys could spell", "{t9:2665}"],
+    ["enum", "a crossword enumeration", "{enum:4,3,5}"],
+    ["morse", "every word those dots and dashes spell", "{morse:...-...}"],
+    ["elements", "spellable from chemical symbols", "{elements:A{6}}"],
+  ]],
+  ["shape", "automaton", [
+    ["roman", "only Roman-numeral letters", "{roman:A*}"],
+    ["rot180", "only letters that survive a half turn", "{rot180:A{4}}"],
+    ["mirror", "only letters with a vertical mirror line", "{mirror:A{5}}"],
+    ["sevenseg", "only letters a seven-segment display can show", "{sevenseg:A{4}}"],
+    ["holes", "how many enclosed holes the letters have", "{holes=0:A{5}}"],
+    ["row1", "only the top keyboard row", "{row1:A{5}}"],
+    ["row2", "only the home keyboard row", "{row2:A{5}}"],
+    ["row3", "only the bottom keyboard row", "{row3:A{4}}"],
+    ["ascending", "letters never go backwards through the alphabet", "{ascending:A{5}}"],
+    ["descending", "letters never go forwards through the alphabet", "{descending:A{4}}"],
+  ]],
+  ["match", "predicate", [
+    ["compound", "the match cuts into N words the index knows", "{compound 2:A{9}}"],
+    ["palindrome", "reads the same backwards", "{palindrome:A{5}}"],
+    ["reversible", "its reversal is also a word", "{reversible:A{4}}"],
+    ["syllables", "how many syllables, by pronunciation", "{syllables=3:A{7}}"],
+    ["stress", "a metrical stress shape, 1 strong 0 weak", "{stress 010:A{8}}"],
+  ]],
+  ["out", "transform", [
+    ["at", "show the Nth letter of each match", "{at 3:A{7}}"],
+    ["rank", "a window into the ranked results", "{rank 200-2000:A{6}}"],
+  ]],
 ];
 
 export const CONSTRUCTS: ConstructInfo[] = GROUPS.flatMap(
-  ([group, level, names]) => names.map((name) => ({ name, level, group })),
+  ([group, level, rows]) =>
+    rows.map(([name, summary, example]) => ({
+      name,
+      level,
+      group,
+      summary,
+      example,
+    })),
 );
 
 const GROUP_NAMES = new Set(GROUPS.map(([g]) => g));

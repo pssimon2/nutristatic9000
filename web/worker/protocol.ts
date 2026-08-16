@@ -83,6 +83,17 @@ export interface ListCopiesMsg {
   type: "list-copies";
 }
 
+/**
+ * Check a query as it is typed. Answered by the real parser, so the underline
+ * in the box can never disagree with what a search would do.
+ */
+export interface CheckMsg {
+  type: "check";
+  query: string;
+  /** Echoed back, so a slow answer for stale text can be discarded. */
+  seq: number;
+}
+
 /** "Why did this match?" for one result of the current query. */
 export interface ExplainMsg {
   type: "explain";
@@ -99,4 +110,5 @@ export type InMsg =
   | RemoveCopyMsg
   | OpenFileMsg
   | ListCopiesMsg
-  | ExplainMsg;
+  | ExplainMsg
+  | CheckMsg;

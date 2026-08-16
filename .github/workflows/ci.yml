@@ -21,6 +21,8 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Docs are generated from the catalogue
+        run: npm run check-docs
       - name: Unit tests
         run: npm test
 

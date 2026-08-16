@@ -7,6 +7,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
+    "build-docs": "tsx scripts/build-docs.mjs",
+    "check-docs": "tsx scripts/build-docs.mjs --check",
     "dev": "vite web --port 5174",
     "build": "vite build web",
     "postbuild": "node scripts/build-offline.mjs && node scripts/build-sw.mjs",

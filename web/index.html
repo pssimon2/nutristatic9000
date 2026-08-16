@@ -86,6 +86,33 @@
     /* `{at N:…}` mode: the picked letters lead, the match they came from
        trails in smaller muted type. */
     #results .from { font-size: 0.55em; color: #767676; }
+    #qwrap { position: relative; display: inline-block; }
+    /* The box turns amber only once typing has settled, so it never scolds
+       you mid-word. */
+    #q.bad { border-color: #c60; box-shadow: 0 0 0 1px #c60; }
+    #qerr {
+      margin: .35em 0 0; font-size: 13px; color: #a04000;
+      max-width: 45em;
+    }
+    #qerr .where { font-family: ui-monospace, monospace; color: #767676; }
+    #ac {
+      position: absolute; z-index: 20; left: 0; top: 100%; margin: 2px 0 0;
+      padding: 0; list-style: none; background: #fff; border: 1px solid #bbb;
+      border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.14);
+      min-width: 26em; max-width: 34em; max-height: 17em; overflow-y: auto;
+    }
+    #ac li {
+      padding: .3em .55em; cursor: pointer; font-size: 13px;
+      display: flex; gap: .6em; align-items: baseline;
+    }
+    #ac li[aria-selected="true"] { background: #eef4ff; }
+    #ac .name { font-family: ui-monospace, monospace; white-space: nowrap; }
+    #ac .desc { color: #555; overflow: hidden; text-overflow: ellipsis;
+                white-space: nowrap; }
+    #ac .eg { color: #999; font-family: ui-monospace, monospace;
+              margin-left: auto; white-space: nowrap; }
+    @media (max-width: 600px) { #ac { min-width: 0; width: 100%; }
+                                #ac .eg { display: none; } }
     /* "why?" sits inside the result but must not inherit its scaled size. */
     #results button.why {
       font: inherit; font-size: 11px; vertical-align: middle;
@@ -134,11 +161,16 @@
     <img src="./nutritea-small.png" alt="" height="24" style="vertical-align: middle"></em>
 
   <form id="form" action="" method="get">
-    <input type="search" id="q" name="q" size="45" autocomplete="off"
-           autocorrect="off" autocapitalize="off" spellcheck="false"
-           aria-label="search pattern">
+    <span id="qwrap">
+      <input type="search" id="q" name="q" size="45" autocomplete="off"
+             autocorrect="off" autocapitalize="off" spellcheck="false"
+             aria-label="search pattern" role="combobox" aria-expanded="false"
+             aria-autocomplete="list" aria-controls="ac">
+      <ul id="ac" role="listbox" hidden></ul>
+    </span>
     <input type="submit" value="Go">
   </form>
+  <p id="qerr" hidden></p>
 
   <div id="home">
     <p>Matches patterns against a dictionary of words and phrases.

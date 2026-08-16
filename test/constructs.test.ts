@@ -43,6 +43,15 @@ describe("the catalogue", () => {
     }
   });
 
+  it("documents every construct", () => {
+    for (const c of CONSTRUCTS) {
+      // A phrase, not a sentence: it is shown inline beside the name.
+      expect(c.summary.length, c.name).toBeGreaterThan(10);
+      expect(c.summary, c.name).not.toMatch(/[.]$/);
+      expect(c.example, c.name).toMatch(/^\{/);
+    }
+  });
+
   it("partitions the names by level and by group", () => {
     const byLevel = (["automaton", "predicate", "transform"] as const).flatMap(
       namesAtLevel,
@@ -55,9 +64,9 @@ describe("the catalogue", () => {
 
   it("writes a construct whose name is its group without repeating it", () => {
     // {edit.edit<=2:…} would be silly; {edit<=2:…} is the full form.
-    expect(qualifiedName({ name: "edit", level: "automaton", group: "edit" }))
+    expect(qualifiedName({ name: "edit", level: "automaton", group: "edit", summary: "", example: "" }))
       .toBe("edit");
-    expect(qualifiedName({ name: "rot180", level: "automaton", group: "shape" }))
+    expect(qualifiedName({ name: "rot180", level: "automaton", group: "shape", summary: "", example: "" }))
       .toBe("shape.rot180");
   });
 });

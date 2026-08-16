@@ -13,6 +13,13 @@ export const DEFAULT_RESTART = 1e-6;
 
 export class ParseError extends Error {
   /**
+   * True when the construct is spelled correctly but its side dataset is not
+   * loaded. That is a fetch away from working, not a mistake in the query, so
+   * as-you-type checking must not underline it.
+   */
+  readonly dataMissing: boolean;
+
+  /**
    * `detail` explains a construct that was recognised but wrong — an unknown
    * name, a malformed comparison — where "can't parse" would leave the user
    * guessing which of two dozen constructs they mistyped.
@@ -20,8 +27,10 @@ export class ParseError extends Error {
   constructor(
     readonly rest: string,
     readonly detail?: string,
+    dataMissing = false,
   ) {
     super(detail ?? `can't parse "${rest}"`);
+    this.dataMissing = dataMissing;
   }
 }
 

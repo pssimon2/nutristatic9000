@@ -597,5 +597,40 @@ await page.waitForFunction(
   null, { timeout: 30000 });
 console.log("catalogue page:", (await page.textContent("#count")).trim());
 
+// Autocomplete and inline checking in the query box.
+await page.goto(base + "?index=./demo.index");
+await page.waitForSelector("#q", { timeout: 60000 });
+await page.click("#q");
+await page.fill("#q", "");
+await page.type("#q", "{ci", { delay: 20 });
+await page.waitForSelector("#ac li", { timeout: 30000 });
+const acOpts = await page.$$eval("#ac li .name", (els) => els.map((e) => e.textContent));
+console.log("completions for {ci:", JSON.stringify(acOpts.slice(0, 4)));
+if (!acOpts.some((o) => o.startsWith("cipher."))) {
+  throw new Error("group completion missing");
+}
+// Enter takes the highlighted completion rather than submitting.
+await page.keyboard.press("Enter");
+const afterComplete = await page.inputValue("#q");
+console.log("after Enter:", afterComplete);
+if (!afterComplete.startsWith("{cipher.")) throw new Error("completion not inserted");
+
+// A broken query is flagged as you type, by the engine's own parser.
+await page.fill("#q", "");
+await page.type("#q", "{zzz:A*}", { delay: 10 });
+await page.waitForFunction(
+  () => !document.getElementById("qerr").hidden, null, { timeout: 30000 });
+const qerr = (await page.textContent("#qerr")).trim();
+console.log("inline error:", qerr);
+if (!/no such constraint/.test(qerr)) throw new Error("no inline syntax error");
+if (!(await page.$("#q.bad"))) throw new Error("input not marked invalid");
+
+// …and cleared once it is valid again.
+await page.fill("#q", "");
+await page.type("#q", "A{5}", { delay: 10 });
+await page.waitForFunction(
+  () => document.getElementById("qerr").hidden, null, { timeout: 30000 });
+console.log("inline error cleared on a valid query");
+
 await browser.close();
 console.log("BROWSER TEST OK");
