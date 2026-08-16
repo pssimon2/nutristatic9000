@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "build-docs": "tsx scripts/build-docs.mjs",
     "check-docs": "tsx scripts/build-docs.mjs --check",
+    "check-layers": "node scripts/check-layers.mjs",
     "dev": "vite web --port 5174",
     "build": "vite build web",
     "postbuild": "node scripts/build-offline.mjs && node scripts/build-sw.mjs",

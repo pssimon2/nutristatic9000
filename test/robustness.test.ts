@@ -13,7 +13,8 @@ import {
 } from "../src/idxz.js";
 import { MemorySource, SyncFileReader, SyncFileSource, ViewHolder } from "../src/byte-source.js";
 import { IndexReader } from "../src/index-reader.js";
-import { ParseError, compileQuery } from "../src/find-expr.js";
+import { compileQuery } from "../src/find-expr.js";
+import { ParseError } from "../src/parse-error.js";
 import { SessionContext } from "../src/session-context.js";
 
 const ctx = new SessionContext();

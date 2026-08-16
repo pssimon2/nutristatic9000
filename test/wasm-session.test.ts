@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MemorySource } from "../src/byte-source.js";
 import { IndexReader } from "../src/index-reader.js";
-import { ParseError } from "../src/find-expr.js";
+import { ParseError } from "../src/parse-error.js";
 import { SearchSession } from "../src/search-session.js";
 import { WasmEngine, WasmSession } from "../src/wasm-session.js";
 import { SessionContext } from "../src/session-context.js";

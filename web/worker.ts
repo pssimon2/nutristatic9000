@@ -60,7 +60,8 @@ import {
   type FilterSpec,
   parseFilterWrapper,
 } from "../src/result-filter.js";
-import { ParseError, compileQuery } from "../src/find-expr.js";
+import { compileQuery } from "../src/find-expr.js";
+import { ParseError } from "../src/parse-error.js";
 import {
   ExtractError,
   parseExtract,

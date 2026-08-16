@@ -32,7 +32,7 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
-import { ParseError } from "./find-expr.js";
+import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import {
   findConstruct,

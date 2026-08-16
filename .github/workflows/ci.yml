@@ -23,6 +23,8 @@ jobs:
         run: npm run typecheck
       - name: Docs are generated from the catalogue
         run: npm run check-docs
+      - name: Layering and import cycles
+        run: npm run check-layers
       - name: Unit tests
         run: npm test
 

@@ -117,7 +117,19 @@ Goal: mechanical, low-risk changes that everything later depends on.
   regexes had none. `transliterate` deliberately stays: it is a property of
   the index rather than of the language, must run before parsing, and now
   carries the `TODO(F1: manifest)` marker.
-- [ ] **S4. Directory reshape into an enforced onion.**
+- [~] **S4. Directory reshape into an enforced onion.** *(enforcement done
+  2026-08-16; the move deferred, deliberately)* `npm run check-layers` runs in
+  CI and enforces the two rules that catch real drift: the engine (`src/`)
+  may not import the apps (`web/`, `cli/`), and nothing may form an import
+  cycle. It found one — `find-expr.ts` and `expr-parse.ts` imported each other
+  for the sake of `ParseError`, which now has its own module.
+  The physical move is **not** done and should be weighed rather than assumed:
+  measured first, there are no app→engine violations to fix, so the move buys
+  a finer engine/data/io split at the cost of rewriting every import path in
+  52 files plus the vite, esbuild, service-worker and test harnesses. Worth
+  doing when something concrete needs the finer split; the drift it was meant
+  to prevent is already prevented.
+  Original text:
   ```
   src/engine/{automata,language,plan,exec,index}/   pure; no I/O, no globals
   src/data/                                          providers + registry
