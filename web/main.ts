@@ -821,6 +821,18 @@ worker.onmessage = (ev) => {
         showCheck(msg.error as { detail: string; at: number } | null);
       }
       break;
+    case "kind-completions": {
+      if (msg.seq !== acKindSeq) break; // a newer keystroke has superseded this
+      const names = msg.items as string[];
+      acItems = names.map((n) => ({
+        insert: n,
+        label: n,
+        detail: "WordNet category",
+      }));
+      acIndex = acItems.length > 0 ? 0 : -1;
+      renderCompletions();
+      break;
+    }
     case "lists-ready":
       acLists = msg.lists as WikiLists;
       updateCompletions();
@@ -1096,6 +1108,8 @@ function applyCompletion(i: number): void {
 
 /** Whether the harvested catalogue has been asked for; ask at most once. */
 let acListsRequested = false;
+/** Bumped per `{kind:…}` request, so only the newest reply is shown. */
+let acKindSeq = 0;
 
 function updateCompletions(): void {
   const cursor = qInput.selectionStart ?? qInput.value.length;
@@ -1109,6 +1123,17 @@ function updateCompletions(): void {
   if (token.kind === "listname" && !acLists && !acListsRequested) {
     acListsRequested = true;
     postToWorker({ type: "want-lists", listsUrl: dataUrl("lists.txt") });
+  }
+  // A category name is completed by the worker, which holds the 124,980-name
+  // dataset. The menu fills in when the reply arrives; `seq` is what stops a
+  // slow reply from overwriting a newer one.
+  if (token.kind === "kindname") {
+    postToWorker({
+      type: "complete-kind",
+      prefix: token.prefix,
+      seq: ++acKindSeq,
+      categoriesUrl: dataUrl("categories.txt"),
+    });
   }
   acToken = { start: token.start, prefix: token.prefix };
   acItems = items;

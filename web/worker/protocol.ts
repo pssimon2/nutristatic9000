@@ -120,6 +120,19 @@ export interface WantListsMsg {
   listsUrl?: string | null;
 }
 
+/**
+ * Ask for `{kind:…}` completions. Answered here rather than in the page
+ * because the vocabulary is 124,980 WordNet names and the page has no other
+ * use for them; only the dozen matches travel.
+ */
+export interface CompleteKindMsg {
+  type: "complete-kind";
+  prefix: string;
+  /** Echoed back, so a slow reply cannot overwrite a newer menu. */
+  seq: number;
+  categoriesUrl?: string | null;
+}
+
 export type InMsg =
   | OpenMsg
   | SearchMsg
@@ -133,4 +146,5 @@ export type InMsg =
   | ExplainMsg
   | CheckMsg
   | PlanMsg
-  | WantListsMsg;
+  | WantListsMsg
+  | CompleteKindMsg;

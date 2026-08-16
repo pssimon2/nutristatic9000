@@ -31,7 +31,7 @@ export interface Completion {
 /** The token under the cursor, and where it starts. */
 export interface Token {
   /** What is being completed. */
-  kind: "construct" | "listname" | "none";
+  kind: "construct" | "listname" | "kindname" | "none";
   /** The partial text typed so far. */
   prefix: string;
   /** Index in the query where `prefix` begins. */
@@ -41,12 +41,27 @@ export interface Token {
 /**
  * Find what the cursor is in the middle of typing.
  *
- * Only two positions can be completed usefully: the name right after a `{`,
- * and the argument of `{list:…}`, which is the one construct whose argument is
- * drawn from a fixed vocabulary rather than being free text or a pattern.
+ * Three positions can be completed usefully: the name right after a `{`, and
+ * the arguments of `{list:…}` and `{kind:…}` — the two constructs whose
+ * argument is drawn from a fixed vocabulary rather than being free text or a
+ * pattern.
+ *
+ * `{kind:…}` is answered by the worker rather than here: its vocabulary is
+ * 124,980 WordNet names, which is not something to hand the page a copy of.
+ * This only says that the cursor is in one.
  */
 export function tokenAt(query: string, cursor: number): Token {
   const before = query.slice(0, cursor);
+
+  // `{kind:bir` — the argument of a category.
+  const kind = /\{\s*(?:word\.)?kind\s*:\s*([^},]*)$/i.exec(before);
+  if (kind) {
+    return {
+      kind: "kindname",
+      prefix: kind[1],
+      start: cursor - kind[1].length,
+    };
+  }
 
   // `{list:foo` — the argument of a list, up to the cursor.
   const list = /\{\s*(?:word\.)?list\s*:\s*([^},]*)$/i.exec(before);
@@ -159,6 +174,9 @@ export function completionsAt(
 ): { token: Token; items: Completion[] } {
   const token = tokenAt(query, cursor);
   if (token.kind === "none") return { token, items: [] };
+  // A category name is completed by the worker, which holds the dataset; the
+  // page fills the menu when the reply arrives.
+  if (token.kind === "kindname") return { token, items: [] };
   const items =
     token.kind === "construct"
       ? constructCompletions(token.prefix)

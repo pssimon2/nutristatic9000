@@ -19,7 +19,11 @@ import {
   needsStress,
   parseStress,
 } from "../src/stress.js";
-import { needsCategories, parseCategories } from "../src/categories.js";
+import {
+  needsCategories,
+  parseCategories,
+  suggestKinds,
+} from "../src/categories.js";
 import {
   nearestTo,
   needsNeighbours,
@@ -1189,6 +1193,26 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         } catch {
           // No catalogue: the built-in lists still complete.
         }
+        break;
+      }
+      case "complete-kind": {
+        // Fetching the dataset here is not extra cost: anyone typing
+        // `{kind:` is about to run a query that needs it, so this only moves
+        // the download earlier, where it also buys a menu.
+        if (!ctx.categories) {
+          try {
+            await ensureExtra("categories", msg.categoriesUrl ?? null, async (r) => {
+              ctx.categories = parseCategories(await r.text());
+            });
+          } catch {
+            // No dataset: no menu. The query itself will say so properly.
+          }
+        }
+        post({
+          type: "kind-completions",
+          seq: msg.seq,
+          items: suggestKinds(ctx.categories, msg.prefix),
+        });
         break;
       }
       case "explain": {

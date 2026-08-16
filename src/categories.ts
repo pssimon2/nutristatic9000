@@ -74,3 +74,38 @@ export function kindsOf(
 export function needsCategories(query: string): boolean {
   return /\{\s*kind\b/i.test(query);
 }
+
+/**
+ * Category names starting with `prefix`, for the completion menu.
+ *
+ * `{kind:…}` draws on 124,980 WordNet names, and unlike every other argument
+ * in the language there is no way to guess one: you cannot tell from outside
+ * whether the word is "bird", "bird family" or "birdnesting" — all three
+ * exist. So the menu has to say, and this is how it finds out.
+ *
+ * The search stays here rather than being answered by shipping the names to
+ * the page, because 124,980 of them are 1.47 MB of characters and the page has
+ * no other use for them. A linear scan over the index keys costs about a
+ * millisecond, which is far below the cost of a keystroke.
+ *
+ * Shorter names first, so "bird" outranks "bird of paradise" — a prefix is
+ * usually the start of the word someone means, not of a longer phrase.
+ */
+export function suggestKinds(
+  c: Categories | null,
+  prefix: string,
+  limit = 12,
+): string[] {
+  if (!c) return [];
+  const want = prefix.trim().toLowerCase();
+  // Nothing typed yet, nothing useful to say: 124,980 names cannot be ranked
+  // by a prefix that is not there, and sorting them by length just offers
+  // "0", "1", "2" — the dataset does contain those.
+  if (want === "") return [];
+  const hits: string[] = [];
+  for (const name of c.index.keys()) {
+    if (name.startsWith(want)) hits.push(name);
+  }
+  hits.sort((a, b) => a.length - b.length || (a < b ? -1 : a > b ? 1 : 0));
+  return hits.slice(0, limit);
+}

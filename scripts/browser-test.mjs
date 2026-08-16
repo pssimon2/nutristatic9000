@@ -636,6 +636,25 @@ if (!listNames.some((t) => /pokemon/i.test(t))) {
   throw new Error(`no harvested list suggested for "{list:pok": ${listNames.join(", ")}`);
 }
 
+// `{kind:…}` completions come back from the worker, which holds the 124,980
+// WordNet names. Nothing about "bird" vs "bird family" vs "birdnesting" is
+// guessable from outside the dataset, so without the menu you type and hope.
+await page.goto(base + "?index=./demo.index");
+await page.waitForSelector("#q", { timeout: 30000 });
+await page.click("#q");
+await page.fill("#q", "");
+await page.type("#q", "{kind:bir", { delay: 15 });
+try {
+  await page.waitForSelector("#ac li", { timeout: 30000 });
+} catch {
+  throw new Error('no completions for "{kind:bir" — the worker never answered');
+}
+const kinds = await page.$$eval("#ac li", (es) => es.map((e) => e.textContent.trim()));
+console.log("kind completions:", kinds.slice(0, 4).join(" | "));
+if (!kinds.some((t) => /^bird/.test(t))) {
+  throw new Error(`kind completions do not match the prefix: ${kinds.join(", ")}`);
+}
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(

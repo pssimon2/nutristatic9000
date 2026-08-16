@@ -141,3 +141,33 @@ describe("every completion is something the engine accepts", () => {
     }
   });
 });
+
+// `{kind:…}` is the other argument drawn from a fixed vocabulary, and the one
+// you cannot guess: "bird", "bird family" and "birdnesting" are all WordNet
+// names, and nothing outside the dataset tells you which exists. The menu is
+// filled by the worker — 124,980 names is not a thing to hand the page — so
+// what happens here is only the recognition that the cursor is in one.
+describe("category arguments", () => {
+  const kindAt = (q: string) => tokenAt(q, q.length);
+
+  it("recognises the argument of {kind:…}", () => {
+    expect(kindAt("{kind:bir")).toMatchObject({ kind: "kindname", prefix: "bir" });
+    expect(kindAt("{kind:")).toMatchObject({ kind: "kindname", prefix: "" });
+  });
+
+  it("recognises the prefixed spelling too", () => {
+    expect(kindAt("A{5}&{word.kind:inst")).toMatchObject({
+      kind: "kindname",
+      prefix: "inst",
+    });
+  });
+
+  it("offers nothing itself — the worker answers this one", () => {
+    expect(completionsAt("{kind:bir", 9).items).toEqual([]);
+  });
+
+  it("does not mistake other constructs for it", () => {
+    expect(kindAt("{list:gre").kind).toBe("listname");
+    expect(kindAt("{rot13:abc").kind).toBe("none");
+  });
+});
