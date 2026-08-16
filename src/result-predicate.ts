@@ -19,7 +19,12 @@ import {
   letters,
   reversed,
 } from "./result-filter.js";
-import { splitWords } from "./compound.js";
+import { WordCheck, splitWords } from "./compound.js";
+import {
+  COMPOUND_PIECE_FLOOR,
+  MIN_COMPOUND_PIECE,
+  REVERSAL_FLOOR,
+} from "./index-words.js";
 import { shapeOf, syllablesOf } from "./stress.js";
 
 /** Whether a match survives, and the annotation to show if it does. */
@@ -42,11 +47,16 @@ export async function applyResultFilter(
   filter: FilterSpec,
   text: string,
   ctx: SessionContext,
-  isWord: (word: string) => boolean | Promise<boolean>,
+  isWord: WordCheck,
 ): Promise<FilterVerdict> {
   switch (filter.kind) {
     case "compound": {
-      const parts = await splitWords(text, filter.pieces, isWord);
+      // A compound's pieces are ordinary words, so they must carry an
+      // ordinary word's share of the corpus — presence alone cut AVAILABLE
+      // into "avai" and "lable", both of which are in there.
+      const parts = await splitWords(text, filter.pieces, (w) =>
+        w.length < MIN_COMPOUND_PIECE ? false : isWord(w, COMPOUND_PIECE_FLOOR),
+      );
       // Show the cut, so a weak reading (FOLLOW·ING) is visible as one.
       return parts ? { keep: true, note: parts.join("·") } : DROP;
     }
@@ -68,7 +78,12 @@ export async function applyResultFilter(
     case "reversible": {
       // Reversal without a reverse index: ask whether the mirror is a word.
       const back = reversed(text);
-      if (back === letters(text) || !(await isWord(back))) return DROP;
+      // The reversal has to be a word, not merely something the corpus
+      // contains: "taht" is in there, which is why this used to answer
+      // "that".
+      if (back === letters(text) || !(await isWord(back, REVERSAL_FLOOR))) {
+        return DROP;
+      }
       return { keep: true, note: `← ${back}` };
     }
   }

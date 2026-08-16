@@ -129,7 +129,7 @@ const GROUPS: Array<
   ["match", "predicate", [
     ["compound", "the match cuts into N words the index knows", "{compound 2:A{9}}"],
     ["palindrome", "reads the same backwards", "{palindrome:A{5}}"],
-    ["reversible", "its reversal is also a word", "{reversible:A{4}}"],
+    ["reversible", "its reversal is a word the corpus knows too", "{reversible:A{4}}"],
     ["syllables", "how many syllables, by pronunciation", "{syllables=3:A{7}}"],
     ["stress", "a metrical stress shape, 1 strong 0 weak", "{stress 010:A{8}}"],
   ]],

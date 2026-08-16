@@ -9,8 +9,17 @@
 // costs one trie walk per distinct piece, so the work is bounded by the
 // candidate's length, not by the corpus.
 
-/** Is this string a word the index knows? May need to fetch bytes. */
-export type WordCheck = (word: string) => boolean | Promise<boolean>;
+/**
+ * Is this string a word the index knows? May need to fetch bytes.
+ *
+ * `minShare` is the least fraction of the corpus the word must account for.
+ * Presence alone is a weak test — a corpus contains its own typos — so the
+ * caller picks a floor appropriate to what it is asking (see index-words.ts).
+ */
+export type WordCheck = (
+  word: string,
+  minShare?: number,
+) => boolean | Promise<boolean>;
 
 export interface CompoundSpec {
   /** Number of pieces the match must cut into. */

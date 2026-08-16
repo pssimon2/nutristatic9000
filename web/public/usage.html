@@ -374,9 +374,12 @@ matches that cut into that many words the index actually knows, and
 <b>shows the cut</b>: COPYRIGHT = COPY·RIGHT, KEYBOARD = KEY·BOARD. Charades,
 compounds and "which nine-letter words are two words joined" fall straight
 out. Two to five pieces; the match must be a single token (no spaces), and
-where several cuts work the most balanced one is shown — a web corpus knows
-fragments like "ing", so seeing FOLLOW·ING lets you judge a weak reading
-rather than having a frequency threshold guess for you.
+where several cuts work the most balanced one is shown. A piece has to be a
+word the corpus uses at an ordinary word's rate, not merely one it contains
+somewhere: a web corpus holds every typo and every word broken across a line,
+which is how this once cut AVAILABLE into "avai" and "lable". Suffixes still
+get through — a corpus really does use "ing" — so the cut is shown, and
+FOLLOW·ING is a weak reading you can see for yourself.
 <br>This is the one thing no other tool can copy, because no other tool has
 the index: the pattern does the shape and prunes the search, then the index is
 asked, per candidate, whether the pieces are words.
@@ -520,7 +523,7 @@ whole query; the rest compose anywhere.
 <table class="ref">
 <tr><td><tt>match.compound</tt></td><td>the match cuts into N words the index knows</td><td><tt><a href="./?q=%7Bcompound%202%3AA%7B9%7D%7D">{compound 2:A{9}}</a></tt></td></tr>
 <tr><td><tt>match.palindrome</tt></td><td>reads the same backwards</td><td><tt><a href="./?q=%7Bpalindrome%3AA%7B5%7D%7D">{palindrome:A{5}}</a></tt></td></tr>
-<tr><td><tt>match.reversible</tt></td><td>its reversal is also a word</td><td><tt><a href="./?q=%7Breversible%3AA%7B4%7D%7D">{reversible:A{4}}</a></tt></td></tr>
+<tr><td><tt>match.reversible</tt></td><td>its reversal is a word the corpus knows too</td><td><tt><a href="./?q=%7Breversible%3AA%7B4%7D%7D">{reversible:A{4}}</a></tt></td></tr>
 <tr><td><tt>match.syllables</tt></td><td>how many syllables, by pronunciation</td><td><tt><a href="./?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt></td></tr>
 <tr><td><tt>match.stress</tt></td><td>a metrical stress shape, 1 strong 0 weak</td><td><tt><a href="./?q=%7Bstress%20010%3AA%7B8%7D%7D">{stress 010:A{8}}</a></tt></td></tr>
 </table>

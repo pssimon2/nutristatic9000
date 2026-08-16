@@ -606,9 +606,38 @@ Goal: mechanical, low-risk changes that everything later depends on.
 - [ ] **T3. Contract suite labeling.** Name and pin the byte-format
   round-trip tests as the compatibility contract (GR1); make CI call out
   any diff touching them.
-- [ ] **T4. Registry-driven smoke tests.** Every registered construct's
+- [~] **T4. Registry-driven smoke tests.** *(run manually 2026-08-16; found
+  two broken constructs, see below. Not yet wired into CI.)* Running all 45
+  `docs.example`s against `demo.index` — searching them, not just compiling
+  them — showed 44 producing results and `{words=3:A*}` producing none, and
+  turned up that `{compound}` and `{reversible}` were returning nonsense
+  (fixed; see E9). Worth wiring into CI, but the run takes minutes and the
+  predicate-level constructs need thousands of candidates before a handful
+  survive, so it needs a budget per construct rather than a flat one.
+  Original text: Every registered construct's
   `docs.example` (E6) executes against `demo.index` in CI — a feature
   without a working example fails the build.
+
+- [x] **E9. A word is not just something the corpus contains.**
+  *(done 2026-08-16, not previously on the list.)* `{reversible:A{4}}` led
+  with THAT, FROM and HAVE — "taht", "morf" and "evah" are all in a web
+  corpus — and `{compound 2:A{9}}` cut AVAILABLE into "avai·lable",
+  EDUCATION into "educ·ation" and PRESIDENT into "p·resident". `isWord`
+  (`index-words.ts`) meant "present with a word boundary", and an index is a
+  corpus, not a dictionary. Now a word must carry a *share* of the corpus:
+  measured on demo.index, genuine compound pieces run 1e-4 to 9e-4 while the
+  fragments that were passing run 9e-8 to 3e-6, so the floor sits in the gap
+  at 1e-5, with a 1e-6 floor for reversals (whose rare end — emit at 2.1e-6,
+  pots at 6.6e-6 — sits lower) and a two-character minimum per compound piece,
+  since a single letter clears any floor. Relative rather than absolute so it
+  survives the index being German or Portuguese, where a word list would not.
+  `{compound}` is fixed. `{reversible}` is improved, not fixed, and the
+  measurements say why it cannot be: junk reversals span 1.1e-6 to 7.9e-6
+  ("trac", "liam") and genuine ones span 1.9e-6 to 4.4e-5, so no threshold
+  separates them — "case ← esac" still gets through. Frequency is exhausted
+  as a signal there; it needs a real dictionary, which is P1, and is
+  English-only, which is F2. Two tests record that residue rather than
+  pretending it is gone.
 
 ---
 
