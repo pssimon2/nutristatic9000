@@ -5,6 +5,7 @@ import { parseExpr } from "../src/expr-parse.js";
 import { compileQuery } from "../src/find-expr.js";
 import {
   A1Z26,
+  MAX_COUNTER_STATES,
   SCRABBLE,
   parseValueRange,
   valueNfa,
@@ -74,7 +75,7 @@ describe("parseValueRange", () => {
 
 describe("valueNfa", () => {
   it("accepts exactly the totals in range", () => {
-    const nfa = valueNfa(A1Z26, { lo: 52, hi: 52 });
+    const nfa = valueNfa(A1Z26, { lo: 52, hi: 52 })!;
     expect(a1z26("shall")).toBe(52);
     expect(accepts(nfa, "shall")).toBe(true);
     expect(accepts(nfa, "well")).toBe(true); // 23+5+12+12
@@ -82,14 +83,14 @@ describe("valueNfa", () => {
   });
 
   it("ignores spaces and digits, so phrases total by letter", () => {
-    const nfa = valueNfa(A1Z26, { lo: 52, hi: 52 });
+    const nfa = valueNfa(A1Z26, { lo: 52, hi: 52 })!;
     expect(accepts(nfa, "a full")).toBe(true); // 1+6+21+12+12
     expect(accepts(nfa, "we are")).toBe(true); // w+e+a+r+e, spaces free
     expect(accepts(nfa, "we are1")).toBe(true); // digits count zero too
   });
 
   it("handles open upper bounds by saturating", () => {
-    const nfa = valueNfa(A1Z26, { lo: 200, hi: Infinity });
+    const nfa = valueNfa(A1Z26, { lo: 200, hi: Infinity })!;
     expect(a1z26("transportation")).toBe(200);
     expect(accepts(nfa, "transportation")).toBe(true);
     expect(accepts(nfa, "transportations")).toBe(true); // still >= 200
@@ -97,7 +98,7 @@ describe("valueNfa", () => {
   });
 
   it("scores Scrabble tiles", () => {
-    const nfa = valueNfa(SCRABBLE, { lo: 26, hi: Infinity });
+    const nfa = valueNfa(SCRABBLE, { lo: 26, hi: Infinity })!;
     expect(accepts(nfa, "fuzzy")).toBe(true); // 4+1+10+10+4 = 29
     expect(accepts(nfa, "eerie")).toBe(false); // 1+1+1+1+1 = 5
   });
@@ -377,5 +378,30 @@ describe("error messages", () => {
     expect(() => parseExpr("{zzzzzzzz:A*}", 0, nfa, false)).toThrow(
       /no such constraint "zzzzzzzz"$/,
     );
+  });
+});
+
+describe("resource limits", () => {
+  it("refuses a counter big enough to hurt", () => {
+    // One state per total: a million would be ~1.8 GB, enough to take a tab
+    // down. The largest total any real match can reach is ~1040.
+    expect(valueNfa(A1Z26, { lo: 1_000_000, hi: 1_000_000 })).toBeNull();
+    expect(valueNfa(A1Z26, { lo: 0, hi: MAX_COUNTER_STATES })).toBeNull();
+    expect(valueNfa(A1Z26, { lo: 1040, hi: 1040 })).not.toBeNull();
+  });
+
+  it("says so rather than failing obscurely", () => {
+    const nfa = new Nfa();
+    expect(() => parseExpr("{sum=1000000:A*}", 0, nfa, false)).toThrow(
+      /bound 1000000 is too large/,
+    );
+    expect(() => parseExpr("{count(e)=99999:A*}", 0, nfa, false)).toThrow(
+      /too large/,
+    );
+  });
+
+  it("still allows every sensible bound", () => {
+    expect(matches("{sum=52:A*}", "shall")).toBe(true);
+    expect(matches("{letters=11:A*}", "information")).toBe(true);
   });
 });

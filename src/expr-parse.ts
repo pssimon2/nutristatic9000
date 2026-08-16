@@ -36,6 +36,7 @@ import { ParseError } from "./find-expr.js";
 import { listNfa } from "./word-lists.js";
 import {
   CONSTRUCT_NAMES,
+  MAX_COUNTER_STATES,
   bankConstraint,
   cipherNfa,
   classConstraint,
@@ -463,9 +464,12 @@ function parseNamedConstraint(
         `no such constraint "${name}"${near ? ` — did you mean "${near}"?` : ""}`,
       );
     }
+    const big = /(\d{4,})/.exec(spec);
     throw new ParseError(
       whole,
-      `"${name}" doesn't understand "${spec.trim()}" in ${whole}`,
+      big && +big[1] >= MAX_COUNTER_STATES
+        ? `${name} bound ${big[1]} is too large (max ${MAX_COUNTER_STATES - 1})`
+        : `"${name}" doesn't understand "${spec.trim()}" in ${whole}`,
     );
   }
   const p = parseExprBox(s, i + head[0].length, box, quoted);

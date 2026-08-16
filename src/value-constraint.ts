@@ -32,6 +32,9 @@ export const VALUE_TABLES: Record<string, number[]> = {
   scrabble: SCRABBLE,
 };
 
+/** The largest counter a constraint may build; see valueNfa. */
+export const MAX_COUNTER_STATES = 5000;
+
 /** Inclusive target range; `hi` may be Infinity for an open upper end. */
 export interface ValueRange {
   lo: number;
@@ -78,9 +81,14 @@ export function parseValueRange(spec: string): ValueRange | null {
  * since values are non-negative and a satisfied sum can never become
  * unsatisfied.
  */
-export function valueNfa(table: number[], range: ValueRange): Nfa {
+export function valueNfa(table: number[], range: ValueRange): Nfa | null {
   const nfa = new Nfa();
   const cap = range.hi === Infinity ? range.lo : range.hi;
+  // One state per reachable total, so a careless bound is a careless
+  // allocation: {sum=1000000:…} would be a million states and ~1.8 GB, enough
+  // to take a browser tab down. Nothing legitimate comes close — the index
+  // window is ~40 characters, so the largest possible A1Z26 total is ~1040.
+  if (cap + 1 > MAX_COUNTER_STATES) return null;
   const states: number[] = [];
   for (let total = 0; total <= cap; ++total) states.push(nfa.addState());
   nfa.setStart(states[0]);
@@ -136,13 +144,17 @@ export function namedConstraint(name: string, spec: string): Nfa[] | null {
   const table = VALUE_TABLES[name];
   if (table) {
     const range = parseValueRange(spec);
-    return range ? [valueNfa(table, range)] : null;
+    if (!range) return null;
+    const nfa = valueNfa(table, range);
+    return nfa ? [nfa] : null;
   }
 
   switch (name) {
     case "letters": {
       const range = parseValueRange(spec);
-      return range ? [valueNfa(markTable(LETTERS), range)] : null;
+      if (!range) return null;
+      const nfa = valueNfa(markTable(LETTERS), range);
+      return nfa ? [nfa] : null;
     }
     case "words": {
       // A match has no trailing space, so N words means N-1 spaces.
@@ -151,31 +163,31 @@ export function namedConstraint(name: string, spec: string): Nfa[] | null {
       const hi = range.hi === Infinity ? Infinity : range.hi - 1;
       if (hi < 0) return null; // every match has at least one word
       const lo = Math.max(0, range.lo - 1);
-      return [valueNfa(markTable([SPACE]), { lo, hi })];
+      const nfa = valueNfa(markTable([SPACE]), { lo, hi });
+      return nfa ? [nfa] : null;
     }
     case "count": {
       const parsed = parseSet(spec);
       if (!parsed) return null;
       const range = parseValueRange(parsed.rest);
-      return range ? [valueNfa(markTable(parsed.set), range)] : null;
+      if (!range) return null;
+      const nfa = valueNfa(markTable(parsed.set), range);
+      return nfa ? [nfa] : null;
     }
     case "all": {
       const parsed = parseSet(spec);
       if (!parsed || parsed.rest.trim() !== "") return null;
-      return parsed.set.map((c) =>
-        valueNfa(markTable([c]), { lo: 1, hi: Infinity }),
-      );
+      return parsed.set.map((c) => valueNfa(markTable([c]), { lo: 1, hi: Infinity })!);
     }
     case "distinct": {
       if (spec.trim() !== "") return null;
-      return LETTERS.map((c) => valueNfa(markTable([c]), { lo: 0, hi: 1 }));
+      return LETTERS.map((c) => valueNfa(markTable([c]), { lo: 0, hi: 1 })!);
     }
     case "maxrep": {
       const range = parseValueRange(spec);
       if (!range || range.hi === Infinity) return null;
-      return LETTERS.map((c) =>
-        valueNfa(markTable([c]), { lo: 0, hi: range.hi }),
-      );
+      if (range.hi + 1 > MAX_COUNTER_STATES) return null;
+      return LETTERS.map((c) => valueNfa(markTable([c]), { lo: 0, hi: range.hi })!);
     }
     default:
       return null;
@@ -219,11 +231,12 @@ export function bankConstraint(letters: string, mode: "sub" | "bank"): Nfa[] | n
   if (counts.size === 0) return null;
   const conjuncts = [alphabetNfa(counts.keys())];
   for (const [c, n] of counts) {
-    conjuncts.push(
+    const bound =
       mode === "sub"
         ? valueNfa(markTable([c]), { lo: 0, hi: n })
-        : valueNfa(markTable([c]), { lo: 1, hi: Infinity }),
-    );
+        : valueNfa(markTable([c]), { lo: 1, hi: Infinity });
+    if (!bound) return null;
+    conjuncts.push(bound);
   }
   return conjuncts;
 }
