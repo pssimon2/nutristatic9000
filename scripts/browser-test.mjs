@@ -128,6 +128,19 @@ if (ex.picked !== "a" || ex.from !== "anagram") throw new Error("bad extraction"
 await page.click("#results span.r");
 const exClip = await page.evaluate(() => navigator.clipboard.readText());
 if (exClip !== "a") throw new Error(`extract copy gave ${JSON.stringify(exClip)}`);
+// A position may name a word: first letter of the last word.
+await page.fill("#q", "{at -1.1:A* A{6}}");
+await page.click("input[type=submit]");
+await waitDone();
+const byWord = await page.$eval("#results span.r", (e) => ({
+  picked: e.firstChild.textContent,
+  from: e.querySelector(".from")?.textContent?.trim(),
+}));
+console.log("extract {at -1.1}:", JSON.stringify(byWord));
+if (byWord.picked !== byWord.from.split(" ").pop()[0]) {
+  throw new Error("word-relative extraction picked the wrong letter");
+}
+
 await page.fill("#q", "{at -1:<aaagmnr>}");
 await page.click("input[type=submit]");
 await waitDone();

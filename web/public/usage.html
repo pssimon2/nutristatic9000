@@ -147,7 +147,19 @@ match it came from beside it, so an extraction can be read straight off the
 screen instead of transcribed by hand. Positions are 1-based, count letters
 only (spaces are skipped, however the words fall), may be negative to count
 from the end (<tt>{at -1:...}</tt>), and may be a list
-(<tt>{at 3,5,7:...}</tt>). It wraps the whole pattern; clicking a result
+(<tt>{at 3,5,7:...}</tt>).
+<br>A position may also name a word: <tt>2.3</tt> is the third letter of the
+second word, <tt>-1.1</tt> the first letter of the last word,
+<tt>{at 1.1,-1.1:A* A*}</tt> the initials. That is the case plain offsets
+cannot reach — when what precedes a word varies in length, the word starts at
+no fixed position.
+<br>The wrapper goes around the whole pattern rather than part of it, because
+it decides what is <em>shown</em>, not what matches: pulling a letter out of a
+sub-pattern would mean tracking which characters that sub-pattern consumed,
+and the automaton knows the language rather than the parse. In practice a
+fixed-length prefix makes an absolute position equivalent
+(<tt>the {at 1:A*}</tt> is <tt>{at 5:the A*}</tt>), and word positions cover
+the rest. It wraps the whole pattern; clicking a result
 copies the extracted letters rather than the word.
 
 <li><b>Letter-value arithmetic — <tt>{sum=100:expr}</tt>,

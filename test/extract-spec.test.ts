@@ -100,3 +100,46 @@ describe("parseRank", () => {
     expect(() => parseRank("A* & {rank 1-2:A*}")).toThrow(ExtractError);
   });
 });
+
+describe("word-relative positions", () => {
+  it("parses word.letter pairs", () => {
+    expect(parseExtract("{at 2.1:A*}")!.spec.positions).toEqual([
+      { word: 2, letter: 1 },
+    ]);
+    expect(parseExtract("{at -1.1:A*}")!.spec.positions).toEqual([
+      { word: -1, letter: 1 },
+    ]);
+    expect(parseExtract("{at 1.1,-1.-1:A*}")!.spec.positions).toEqual([
+      { word: 1, letter: 1 },
+      { word: -1, letter: -1 },
+    ]);
+  });
+
+  it("reads a letter from the chosen word", () => {
+    const at = (p: string, text: string) =>
+      applyExtract(parseExtract(`{at ${p}:A*}`)!.spec, text);
+    expect(at("2.1", "solar system")).toBe("s");
+    expect(at("2.3", "solar system")).toBe("s"); // sy[s]tem
+    expect(at("-1.1", "of the united states")).toBe("s");
+    expect(at("1.-1", "solar system")).toBe("r");
+  });
+
+  it("is the case absolute positions can't reach", () => {
+    // The last word starts at no fixed offset when what precedes it varies.
+    const spec = parseExtract("{at -1.1:A*}")!.spec;
+    expect(applyExtract(spec, "a united states")).toBe("s");
+    expect(applyExtract(spec, "the united states")).toBe("s");
+  });
+
+  it("returns null when the word or letter isn't there", () => {
+    const at = (p: string, text: string) =>
+      applyExtract(parseExtract(`{at ${p}:A*}`)!.spec, text);
+    expect(at("3.1", "solar system")).toBeNull();
+    expect(at("1.9", "solar system")).toBeNull();
+  });
+
+  it("rejects a zero in either half", () => {
+    expect(() => parseExtract("{at 0.1:A*}")).toThrow(ExtractError);
+    expect(() => parseExtract("{at 1.0:A*}")).toThrow(ExtractError);
+  });
+});

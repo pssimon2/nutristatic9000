@@ -7,9 +7,18 @@
 // and never composes into a subexpression, so it is parsed and stripped before
 // the pattern reaches the engine. That keeps the automaton untouched.
 
+/**
+ * Where to read a letter from. A bare number counts letters across the whole
+ * match (spaces skipped); `{word, letter}` counts within one word, which is
+ * the case absolute positions cannot reach — the start of the last word sits
+ * at no fixed offset when what precedes it varies in length.
+ *
+ * Both are 1-based and may be negative to count from the end.
+ */
+export type Position = number | { word: number; letter: number };
+
 export interface ExtractSpec {
-  /** 1-based letter positions; negative counts from the end (-1 = last). */
-  positions: number[];
+  positions: Position[];
 }
 
 export interface ExtractQuery {
@@ -67,15 +76,22 @@ export function parseWrapper(
 export function parseExtract(query: string): ExtractQuery | null {
   const w = parseWrapper(query, "at");
   if (!w) return null;
-  const positions = w.spec
+  const positions: Position[] = w.spec
     .split(",")
     .map((p) => p.trim())
     .filter((p) => p !== "")
     .map((p) => {
+      const nonZero = (n: number): number => {
+        if (n === 0) throw new ExtractError("positions are 1-based (use 1, not 0)");
+        return n;
+      };
+      // "2.3" is word 2, letter 3; "-1.1" the first letter of the last word.
+      const pair = /^(-?\d+)\.(-?\d+)$/.exec(p);
+      if (pair) {
+        return { word: nonZero(+pair[1]), letter: nonZero(+pair[2]) };
+      }
       if (!/^-?\d+$/.test(p)) throw new ExtractError(`bad position "${p}"`);
-      const n = parseInt(p, 10);
-      if (n === 0) throw new ExtractError("positions are 1-based (use 1, not 0)");
-      return n;
+      return nonZero(parseInt(p, 10));
     });
   if (positions.length === 0) throw new ExtractError("{at …} needs a position");
   return { spec: { positions }, inner: w.inner };
@@ -116,11 +132,25 @@ export function parseRank(query: string): RankQuery | null {
  */
 export function applyExtract(spec: ExtractSpec, text: string): string | null {
   const letters = text.replace(/ /g, "");
+  const words = text.split(" ").filter((w) => w !== "");
+  /** Nth element of `from`, 1-based, negative counting from the end. */
+  const pick = <T>(from: ArrayLike<T>, n: number): T | null => {
+    const i = n > 0 ? n - 1 : from.length + n;
+    return i < 0 || i >= from.length ? null : from[i];
+  };
   let out = "";
   for (const p of spec.positions) {
-    const i = p > 0 ? p - 1 : letters.length + p;
-    if (i < 0 || i >= letters.length) return null;
-    out += letters[i];
+    if (typeof p === "number") {
+      const ch = pick(letters, p);
+      if (ch === null) return null;
+      out += ch;
+    } else {
+      const word = pick(words, p.word);
+      if (word === null) return null;
+      const ch = pick(word, p.letter);
+      if (ch === null) return null;
+      out += ch;
+    }
   }
   return out;
 }
