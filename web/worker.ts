@@ -14,11 +14,16 @@ import { CompressedRangeSource, fetchIdxzPrefix } from "../src/compressed-source
 import { FileRangeSource } from "../src/file-source.js";
 import { inflateRawBlock } from "../src/idxz.js";
 import { IndexReader } from "../src/index-reader.js";
+import { splitWords } from "../src/compound.js";
+// letters() shares the space-dropping rule with the filters below.
 import {
-  type CompoundSpec,
-  parseCompoundSpec,
-  splitWords,
-} from "../src/compound.js";
+  FilterError,
+  type FilterSpec,
+  isPalindrome,
+  letters,
+  parseFilterWrapper,
+  reversed,
+} from "../src/result-filter.js";
 import { ParseError } from "../src/find-expr.js";
 import { SearchSession } from "../src/search-session.js";
 import { WasmCapacityError, WasmEngine, WasmSession } from "../src/wasm-session.js";
@@ -196,7 +201,7 @@ let searchStepBase = 0;
 // `{compound N:…}`: results must cut into N words the index knows. Verified
 // here rather than in the automaton, because "is this a word" is a question
 // only the index can answer.
-let compoundSpec: CompoundSpec | null = null;
+let resultFilter: FilterSpec | null = null;
 let wordCache = new Map<string, boolean>();
 
 /**
@@ -1455,20 +1460,31 @@ async function runSession(
   const emit = (r: { score: number; text: string }) => {
     if (token !== runToken) return; // superseded: stop talking to the UI
     emitted.add(r.text);
-    if (compoundSpec) {
+    if (resultFilter) {
       pending.push(r);
       return;
     }
     post({ type: "result", score: r.score, text: r.text });
   };
   const flushPending = async (): Promise<void> => {
-    if (!compoundSpec) return;
+    const filter = resultFilter;
+    if (!filter) return;
     for (const r of pending) {
       if (token !== runToken) return;
-      const parts = await splitWords(r.text, compoundSpec.pieces, isIndexedWord);
-      if (parts) {
-        // Show the cut, so a weak reading (FOLLOW+ING) is visible as one.
-        post({ type: "result", score: r.score, text: r.text, note: parts.join("·") });
+      if (filter.kind === "compound") {
+        const parts = await splitWords(r.text, filter.pieces, isIndexedWord);
+        // Show the cut, so a weak reading (FOLLOW·ING) is visible as one.
+        if (parts) {
+          post({ type: "result", score: r.score, text: r.text, note: parts.join("·") });
+        }
+      } else if (filter.kind === "palindrome") {
+        if (isPalindrome(r.text)) post({ type: "result", score: r.score, text: r.text });
+      } else {
+        // Reversal without a reverse index: ask whether the mirror is a word.
+        const back = reversed(r.text);
+        if (back !== letters(r.text) && (await isIndexedWord(back))) {
+          post({ type: "result", score: r.score, text: r.text, note: `← ${back}` });
+        }
       }
     }
   };
@@ -1559,17 +1575,19 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         currentQuery = msg.query;
         // `{compound N:PATTERN}` is a corpus filter around an ordinary
         // pattern: strip it, search the pattern, verify the pieces after.
-        compoundSpec = null;
-        const wrapper = /^\s*\{\s*compound\s*([^:}]*):/i.exec(currentQuery);
-        if (wrapper && currentQuery.trim().endsWith("}")) {
-          const spec = parseCompoundSpec(wrapper[1]);
-          if (!spec) {
-            post({ type: "parse-error", rest: currentQuery });
-            return;
+        resultFilter = null;
+        try {
+          const wrapper = parseFilterWrapper(currentQuery);
+          if (wrapper) {
+            resultFilter = wrapper.spec;
+            currentQuery = wrapper.inner;
           }
-          compoundSpec = spec;
-          const t = currentQuery.trim();
-          currentQuery = t.slice(wrapper[0].length, t.length - 1).trim();
+        } catch (e) {
+          post({
+            type: "error",
+            message: e instanceof FilterError ? e.message : String(e),
+          });
+          return;
         }
         wordCache = new Map();
         emitted = new Set();

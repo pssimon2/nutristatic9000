@@ -204,6 +204,21 @@ await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
+// Palindromes are a result filter, not an automaton: a length-n palindrome
+// would need 26^(n/2) states, but one string check per candidate is free.
+await page.fill("#q", "{palindrome:A{5}}");
+await page.click("input[type=submit]");
+await waitDone();
+const pals = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 6).map((e) => e.firstChild.textContent),
+);
+console.log("palindromes:", JSON.stringify(pals));
+if (pals.length === 0) throw new Error("no palindromes found");
+for (const w of pals) {
+  const s = w.replace(/ /g, "");
+  if (s !== [...s].reverse().join("")) throw new Error(`not a palindrome: ${w}`);
+}
+
 // Corpus self-reference: every match must cut into words the index knows.
 await page.fill("#q", "{compound 2:A{9}}");
 await page.click("input[type=submit]");

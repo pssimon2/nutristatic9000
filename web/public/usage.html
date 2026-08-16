@@ -260,6 +260,17 @@ rather than having a frequency threshold guess for you.
 the index: the pattern does the shape and prunes the search, then the index is
 asked, per candidate, whether the pieces are words.
 
+<li><b>Palindromes and reversals — <tt>{palindrome:A{5}}</tt>,
+<tt>{reversible:A{6}}</tt></b>. Both are checked on finished matches rather
+than built into the automaton, which is what makes them cheap:
+<tt><a href="/9000/?q=%7Bpalindrome%3AA%7B5%7D%7D">{palindrome:A{5}}</a></tt>
+gives LEVEL, REFER, RADAR (as an automaton a length-n palindrome would need
+26<sup>n/2</sup> states), and <tt>{reversible:A{6}}</tt> finds words whose
+mirror is also indexed — ANIMAL ← LAMINA — without the reverse-direction index
+a tandem walk would need. Palindromes ignore where the words fall, so NEVER
+ODD OR EVEN counts. The reversal is shown beside each match: corpora contain
+junk tokens, and seeing the mirror lets you dismiss a bad one at a glance.
+
 <li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing
 and composes with everything:
