@@ -65,10 +65,9 @@ export function listNames(): string[] {
   return Object.keys(RAW).sort();
 }
 
-/** An automaton accepting any entry of the list. */
-export function listNfa(name: string): Nfa | null {
-  const entries = wordList(name);
-  if (!entries || entries.length === 0) return null;
+/** An automaton accepting any of the given entries. */
+export function entriesNfa(entries: string[]): Nfa | null {
+  if (entries.length === 0) return null;
   let out: Nfa | null = null;
   for (const entry of entries) {
     const nfa = new Nfa();
@@ -84,4 +83,22 @@ export function listNfa(name: string): Nfa | null {
     else out.union(nfa);
   }
   return out;
+}
+
+/**
+ * An automaton accepting any entry of a named list, or — when the argument
+ * carries commas — of a list written inline: `{list:red,green,blue}`. Hunts
+ * run on categories nobody could ship in advance, and an inline list needs no
+ * settings screen and travels in the URL like the rest of the query.
+ */
+export function listNfa(nameOrEntries: string): Nfa | null {
+  if (nameOrEntries.includes(",")) {
+    return entriesNfa(
+      nameOrEntries.split(",").map(normalizeEntry).filter((e) => e !== ""),
+    );
+  }
+  const entries = wordList(
+    nameOrEntries.trim().toLowerCase().replace(/[^a-z0-9]/g, ""),
+  );
+  return entries ? entriesNfa(entries) : null;
 }

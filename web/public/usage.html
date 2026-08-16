@@ -291,6 +291,13 @@ the six-letter ones. Shipped lists: <tt>greek</tt>, <tt>nato</tt>,
 <tt>chess</tt>, <tt>suits</tt>, <tt>compass</tt> (a few have aliases, e.g.
 <tt>chesspieces</tt>). Entries are stored the way the corpus stores text, so
 multiword ones match.
+<br><b>Your own list</b> goes straight in the query:
+<tt><a href="/9000/?q=.*%7Blist%3Ared%2Cgreen%2Cblue%7D.*">.*{list:red,green,blue}.*</a></tt>.
+Anything with a comma in it is read as entries rather than a list name (so a
+single entry needs a trailing comma: <tt>{list:sigma,}</tt>), entries are
+normalised the same way — <tt>{list:New York,Los Angeles}</tt> works — and the
+whole thing travels in the URL like the rest of the query, with no settings to
+save.
 
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than

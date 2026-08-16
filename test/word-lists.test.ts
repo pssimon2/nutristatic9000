@@ -69,3 +69,32 @@ describe("{list:…} in patterns", () => {
     expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
   });
 });
+
+describe("inline lists", () => {
+  it("accepts entries written in the query", () => {
+    expect(matches("{list:red,green,blue}", "green")).toBe(true);
+    expect(matches("{list:red,green,blue}", "yellow")).toBe(false);
+  });
+
+  it("normalises inline entries like the corpus", () => {
+    expect(matches("{list:New York,Los Angeles}", "new york")).toBe(true);
+    expect(matches("{list:cote d'ivoire,peru}", "cote divoire")).toBe(true);
+  });
+
+  it("reads a comma-free argument as a list name, not one entry", () => {
+    // {list:sigma} would be a lookup and there is no such list; a trailing
+    // comma says "these are the entries".
+    expect(() => matches("{list:sigma}", "sigma")).toThrow();
+    expect(matches("{list:sigma,}", "sigma")).toBe(true);
+  });
+
+  it("composes like a named list", () => {
+    expect(matches(".*{list:red,green,blue}.*", "credit")).toBe(true);
+    expect(matches("{list:red,green,blue}&A{3}", "red")).toBe(true);
+    expect(matches("{list:red,green,blue}&A{3}", "blue")).toBe(false);
+  });
+
+  it("still resolves named lists", () => {
+    expect(matches("{list:greek}", "sigma")).toBe(true);
+  });
+});

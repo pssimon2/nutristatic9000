@@ -355,9 +355,7 @@ function parseNamedConstraint(
   if (name === "list") {
     const close = s.indexOf("}", i);
     if (close < 0) return null;
-    const list = listNfa(
-      s.slice(i + head[0].length, close).trim().toLowerCase().replace(/[^a-z]/g, ""),
-    );
+    const list = listNfa(s.slice(i + head[0].length, close));
     if (!list) return null;
     box.and = [list];
     return close + 1;

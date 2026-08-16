@@ -33,7 +33,7 @@ Deployment notes specific to this fork:
 | Negation | `!expr` | Complement via determinize + completed DFA; capped at 5000 states |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |
-| Named category lists | `{list:greek}`, `{list:nato}`, … | Alternation of curated entries; composes (`.*{list:nato}.*`) |
+| Named + inline lists | `{list:greek}`, `{list:red,green,blue}` | Curated categories, or your own written in the query and shared in the URL |
 | Ciphers | `{caesar:kdhv}`, `{rot13:…}`, `{caesar+5:…}`, `{atbash:…}` | Desugars to an alternation of literals; the UI reports the matched shift |
 | Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}` | Levenshtein automaton over a literal word; letters/digits only, never spaces |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
