@@ -108,3 +108,37 @@ describe("a search that does not fill it", () => {
     expect(["exhausted", "limit", "results"]).toContain(status);
   });
 });
+
+// The cost cap in range mode.
+//
+// `shouldStop` is how a network-backed search stops before it has fetched an
+// unreasonable amount, and it used to be consulted every 2,000 steps. A step
+// is a cheap unit of work and a wildly variable unit of cost: locally a memory
+// read, remotely a ~440 KB chunk. Measured on the deployed site, the first
+// check arrived after 179.7 MB against a 32 MB cap.
+describe("stopping on cost rather than on steps", () => {
+  it("asks after every step, not every two thousand", async () => {
+    const s = new SearchSession(reader, "A*", ctx);
+    let asked = 0;
+    // Stops on the 5th ask. If the session only asked every 2,000 steps it
+    // would run 10,000 steps to get here.
+    const status = await s.run(
+      1e9,
+      1e9,
+      () => {},
+      undefined,
+      undefined,
+      () => ++asked >= 5,
+    );
+    expect(status).toBe("limit");
+    expect(asked).toBe(5);
+    expect(s.steps).toBeLessThan(10);
+  });
+
+  it("stops immediately when the budget is already spent", async () => {
+    const s = new SearchSession(reader, "A*", ctx);
+    const status = await s.run(1e9, 1e9, () => {}, undefined, undefined, () => true);
+    expect(status).toBe("limit");
+    expect(s.steps).toBe(1);
+  });
+});

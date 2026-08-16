@@ -749,11 +749,18 @@ async function runSession(
   const rs = rangeSource;
   const startBytes = rs?.bytesFetched ?? 0;
   const startTime = Date.now();
+  // Consulted once per step, so the common answer has to be cheap: the byte
+  // test is two field reads, and the clock — the expensive half — is only
+  // read every 1,024 calls, which at any plausible step rate is far finer
+  // than the 20 s it is measuring.
+  let ticks = 0;
   const shouldStop =
     rs && (byteBudget > 0 || timeMs > 0)
       ? () =>
           (byteBudget > 0 && rs.bytesFetched - startBytes >= byteBudget) ||
-          (timeMs > 0 && Date.now() - startTime >= timeMs)
+          (timeMs > 0 &&
+            (++ticks & 1023) === 0 &&
+            Date.now() - startTime >= timeMs)
       : undefined;
   const engineOf = (s: typeof active) => (s instanceof WasmSession ? "wasm" : "js");
   const onProgress = (steps: number) => {

@@ -136,7 +136,15 @@ export class SearchSession {
         const y = shouldYield();
         if (y instanceof Promise) await y;
       }
-      if (shouldStop && this.steps % 2000 === 0 && shouldStop()) return "limit";
+      // Every step, not every 2,000. A step is a cheap unit of *work* and a
+      // wildly variable unit of *cost*: locally it is a memory read, but in
+      // range mode one step can pull a ~440 KB chunk over the network. Asking
+      // only every 2,000 steps meant the byte budget was first consulted long
+      // after it was gone — measured on the deployed site, 179.7 MB fetched
+      // against a 32 MB cap before the first check, on a query that then
+      // reported no results. The predicate is a field read and a compare; the
+      // caller is responsible for making its own clock check cheap.
+      if (shouldStop && shouldStop()) return "limit";
       let r = this.driver.step();
       if (r instanceof Promise) r = await r;
       if (r) {

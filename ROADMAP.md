@@ -476,6 +476,22 @@ Goal: mechanical, low-risk changes that everything later depends on.
   compiled ones: `{sum=52:A*}` is several conjuncts written as one, so guessing
   which text belongs to which automaton would mislabel them, and it says the
   shorter thing instead.
+- [x] **E11. Check the range-mode cost cap every step.**
+  *(done 2026-08-16, not previously on the list — found by measuring the
+  deployed site.)* Range mode caps a run at 32 MB fetched or 20 s, because a
+  step is a poor proxy for cost when a step can be a network round-trip. The
+  cap was consulted every 2,000 steps, and in range mode a single step can
+  pull a ~440 KB chunk — so the first check arrived long after the budget was
+  gone. Measured on nutristatic.org against the 1.3 GB en-wiki index, the
+  first homepage example (`"C*aC*eC*iC*oC*uC*yC*"`, facetiously) reported
+  `steps: 2,000, fetched: 179.7 MB` — 5.6x the cap, in 424 requests, and then
+  no results. `{scrabble>25:A{5}}` fetched 519 MB, most of the index.
+  Now consulted every step; the predicate is a field read and a compare, and
+  the worker reads the clock — the expensive half — only every 1,024 calls.
+  Two tests pin it, both failing on the old stride.
+  This does not make those queries *succeed*: they need a deep walk that the
+  budget was never going to buy, and the page already offers the whole-index
+  download that does. It stops them costing 150 MB to fail.
 - [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
   pattern language + only predicate-level narrowing ⇒ warn "unbounded
   search; the {palindrome} filter cannot prune — add a length or a
