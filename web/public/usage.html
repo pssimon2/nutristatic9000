@@ -412,6 +412,16 @@ dactyl (PRIVACY, GENERAL, HISTORY), useful for verse and lyrics. A phrase adds
 up word by word, and a word the dictionary doesn't know is left out rather
 than guessed at.
 
+<li><b>“Why?” — how a match got there</b>. Every result carries a small
+<tt>why?</tt> button. It reports, conjunct by conjunct, what the engine
+checked, and names the thing the search itself threw away: for
+<tt>{kind:instrument}&amp;{add1:{kind:bird}}</tt> the answer CLOCK explains
+itself as <i>“clock” is a kind of instrument</i> and <i>“cock” with “l”
+added</i>. Ciphers report the shift they used, counting constraints report the
+total they computed, and a conjunct the match fails is marked rather than
+hidden. The reconstruction runs once, for one word, when you ask — so it can
+be exhaustive in a way the search cannot.
+
 <li><b>Construct groups — <tt>{cipher.rot13:…}</tt></b>. Every
 <tt>{name:…}</tt> construct can be written with a prefix naming its family.
 The bare name still works everywhere, so old links keep working; the prefix is

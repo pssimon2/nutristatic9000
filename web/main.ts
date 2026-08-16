@@ -363,7 +363,18 @@ function renderResult(score: number, text: string, note?: string): void {
     span.append(tag);
   }
   span.title = `score ${score.toPrecision(4)} · click to copy`;
-  resultsEl.append(span, document.createElement("br"));
+  span.dataset.match = text;
+  // Copy is the common action and stays on the result itself; the explanation
+  // gets its own target so neither steals the other's click. It is a *sibling*
+  // of the result, not a child: inside, its label lands in the span's
+  // textContent, which is what copy-to-clipboard falls back to.
+  const why = document.createElement("button");
+  why.className = "why";
+  why.type = "button";
+  why.textContent = "why?";
+  why.title = "explain how this match satisfies the query";
+  why.dataset.match = text;
+  resultsEl.append(span, why, document.createElement("br"));
   ++resultCount;
   for (const run of wordRuns(text)) {
     if (!queryLiterals.some((lit) => lit.includes(run))) shownRuns.add(run);
@@ -408,6 +419,20 @@ function resetResultCollapsing(): void {
 // until used: no extra chrome, just the cursor, the title hint, and a brief
 // flash on the word itself.
 resultsEl.addEventListener("click", (ev) => {
+  const why = (ev.target as HTMLElement | null)?.closest?.("button.why");
+  if (why) {
+    ev.stopPropagation();
+    const target = (why as HTMLElement).dataset.match ?? "";
+    const open = resultsEl.querySelector(
+      `.why-box[data-match="${CSS.escape(target)}"]`,
+    );
+    if (open) {
+      open.remove(); // second click closes it
+      return;
+    }
+    postToWorker({ type: "explain", text: target });
+    return;
+  }
   const cand = (ev.target as HTMLElement | null)?.closest?.("span.cand");
   if (cand && slots) {
     const slot = slots[+(cand as HTMLElement).dataset.slot!];
@@ -799,6 +824,42 @@ worker.onmessage = (ev) => {
     case "copies":
       annotateOfflineCopies(new Set(msg.urls));
       break;
+    case "explanation": {
+      const why = resultsEl.querySelector(
+        `button.why[data-match="${CSS.escape(msg.text as string)}"]`,
+      );
+      if (!why) break;
+      const box = document.createElement("div");
+      box.className = "why-box";
+      box.dataset.match = msg.text as string;
+      const reasons = msg.reasons as Array<{
+        part: string;
+        ok: boolean;
+        detail: string | null;
+      }>;
+      if (reasons.length === 0) {
+        box.textContent = "nothing to explain — the pattern matches directly";
+      }
+      for (const r of reasons) {
+        const line = document.createElement("div");
+        const mark = document.createElement("b");
+        mark.textContent = r.ok ? "\u2713 " : "\u2717 ";
+        const code = document.createElement("tt");
+        code.textContent = r.part;
+        line.append(mark, code);
+        if (r.detail) {
+          const d = document.createElement("span");
+          d.className = "from";
+          d.textContent = ` — ${r.detail}`;
+          line.append(d);
+        }
+        box.append(line);
+      }
+      // After the <br> that follows the button, so the box sits on its own
+      // line under the match it explains.
+      (why.nextElementSibling ?? why).after(box);
+      break;
+    }
     case "result":
       if (slots) {
         const slot = slots[slotIndex];

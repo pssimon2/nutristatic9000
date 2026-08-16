@@ -26,6 +26,7 @@ import {
 } from "../src/neighbours.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilter, nearOrderKey } from "../src/result-predicate.js";
+import { explainMatch } from "../src/explain.js";
 import type { InMsg, OpenMsg } from "./worker/protocol.js";
 import {
   DownloadReporter,
@@ -1060,6 +1061,15 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
       case "list-copies":
         post({ type: "copies", urls: await listOpfsCopies() });
         break;
+      case "explain": {
+        // currentQuery is the engine-level pattern: the result filter and the
+        // output wrappers have already been peeled off it, which is exactly
+        // what the explanation should be about.
+        const reasons =
+          currentQuery === null ? [] : explainMatch(currentQuery, msg.text, ctx);
+        post({ type: "explanation", text: msg.text, reasons });
+        break;
+      }
     }
   } catch (e) {
     post({ type: "error", message: e instanceof Error ? e.message : String(e) });

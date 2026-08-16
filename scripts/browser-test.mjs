@@ -552,5 +552,23 @@ await page.waitForFunction(
 );
 console.log("parse error:", await page.textContent("#status"));
 
+// "why?" explains a match, per conjunct, using the source the engine threw
+// away: {del1:cat} finding CAT-minus-a-letter should name the letter.
+await page.goto(
+  base + "?index=./demo.index&q=" + encodeURIComponent("{sum=52:A*}&A{5}"),
+);
+await page.waitForFunction(() => document.querySelectorAll("#results span.r").length > 0,
+  null, { timeout: 60000 });
+await page.click("#results button.why");
+await page.waitForSelector("#results .why-box", { timeout: 30000 });
+const why = (await page.textContent("#results .why-box")).replace(/\s+/g, " ").trim();
+console.log("why:", why);
+if (!/letters total 52/.test(why)) throw new Error("no per-conjunct explanation");
+if (!/A\{5\}/.test(why)) throw new Error("second conjunct missing from explanation");
+// Clicking again closes it.
+await page.click("#results button.why");
+if (await page.$("#results .why-box")) throw new Error("why-box did not toggle shut");
+console.log("why toggles shut");
+
 await browser.close();
 console.log("BROWSER TEST OK");

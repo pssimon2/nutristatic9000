@@ -82,6 +82,12 @@ export interface ListCopiesMsg {
   type: "list-copies";
 }
 
+/** "Why did this match?" for one result of the current query. */
+export interface ExplainMsg {
+  type: "explain";
+  text: string;
+}
+
 export type InMsg =
   | OpenMsg
   | SearchMsg
@@ -91,4 +97,5 @@ export type InMsg =
   | CancelDownloadMsg
   | RemoveCopyMsg
   | OpenFileMsg
-  | ListCopiesMsg;
+  | ListCopiesMsg
+  | ExplainMsg;
