@@ -124,6 +124,7 @@
       <li><em>[], (), {}, |, ., ?, *, +</em> - same as regexp</li>
       <li><em>"expr"</em> - forbid word breaks without a space or hyphen</li>
       <li><em>expr&amp;expr</em> - both expressions must match</li>
+      <li><em>!expr</em> - match what expr does not</li>
       <li><em>&lt;aaagmnr&gt;, &lt;(gram)(ana)&gt;</em> - anagram of contents
         (<a href="./usage.html#syntax_anagram">note warnings</a>)</li>
       <li><em>_ (underscore)</em> - alphanumeric, not space: [a-z0-9]</li>
@@ -132,50 +133,37 @@
       <li><em>A</em> - alphabetic: [a-z]</li>
       <li><em>C</em> - consonant (including y)</li>
       <li><em>V</em> - vowel ([aeiou], not y)</li>
-      <li><em>{at 3:expr}</em> - show the 3rd letter of each match instead of
-        the whole match (<em>-1</em> = last, <em>3,5,7</em> = several)</li>
-      <li><em>{rank 200-2000:expr}</em> - results ranked 200-2000 rather than
-        the most common ones</li>
-      <li><em>{sum=100:expr}</em> - letter values (a=1…z=26) total 100
-        (also <em>&lt;</em>, <em>&lt;=</em>, <em>&gt;</em>, <em>&gt;=</em>,
-        <em>{sum=50..60:expr}</em>)</li>
-      <li><em>{scrabble&gt;25:expr}</em> - same, with Scrabble tile values</li>
-      <li><em>{count(e)=2:expr}</em> - letter counts; also classes:
-        <em>{count(vowel)&lt;=1:expr}</em></li>
-      <li><em>{distinct:expr}</em> - no letter repeated
-        (<em>{maxrep=2:expr}</em> - none more than twice)</li>
-      <li><em>{all(aeiou):expr}</em> - uses every one of these letters</li>
-      <li><em>{letters=11:expr}</em>, <em>{words=3:expr}</em> - totals</li>
-      <li><em>&lt;&lt;washington&gt;&gt;</em> - letter bank: only these letters,
-        each reusable, all of them used</li>
-      <li><em>{sub:cryptography}</em> - sub-anagram: any subset of these
-        letters</li>
-      <li><em>{del1:beast}</em>, <em>{add1:cargo}</em>,
-        <em>{subst1:cargo}</em> - one letter deleted / added / swapped</li>
-      <li><em>{edit&lt;=2:cargo}</em> - any mix of those, up to two</li>
-      <li><em>{caesar:kdhv}</em> - all 25 shifts at once (the matched shift is
-        shown); <em>{rot13:cvmmn}</em>, <em>{caesar+5:…}</em>,
-        <em>{atbash:gsv}</em></li>
-      <li><em>{t9:2665}</em> - phone keypad: BOOK, COOL, COOK at once</li>
-      <li><em>{enum:4,3,5}</em> - crossword enumeration</li>
-      <li><em>!expr</em> - matches anything the expression does not
-        (<em>A{5}&amp;!.*ee.*</em> - five letters, no double E)</li>
-      <li><em>{compound 2:A{9}}</em> - matches that split into 2 words the
-        index knows (the split is shown)</li>
-      <li><em>{palindrome:A{5}}</em> - reads the same backwards</li>
-      <li><em>{reversible:A{6}}</em> - the reversal is also an indexed word
-        (ANIMAL / LAMINA)</li>
-      <li><em>{list:greek}</em> - a named category (greek, nato, months, days,
-        zodiac, planets, chess, suits, compass); composes:
-        <em>.*{list:nato}.*</em></li>
-      <li><em>{ascending:expr}</em>, <em>{descending:expr}</em> - letters never
-        go backwards / forwards</li>
-      <li><em>{roman:expr}</em>, <em>{rot180:expr}</em>, <em>{mirror:expr}</em>,
-        <em>{sevenseg:expr}</em>, <em>{row1:expr}</em>, <em>{holes=0:expr}</em>
-        - letter-shape and keyboard classes</li>
     </ul>
-    <p>Results that are the same phrase seen through a different index window
-    are folded together; a link under the results restores them.</p>
+
+    <h3>9000 extensions</h3>
+    <p>All of these wrap a pattern and combine with everything above.
+    <a href="./usage.html#nine">Details and examples »</a></p>
+    <ul>
+      <li><b>Counts and values</b>: <em>{sum=100:expr}</em>,
+        <em>{scrabble&gt;25:expr}</em>, <em>{count(e)=2:expr}</em>,
+        <em>{distinct:expr}</em>, <em>{maxrep=2:expr}</em>,
+        <em>{all(aeiou):expr}</em>, <em>{letters=11:expr}</em>,
+        <em>{words=3:expr}</em></li>
+      <li><b>Banks and edits</b>: <em>&lt;&lt;washington&gt;&gt;</em>,
+        <em>{sub:cryptography}</em>, <em>{del1:beast}</em>,
+        <em>{add1:cargo}</em>, <em>{subst1:cargo}</em>,
+        <em>{edit&lt;=2:cargo}</em></li>
+      <li><b>Ciphers and encodings</b>: <em>{caesar:kdhv}</em> (the matched
+        shift is shown), <em>{rot13:cvmmn}</em>, <em>{atbash:gsv}</em>,
+        <em>{t9:2665}</em>, <em>{enum:4,3,5}</em></li>
+      <li><b>Letter shapes and keys</b>: <em>{roman:expr}</em>,
+        <em>{rot180:expr}</em>, <em>{mirror:expr}</em>,
+        <em>{sevenseg:expr}</em>, <em>{holes=0:expr}</em>,
+        <em>{row1:expr}</em>, <em>{ascending:expr}</em>,
+        <em>{descending:expr}</em></li>
+      <li><b>Questions for the corpus</b>: <em>{compound 2:A{9}}</em>,
+        <em>{palindrome:expr}</em>, <em>{reversible:expr}</em>,
+        <em>{list:greek}</em></li>
+      <li><b>What you get back</b>: <em>{at 3:expr}</em> shows one letter of
+        each match, <em>{rank 200-2000:expr}</em> skips to mid-frequency
+        answers. Repeats of one phrase are folded together, with a link under
+        the results to restore them.</li>
+    </ul>
 
     <h3>Examples</h3>
     <ul id="examples"></ul>
