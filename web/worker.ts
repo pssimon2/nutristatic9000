@@ -22,6 +22,12 @@ import {
   phoneticsLoaded,
   setPhonetics,
 } from "../src/phonetics.js";
+import {
+  needsThesaurus,
+  parseThesaurus,
+  setThesaurus,
+  thesaurusLoaded,
+} from "../src/thesaurus.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -128,8 +134,9 @@ interface OpenMsg {
 interface SearchMsg {
   type: "search";
   query: string;
-  /** Where to fetch the pronouncing dictionary; the page resolves it. */
+  /** Where to fetch the side datasets; the page resolves these. */
   phoneticsUrl?: string | null;
+  thesaurusUrl?: string | null;
   maxSteps: number;
   maxResults: number;
   // Range mode only: stop after this many bytes fetched or ms elapsed
@@ -214,19 +221,33 @@ let resultFilter: FilterSpec | null = null;
 let wordChecker: ((w: string) => boolean | Promise<boolean>) | null = null;
 // The pronouncing dictionary is ~400 KB over the wire and only some queries
 // need it, so it is fetched the first time one does and kept thereafter.
-let phoneticsLoad: Promise<void> | null = null;
+const extraLoads = new Map<string, Promise<void>>();
 
-async function ensurePhonetics(url: string | null): Promise<void> {
-  if (phoneticsLoaded() || !url) return;
-  phoneticsLoad ??= (async () => {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    setPhonetics(parsePhonetics(await r.text()));
-  })().catch((e) => {
-    phoneticsLoad = null; // let a later query try again
-    throw e;
-  });
-  await phoneticsLoad;
+/**
+ * Fetch a side dataset once and hand it to `install`. Kept out of the bundle
+ * because most queries never need it; kept in memory once fetched because a
+ * solver who rhymes once will rhyme again.
+ */
+async function ensureExtra(
+  key: string,
+  url: string | null,
+  ready: () => boolean,
+  install: (text: string) => void,
+): Promise<void> {
+  if (ready() || !url) return;
+  let load = extraLoads.get(key);
+  if (!load) {
+    load = (async () => {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      install(await r.text());
+    })().catch((e) => {
+      extraLoads.delete(key); // let a later query try again
+      throw e;
+    });
+    extraLoads.set(key, load);
+  }
+  await load;
 }
 
 /** The index-backed word predicate, rebuilt whenever the index changes. */
@@ -1580,11 +1601,26 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // pattern: strip it, search the pattern, verify the pieces after.
         // Compilation is synchronous, so anything it needs must be here
         // first.
-        if (needsPhonetics(currentQuery)) {
+        if (needsPhonetics(currentQuery) || needsThesaurus(currentQuery)) {
           try {
-            await ensurePhonetics(msg.phoneticsUrl ?? null);
+            if (needsPhonetics(currentQuery)) {
+              await ensureExtra(
+                "phonetics",
+                msg.phoneticsUrl ?? null,
+                phoneticsLoaded,
+                (t) => setPhonetics(parsePhonetics(t)),
+              );
+            }
+            if (needsThesaurus(currentQuery)) {
+              await ensureExtra(
+                "thesaurus",
+                msg.thesaurusUrl ?? null,
+                thesaurusLoaded,
+                (t) => setThesaurus(parseThesaurus(t)),
+              );
+            }
           } catch {
-            // Fall through: the parser reports that the dictionary is missing.
+            // Fall through: the parser reports what is missing.
           }
           if (token !== runToken) return;
         }

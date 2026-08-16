@@ -32,6 +32,7 @@ Deployment notes specific to this fork:
 | Encodings | `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`, `{elements:…}` | Keypad digits → every spelling; crossword enumerations |
 | Negation | `!expr` | Complement via determinize + completed DFA; capped at 5000 states |
 | Rhyme / homophones | `{rhyme:tree}`, `{homo:knight}` | CMU pronouncing dictionary, rhyming from the last primary-stressed vowel; lazily fetched (~340 KB gzipped), built by `scripts/build-phonetics.mjs` |
+| Meaning | `{like:reluctant}` | WordNet sense groups (a thesaurus, not a semantic model); lazily fetched, built by `scripts/build-thesaurus.mjs` |
 | Multi-slot | `pattern ; pattern ; …` | Runs each slot in turn and assembles the `{at …}` letters, with any candidate selectable; batching, not cross-slot constraint solving |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |
@@ -39,6 +40,11 @@ Deployment notes specific to this fork:
 | Ciphers | `{caesar:kdhv}`, `{rot13:…}`, `{caesar+5:…}`, `{atbash:…}` | Desugars to an alternation of literals; the UI reports the matched shift |
 | Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}` | Levenshtein automaton over a literal word; letters/digits only, never spaces |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
+
+The rhyme/homophone data comes from the CMU Pronouncing Dictionary and the
+meaning data from WordNet 3.1 (Copyright 2011 The Trustees of Princeton
+University, used under the WordNet licence); both are reduced to lookup
+artifacts at build time and fetched only when a query needs them.
 
 `{at …}` and `{rank …}` are output wrappers stripped before the engine runs.
 `{sum …}` / `{scrabble …}` compile to conjunct NFAs, so the WASM kernel runs

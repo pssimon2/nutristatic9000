@@ -597,7 +597,7 @@ export function elementsNfa(): Nfa {
 
 /** Every `{name…}` construct, for error messages and suggestions. */
 export const CONSTRUCT_NAMES = [
-  "rhyme", "homo",
+  "rhyme", "homo", "like",
   "sum", "scrabble", "count", "letters", "words", "all", "distinct", "maxrep",
   "sub", "bank", "del", "add", "subst", "edit", "caesar", "rot", "rot13",
   "rot180", "atbash", "t9", "enum", "morse", "elements", "roman", "mirror",

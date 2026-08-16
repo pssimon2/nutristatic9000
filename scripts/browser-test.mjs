@@ -244,6 +244,16 @@ await page.waitForFunction(
 );
 console.log("unknown word:", await page.textContent("#status"));
 
+// Meaning: the thesaurus is a second lazily-fetched dataset.
+await page.fill("#q", "{like:reluctant}&A{5}&l....");
+await page.click("input[type=submit]");
+await waitDone();
+const meant = await page.$$eval("#results span.r", (els) =>
+  els.map((e) => e.textContent),
+);
+console.log("like:reluctant &A{5}&l....:", JSON.stringify(meant));
+if (!meant.includes("loath")) throw new Error("thesaurus intersection failed");
+
 // Multi-slot: several patterns at once, with their picked letters assembled.
 await page.fill("#q", "{at 1:<aaagmnr>} ; {at 2:solar s_stem} ; {at 1:A{5}&.*zz.*}");
 await page.click("input[type=submit]");

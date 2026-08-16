@@ -24,6 +24,11 @@ import {
   parsePhonetics,
   setPhonetics,
 } from "../src/phonetics.js";
+import {
+  needsThesaurus,
+  parseThesaurus,
+  setThesaurus,
+} from "../src/thesaurus.js";
 import { makeWordChecker } from "../src/index-words.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
@@ -92,12 +97,15 @@ try {
 
 // Compilation is synchronous, so load the pronouncing dictionary first when
 // the query needs it. Ships next to the web assets.
-if (needsPhonetics(pattern)) {
-  const dict = new URL("../web/public/phonetics.txt", import.meta.url);
+for (const [needed, file, install] of [
+  [needsPhonetics(pattern), "phonetics.txt", (t: string) => setPhonetics(parsePhonetics(t))],
+  [needsThesaurus(pattern), "thesaurus.txt", (t: string) => setThesaurus(parseThesaurus(t))],
+] as Array<[boolean, string, (t: string) => void]>) {
+  if (!needed) continue;
   try {
-    setPhonetics(parsePhonetics(fs.readFileSync(dict, "utf8")));
+    install(fs.readFileSync(new URL(`../web/public/${file}`, import.meta.url), "utf8"));
   } catch {
-    // Left unloaded: the parser reports that the dictionary is missing.
+    // Left unloaded: the parser reports what is missing.
   }
 }
 

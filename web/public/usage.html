@@ -300,6 +300,18 @@ happens to be true. The dictionary also carries surnames and variant
 spellings, so homophone groups are wider than you might expect. It is fetched
 only when a query needs it (about 340 KB, once per visit).
 
+<li><b>Meaning — <tt>{like:reluctant}</tt></b>. Half of hunt work is "seven
+letters, matches <tt>.a..e..</tt>, and clues something like <em>reluctant</em>",
+where either half alone is useless and together they are decisive. That
+intersection is the whole point, and it is one query here:
+<tt><a href="/9000/?q=%7Blike%3Areluctant%7D%26A%7B5%7D%26l....">{like:reluctant}&amp;A{5}&amp;l....</a></tt>
+gives LOATH.
+<br><b>What this is and isn't:</b> a thesaurus, not a semantic model. It
+answers "what else means roughly this", from the senses WordNet groups a word
+into — every sense of it, since the pattern is what narrows things down. It
+will not find a word that merely feels related, and it knows only words
+WordNet knows. Fetched only when a query needs it (about 590 KB, once).
+
 <li><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
 matches that cut into that many words the index actually knows, and
 <b>shows the cut</b>: COPYRIGHT = COPY·RIGHT, KEYBOARD = KEY·BOARD. Charades,
@@ -637,6 +649,12 @@ the search string is good if you don't expect the answer to contain multiple
 words (or you know where word breaks go).</p>
 
 <hr>
+<address>The rhyme and homophone data is derived from the
+<a href="https://www.speech.cs.cmu.edu/cgi-bin/cmudict">CMU Pronouncing
+Dictionary</a> (Carnegie Mellon University, free to use). The meaning data is
+derived from <a href="https://wordnet.princeton.edu/">WordNet 3.1</a>,
+Copyright 2011 The Trustees of Princeton University, used under the WordNet
+licence.</address>
 <address>Nutristatic is derived from
 <a href="https://github.com/PuzzleTechHub/nutrimatic">Nutrimatic</a>
 (GPL, by Dan Egnor and contributors); the syntax documentation and examples

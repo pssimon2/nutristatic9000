@@ -38,6 +38,7 @@ import {
   phoneticsLoaded,
   rhymesOf,
 } from "./phonetics.js";
+import { relatedTo, thesaurusLoaded } from "./thesaurus.js";
 import { entriesNfa, listNfa, normalizeEntry } from "./word-lists.js";
 import {
   CONSTRUCT_NAMES,
@@ -370,6 +371,28 @@ function parseNamedConstraint(
   } else if (name === "rot" && spec.trim() === "180") {
     name = "rot180"; // the visual class, not a 180-place shift
     spec = "";
+  }
+  if (name === "like") {
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const word = normalizeEntry(s.slice(i + head[0].length, close));
+    if (!thesaurusLoaded()) {
+      throw new ParseError(
+        constructText(s, i),
+        "{like:…} needs the thesaurus, which this build could not load",
+      );
+    }
+    const words = relatedTo(word);
+    if (!words) {
+      throw new ParseError(
+        constructText(s, i),
+        `the thesaurus doesn't know "${word}"`,
+      );
+    }
+    const nfa = entriesNfa(words);
+    if (!nfa) return null;
+    box.and = [nfa];
+    return close + 1;
   }
   if (name === "rhyme" || name === "homo") {
     const close = s.indexOf("}", i);
