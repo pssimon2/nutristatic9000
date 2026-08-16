@@ -31,6 +31,15 @@ import { spawn } from "node:child_process";
 import * as readline from "node:readline";
 import * as fs from "node:fs";
 
+// The wikitext parsing lives in src/wiki-extract.ts, under test: this script's
+// feedback loop is a twenty-minute pass over 24 GB, which is no way to debug a
+// regex.
+const {
+  entriesFrom,
+  normalizeEntry: normalize,
+  unescapeXml,
+} = await import("../src/wiki-extract.js");
+
 const args = process.argv.slice(2);
 const DUMP = args[0];
 const opt = (name, dflt) => {
@@ -44,6 +53,11 @@ const TOP = Number(opt("top", "1000"));
 // A floor as well as a ranking: taking the top N by score alone still admits
 // "twin towns and sister cities in Switzerland" once the good lists run out.
 const MIN_SCORE = Number(opt("min-score", "7"));
+// Wikipedia has hundreds of "List of <something> games" and dozens of
+// "<somewhere> deities". Without a per-noun cap the catalogue fills with
+// variations of whichever category Wikipedia happens to enumerate most, which
+// is breadth of article rather than breadth of category.
+const PER_NOUN = Number(opt("per-noun", "6"));
 // Harvesting the dump takes ~9 minutes; scoring takes seconds. Cache the raw
 // pass so the thresholds can be tuned without re-reading 24 GB.
 const CACHE = opt("cache", null);
@@ -55,57 +69,13 @@ if (!DUMP) {
 
 // ---- entry shaping ----
 
-const MAX_ENTRY_CHARS = 25;
-const MAX_ENTRY_WORDS = 3;
-
-function normalize(s) {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/'/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
 
 /**
- * Entries from the three shapes a Wikipedia list actually uses: bullets,
- * numbered items, and table rows.
- *
- * Bullets alone miss a lot — many of the best-kept lists (elements, monarchs,
- * anything with dates or counts beside the name) are tables, and skipping them
- * does not merely lose those lists, it drags in worse ones to fill the quota.
- * In a table the subject is the first link of the row; later columns are its
- * attributes.
+ * Sections that come after the list and are not part of it. Their bullets look
+ * exactly like list entries, so reading a whole page mixed "loch ness monster"
+ * and "error handler" into the Pokémon list — the references and see-also of
+ * the article, harvested as though they were members.
  */
-function entryLink(line) {
-  const t = line.trim();
-  const bullet = /^[*#]+\s*\[\[([^\]]+)\]\]/.exec(t);
-  if (bullet) return bullet[1];
-  // Table cell, but not the control lines {| |- |+ |} or a header row.
-  if (t.startsWith("|") && !/^\|[-+}]/.test(t) && !t.startsWith("|}")) {
-    const cell = /\[\[([^\]]+)\]\]/.exec(t);
-    if (cell) return cell[1];
-  }
-  return null;
-}
-
-function entriesFrom(lines) {
-  const out = new Set();
-  for (const line of lines) {
-    const raw = entryLink(line);
-    if (!raw) continue;
-    const display = raw.includes("|") ? raw.slice(raw.indexOf("|") + 1) : raw;
-    // "Ada (programming language)" is ADA; the qualifier is Wikipedia's, not
-    // part of the name.
-    const e = normalize(display.replace(/\s*\([^)]*\)\s*$/, ""));
-    if (!e || e.length > MAX_ENTRY_CHARS) continue;
-    if (e.split(" ").length > MAX_ENTRY_WORDS) continue;
-    out.add(e);
-  }
-  return [...out];
-}
-
 // ---- title judgement ----
 
 /** Titles that are about a place, a year, a broadcast or a bureaucracy. */
@@ -137,6 +107,16 @@ const TITLE_REJECT = [
   /\b(individual|fictional|notable|famous|minor|extant)\b/i,
   /\b(sightings|rankings|refuges|tombs|manufacturers|constructors)\b/i,
   /\b(multigraphs|typefaces|file formats|auto parts)\b/i,
+  // Alphabetical shards of one list — "PC games (A)", "Amiga games (P–Z)",
+  // "death metal bands, !–K". Each is a fragment, not a category, and left
+  // alone they crowd out real ones by sheer number.
+  /\([A-Z0-9]\s*[–—-]?\s*[A-Z0-9]?\)\s*$/,
+  /[,(]\s*[!#A-Z0-9]\s*[–—-]\s*[A-Z0-9]\s*\)?\s*$/,
+  /\b(seasons?|parts?|volumes?)\s+\d/i,
+  // Numeric shards of a catalogue: "minor planets: 363001-364000".
+  /\d{3,}\s*[–—-]\s*\d{3,}/,
+  /\bminor planets\b/i,
+  /\b(draft picks|cemeteries|memorials|monuments|shipwrecks)\b/i,
   // "…of Pakistan", "…of the Congo": a proper noun after of/in scopes the
   // list to a place or an organisation, which is never the puzzle category.
   /\bof\s+(the\s+)?[A-Z]/,
@@ -156,6 +136,71 @@ const TITLE_BOOST = [
   /\b(tools|weapons|garments|fabrics|knots|shapes|polygons)\b/i,
   /\b(occupations|professions|titles|ranks)\b/i,
 ];
+
+
+/**
+ * The head noun a list has to be about.
+ *
+ * Penalising junk by pattern was whack-a-mole: block "(A)" shards and numeric
+ * shards appear, block those and airline destinations and football squads
+ * arrive, and a high enough coverage score rescues any of them anyway. The
+ * distinction that actually holds is not what a bad title looks like but what
+ * a *good* one is about — "Greek deities" and "Air China destinations" are
+ * both "<proper noun> <plural>", and only one is a category anyone could be
+ * asked to name.
+ *
+ * So this is a whitelist of category nouns, applied as a hard gate. It is
+ * openly hand-picked; pretending otherwise produced Miss Teen USA titleholders
+ * and no Pokémon.
+ */
+const HEAD_NOUNS = new Set(
+  (
+    // living things
+    "animals birds fish insects mammals reptiles amphibians dinosaurs " +
+    "breeds cultivars trees flowers plants herbs spices fungi mushrooms " +
+    "fruits vegetables grains nuts berries " +
+    // food and drink
+    "dishes foods cheeses breads cakes pastries soups sauces desserts " +
+    "cocktails drinks beers wines spirits teas coffees candies sweets " +
+    "varieties ingredients condiments " +
+    // myth, religion, fiction
+    "deities gods goddesses demons angels saints spirits monsters creatures " +
+    "dragons giants nymphs heroes titans " +
+    // language and symbols
+    "languages alphabets scripts letters numerals runes ligatures " +
+    "phobias emotions virtues sins fallacies idioms proverbs " +
+    // things
+    "instruments tools weapons garments fabrics knots shapes polygons " +
+    "gemstones minerals metals elements crystals rocks " +
+    "vehicles ships aircraft trains " +
+    // sky and earth
+    "constellations planets moons stars comets asteroids galaxies " +
+    "winds clouds " +
+    // culture and pastimes
+    "dances games sports puzzles hobbies genres styles movements " +
+    "occupations professions titles ranks orders honours " +
+    "currencies units measures colours colors " +
+    // groupings people would be asked to name
+    "pokemon characters houses factions clans tribes castes " +
+    "symbols emblems flags"
+  ).split(/\s+/),
+);
+
+/** The noun a list title is about: its last word, roughly singularised. */
+function headNoun(subject) {
+  const words = normalize(subject).split(" ").filter(Boolean);
+  const last = words[words.length - 1] ?? "";
+  return last;
+}
+
+function isCategory(subject) {
+  const head = headNoun(subject);
+  if (HEAD_NOUNS.has(head)) return true;
+  // "…goddesses" style plurals the set spells singular, and vice versa.
+  if (head.endsWith("es") && HEAD_NOUNS.has(head.slice(0, -2))) return true;
+  if (head.endsWith("s") && HEAD_NOUNS.has(head.slice(0, -1))) return true;
+  return false;
+}
 
 function titleScore(subject) {
   let score = 0;
@@ -231,10 +276,11 @@ for await (const line of rl) {
     // as bullets multiplies the candidate set several-fold, and holding every
     // "List of townships in …" long enough to score it exhausts even a 24 GB
     // heap. The title alone is enough to know those are out.
-    const keep = titleScore(title) > -2;
+    const keep =
+      isCategory(unescapeXml(title)) && titleScore(unescapeXml(title)) > -2;
     const entries = keep ? entriesFrom(buf ?? []) : [];
     if (entries.length >= 8 && entries.length <= 600) {
-      candidates.push({ subject: title, entries });
+      candidates.push({ subject: unescapeXml(title), entries });
     }
     title = null;
     buf = null;
@@ -285,9 +331,21 @@ for (const c of candidates) {
 }
 
 candidates.sort((a, b) => b.score - a.score);
-const chosen = candidates
-  .filter((c) => c.coverage >= 0.5 && c.score >= MIN_SCORE)
-  .slice(0, TOP);
+const eligible = candidates.filter(
+  // The head-noun gate applies here as well as during harvesting, so a cache
+  // taken before it existed is filtered the same way.
+  (c) => isCategory(c.subject) && c.coverage >= 0.5 && c.score >= MIN_SCORE,
+);
+const perNoun = new Map();
+const chosen = [];
+for (const c of eligible) {
+  const head = headNoun(c.subject);
+  const used = perNoun.get(head) ?? 0;
+  if (used >= PER_NOUN) continue;
+  perNoun.set(head, used + 1);
+  chosen.push(c);
+  if (chosen.length >= TOP) break;
+}
 
 if (SAMPLE) {
   console.log(`\n--- top 30 of ${chosen.length} ---`);
