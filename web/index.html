@@ -87,47 +87,61 @@
        trails in smaller muted type. */
     #results .from { font-size: 0.55em; color: #767676; }
     #qwrap { position: relative; display: inline-block; }
-    /* The box turns amber only once typing has settled, so it never scolds
-       you mid-word. */
-    #q.bad { border-color: #c60; box-shadow: 0 0 0 1px #c60; }
+    /* Amber that reads on either theme; the fixed #c60 vanished on dark. */
+    #q.bad { border-color: #d2691e; box-shadow: 0 0 0 1px #d2691e; }
     #qerr {
-      margin: .35em 0 0; font-size: 13px; color: #a04000;
-      max-width: 45em;
+      margin: .35em 0 0; font-size: 13px; max-width: 45em;
+      color: #b45309;
     }
-    #qerr .where { font-family: ui-monospace, monospace; color: #767676; }
+    @media (prefers-color-scheme: dark) { #qerr { color: #f0a860; } }
+    #qerr .where { font-family: ui-monospace, monospace; color: GrayText; }
+    /* Canvas/CanvasText follow the OS theme, so the menu is legible on both
+       without a second palette to keep in step. */
     #ac {
       position: absolute; z-index: 20; left: 0; top: 100%; margin: 2px 0 0;
-      padding: 0; list-style: none; background: #fff; border: 1px solid #bbb;
-      border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.14);
+      padding: 0; list-style: none;
+      background: Canvas; color: CanvasText; border: 1px solid ButtonBorder;
+      border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.28);
       min-width: 26em; max-width: 34em; max-height: 17em; overflow-y: auto;
     }
     #ac li {
       padding: .3em .55em; cursor: pointer; font-size: 13px;
       display: flex; gap: .6em; align-items: baseline;
     }
-    #ac li[aria-selected="true"] { background: #eef4ff; }
+    #ac li[aria-selected="true"] { background: Highlight; color: HighlightText; }
+    #ac li[aria-selected="true"] .desc,
+    #ac li[aria-selected="true"] .eg { color: inherit; }
     #ac .name { font-family: ui-monospace, monospace; white-space: nowrap; }
-    #ac .desc { color: #555; overflow: hidden; text-overflow: ellipsis;
+    #ac .desc { color: GrayText; overflow: hidden; text-overflow: ellipsis;
                 white-space: nowrap; }
-    #ac .eg { color: #999; font-family: ui-monospace, monospace;
+    #ac .eg { color: GrayText; font-family: ui-monospace, monospace;
               margin-left: auto; white-space: nowrap; }
     @media (max-width: 600px) { #ac { min-width: 0; width: 100%; }
                                 #ac .eg { display: none; } }
-    /* "why?" sits inside the result but must not inherit its scaled size. */
+    /* "why?" sits beside the result but must not inherit its scaled size.
+       System colors rather than fixed greys: the page follows the OS theme,
+       and a hardcoded #333 explanation is invisible on a dark background. */
     #results button.why {
       font: inherit; font-size: 11px; vertical-align: middle;
       margin-left: 0.5em; padding: 0 .35em; cursor: pointer;
-      color: #767676; background: none; border: 1px solid #ccc;
-      border-radius: 3px; opacity: 0; transition: opacity .12s;
+      color: GrayText; background: none; border: 1px solid ButtonBorder;
+      border-radius: 3px; opacity: .4; transition: opacity .12s;
     }
-    #results span.r:hover button.why,
+    /* Always faintly present rather than hover-only: it moved out of the
+       result span (its label was polluting copy-to-clipboard), which broke the
+       descendant hover rule and left it invisible unless focused. */
+    #results span.r:hover + button.why,
+    #results button.why:hover,
     #results button.why:focus { opacity: 1; }
     #results .why-box {
       font-size: 13px; margin: .2em 0 .6em 1.2em; padding: .4em .6em;
-      border-left: 3px solid #ddd; color: #333;
+      border-left: 3px solid ButtonBorder; color: CanvasText;
     }
-    #results .why-box tt { background: #f4f4f4; padding: 0 .2em; }
-    #results .why-box .from { font-size: 1em; }
+    #results .why-box tt {
+      background: color-mix(in srgb, CanvasText 8%, Canvas);
+      padding: 0 .2em; border-radius: 2px;
+    }
+    #results .why-box .from { font-size: 1em; color: GrayText; }
     /* Brief confirmation that a clicked result was copied. */
     #results span.copied { background: #ffe58a; background: light-dark(#ffe58a, #5a4a12); }
     #status { color: #767676; }

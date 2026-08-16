@@ -632,5 +632,42 @@ await page.waitForFunction(
   () => document.getElementById("qerr").hidden, null, { timeout: 30000 });
 console.log("inline error cleared on a valid query");
 
+// Dark mode: the menu and the explanation must be legible, not merely
+// present. Fixed greys passed every existing assertion while being invisible.
+const dark = await browser.newContext({ colorScheme: "dark" });
+const dpage = await dark.newPage();
+await dpage.goto(base + "?index=./demo.index&q=" + encodeURIComponent("A{5}"));
+await dpage.waitForFunction(() => document.querySelectorAll("#results span.r").length > 0,
+  null, { timeout: 60000 });
+
+/** Relative luminance of a computed "rgb(r, g, b)" colour. */
+const lum = (css) => {
+  const [r, g, b] = css.match(/\d+/g).map(Number);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+};
+const pageBg = await dpage.evaluate(() => getComputedStyle(document.body).backgroundColor);
+console.log("dark page background:", pageBg);
+
+await dpage.click("#results button.why");
+await dpage.waitForSelector("#results .why-box", { timeout: 30000 });
+const whyColor = await dpage.$eval("#results .why-box", (e) => getComputedStyle(e).color);
+console.log("dark why-box text:", whyColor);
+if (lum(whyColor) < 0.5) throw new Error(`why-box text is dark on dark: ${whyColor}`);
+
+await dpage.click("#q");
+await dpage.fill("#q", "");
+await dpage.type("#q", "{ci", { delay: 20 });
+await dpage.waitForSelector("#ac li", { timeout: 30000 });
+const menu = await dpage.$eval("#ac", (e) => {
+  const s = getComputedStyle(e);
+  return { bg: s.backgroundColor, fg: s.color };
+});
+console.log("dark menu:", JSON.stringify(menu));
+if (Math.abs(lum(menu.bg) - lum(menu.fg)) < 0.3) {
+  throw new Error(`menu has no contrast in dark mode: ${JSON.stringify(menu)}`);
+}
+await dark.close();
+console.log("dark mode OK");
+
 await browser.close();
 console.log("BROWSER TEST OK");
