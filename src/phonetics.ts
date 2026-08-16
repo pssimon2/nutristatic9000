@@ -17,8 +17,6 @@ export interface Phonetics {
   homophone: Map<string, string[]>;
 }
 
-let loaded: Phonetics | null = null;
-
 /** Parse the artifact: "R word word …" / "H word word …" lines. */
 export function parsePhonetics(text: string): Phonetics {
   const rhyme = new Map<string, string[]>();
@@ -38,22 +36,17 @@ export function parsePhonetics(text: string): Phonetics {
   return { rhyme, homophone };
 }
 
-export function setPhonetics(p: Phonetics | null): void {
-  loaded = p;
-}
-
-export function phoneticsLoaded(): boolean {
-  return loaded !== null;
-}
-
 /** Words rhyming with `word`, or null if the dictionary doesn't know it. */
-export function rhymesOf(word: string): string[] | null {
-  return loaded?.rhyme.get(word) ?? null;
+export function rhymesOf(p: Phonetics | null, word: string): string[] | null {
+  return p?.rhyme.get(word) ?? null;
 }
 
 /** Words pronounced like `word`, or null if the dictionary doesn't know it. */
-export function homophonesOf(word: string): string[] | null {
-  return loaded?.homophone.get(word) ?? null;
+export function homophonesOf(
+  p: Phonetics | null,
+  word: string,
+): string[] | null {
+  return p?.homophone.get(word) ?? null;
 }
 
 /** Does this query need the dictionary loaded before it can be compiled? */

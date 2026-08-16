@@ -3,9 +3,12 @@ import { Nfa } from "../src/automata.js";
 import { parseExpr } from "../src/expr-parse.js";
 import { compileQuery } from "../src/find-expr.js";
 import { listNames, normalizeEntry, wordList } from "../src/word-lists.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 function matches(pattern: string, text: string): boolean {
-  const filter = compileQuery(pattern);
+  const filter = compileQuery(pattern, ctx);
   let state = filter.startState;
   for (const ch of `${text} `) {
     state = filter.transition(state, ch.charCodeAt(0));
@@ -65,7 +68,7 @@ describe("{list:…} in patterns", () => {
 
   it("explains an unknown list instead of just failing to parse", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{list:nosuch}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{list:nosuch}", 0, nfa, false, ctx)).toThrow(
       /no such list "nosuch"/,
     );
   });

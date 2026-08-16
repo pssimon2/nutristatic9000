@@ -10,6 +10,9 @@ import { Nfa } from "../src/automata.js";
 import { parseExpr } from "../src/expr-parse.js";
 import { ExprFilter } from "../src/expr-filter.js";
 import { SearchDriver } from "../src/search-driver.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 async function testIndex(
   expr: string,
@@ -23,7 +26,7 @@ async function testIndex(
   writeEntries(new IndexWriter(sink), entries);
 
   const parsed = new Nfa();
-  const p = parseExpr(expr, 0, parsed, false);
+  const p = parseExpr(expr, 0, parsed, false, ctx);
   expect(p, `parse of ${JSON.stringify(expr)}`).toBe(expr.length);
 
   const reader = await IndexReader.open(new MemorySource(sink.bytes()));

@@ -5,6 +5,7 @@
 
 import { IndexReader } from "./index-reader.js";
 import { compileQuery, DEFAULT_RESTART, makeDriver } from "./find-expr.js";
+import { SessionContext } from "./session-context.js";
 import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
 
 export interface SearchResult {
@@ -21,10 +22,11 @@ export class SearchSession {
   constructor(
     reader: IndexReader,
     query: string,
+    ctx: SessionContext,
     restart = DEFAULT_RESTART,
     opts: SearchDriverOptions = {},
   ) {
-    this.driver = makeDriver(reader, compileQuery(query), restart, opts);
+    this.driver = makeDriver(reader, compileQuery(query, ctx), restart, opts);
   }
 
   /**

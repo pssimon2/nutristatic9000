@@ -7,11 +7,13 @@ import {
   needsThesaurus,
   parseThesaurus,
   relatedTo,
-  setThesaurus,
 } from "../src/thesaurus.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 function matches(pattern: string, text: string): boolean {
-  const filter = compileQuery(pattern);
+  const filter = compileQuery(pattern, ctx);
   let state = filter.startState;
   for (const ch of `${text} `) {
     state = filter.transition(state, ch.charCodeAt(0));
@@ -21,7 +23,7 @@ function matches(pattern: string, text: string): boolean {
 }
 
 beforeAll(() => {
-  setThesaurus(parseThesaurus(fs.readFileSync("web/public/thesaurus.txt", "utf8")));
+  ctx.thesaurus = parseThesaurus(fs.readFileSync("web/public/thesaurus.txt", "utf8"));
 });
 
 describe("thesaurus", () => {
@@ -31,15 +33,15 @@ describe("thesaurus", () => {
   });
 
   it("groups words that share a sense", () => {
-    const reluctant = relatedTo("reluctant")!;
+    const reluctant = relatedTo(ctx.thesaurus, "reluctant")!;
     expect(reluctant).toContain("loath");
     expect(reluctant).toContain("loth");
-    expect(relatedTo("zzzqq")).toBeNull();
+    expect(relatedTo(ctx.thesaurus, "zzzqq")).toBeNull();
   });
 
   it("unions every sense of a word", () => {
     // "king" is a monarch, a chess piece and a magnate; all senses reachable.
-    const king = relatedTo("king")!;
+    const king = relatedTo(ctx.thesaurus, "king")!;
     expect(king).toContain("magnate");
     expect(king.length).toBeGreaterThan(3);
   });
@@ -58,7 +60,7 @@ describe("thesaurus", () => {
 
   it("explains a word it doesn't know", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{like:zzzqq}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{like:zzzqq}", 0, nfa, false, ctx)).toThrow(
       /thesaurus doesn't know "zzzqq"/,
     );
   });

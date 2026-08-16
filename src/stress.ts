@@ -10,8 +10,6 @@
 
 export type Stress = Map<string, string>;
 
-let loaded: Stress | null = null;
-
 export function parseStress(text: string): Stress {
   const out: Stress = new Map();
   for (const line of text.split("\n")) {
@@ -22,32 +20,24 @@ export function parseStress(text: string): Stress {
   return out;
 }
 
-export function setStress(s: Stress | null): void {
-  loaded = s;
-}
-
-export function stressLoaded(): boolean {
-  return loaded !== null;
-}
-
 /**
  * The stress shape of a phrase: each word's shape, joined. Null when any word
  * is missing, since a partial count would be wrong rather than approximate.
  */
-export function shapeOf(text: string): string | null {
-  if (!loaded) return null;
+export function shapeOf(s: Stress | null, text: string): string | null {
+  if (!s) return null;
   let out = "";
   for (const word of text.split(" ")) {
     if (!word) continue;
-    const shape = loaded.get(word);
+    const shape = s.get(word);
     if (!shape) return null;
     out += shape;
   }
   return out || null;
 }
 
-export function syllablesOf(text: string): number | null {
-  return shapeOf(text)?.length ?? null;
+export function syllablesOf(s: Stress | null, text: string): number | null {
+  return shapeOf(s, text)?.length ?? null;
 }
 
 export function needsStress(query: string): boolean {

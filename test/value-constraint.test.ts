@@ -10,6 +10,9 @@ import {
   parseValueRange,
   valueNfa,
 } from "../src/value-constraint.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 /** Run `text` through the automaton and report acceptance. */
 function accepts(nfa: Nfa, text: string): boolean {
@@ -28,7 +31,7 @@ function accepts(nfa: Nfa, text: string): boolean {
  * carry the trailing space compileQuery requires.
  */
 function matches(pattern: string, text: string): boolean {
-  const filter = compileQuery(pattern);
+  const filter = compileQuery(pattern, ctx);
   let state = filter.startState;
   for (const ch of `${text} `) {
     state = filter.transition(state, ch.charCodeAt(0));
@@ -37,13 +40,12 @@ function matches(pattern: string, text: string): boolean {
   return filter.isAccepting(state);
 }
 
-
 /** Rejected either by throwing an explanation or by failing to parse. */
 function rejects(pattern: string): void {
   const nfa = new Nfa();
   let end: number | null = null;
   try {
-    end = parseExpr(pattern, 0, nfa, false);
+    end = parseExpr(pattern, 0, nfa, false, ctx);
   } catch {
     return;
   }
@@ -358,24 +360,24 @@ describe("morse and element spelling", () => {
 describe("error messages", () => {
   it("names an unknown constraint and suggests the real one", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{sumx=100:A*}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{sumx=100:A*}", 0, nfa, false, ctx)).toThrow(
       /no such constraint "sumx".*did you mean "sum"/,
     );
-    expect(() => parseExpr("{distinkt:A{6}}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{distinkt:A{6}}", 0, nfa, false, ctx)).toThrow(
       /did you mean "distinct"/,
     );
   });
 
   it("says what a known constraint didn't understand", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{sum=abc:A*}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{sum=abc:A*}", 0, nfa, false, ctx)).toThrow(
       /"sum" doesn't understand "=abc"/,
     );
   });
 
   it("offers no suggestion when nothing is close", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{zzzzzzzz:A*}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{zzzzzzzz:A*}", 0, nfa, false, ctx)).toThrow(
       /no such constraint "zzzzzzzz"$/,
     );
   });
@@ -392,10 +394,10 @@ describe("resource limits", () => {
 
   it("says so rather than failing obscurely", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{sum=1000000:A*}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{sum=1000000:A*}", 0, nfa, false, ctx)).toThrow(
       /bound 1000000 is too large/,
     );
-    expect(() => parseExpr("{count(e)=99999:A*}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{count(e)=99999:A*}", 0, nfa, false, ctx)).toThrow(
       /too large/,
     );
   });
@@ -410,10 +412,10 @@ describe("length limits on expanded constructs", () => {
   it("bounds enumerations and morse the way quantifiers are bounded", () => {
     const nfa = new Nfa();
     const many = Array(5000).fill("9").join(",");
-    expect(() => parseExpr(`{enum:${many}}`, 0, nfa, false)).toThrow(
+    expect(() => parseExpr(`{enum:${many}}`, 0, nfa, false, ctx)).toThrow(
       /letters in total/,
     );
-    expect(() => parseExpr(`{morse:${".".repeat(20000)}}`, 0, nfa, false)).toThrow(
+    expect(() => parseExpr(`{morse:${".".repeat(20000)}}`, 0, nfa, false, ctx)).toThrow(
       /up to 255/,
     );
     // Ordinary ones are unaffected.

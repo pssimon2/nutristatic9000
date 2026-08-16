@@ -16,39 +16,21 @@ import { inflateRawBlock } from "../src/idxz.js";
 import { IndexReader } from "../src/index-reader.js";
 import { splitWords } from "../src/compound.js";
 import { makeWordChecker } from "../src/index-words.js";
-import {
-  needsPhonetics,
-  parsePhonetics,
-  phoneticsLoaded,
-  setPhonetics,
-} from "../src/phonetics.js";
-import {
-  needsThesaurus,
-  parseThesaurus,
-  setThesaurus,
-  thesaurusLoaded,
-} from "../src/thesaurus.js";
+import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
+import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
 import {
   needsStress,
   parseStress,
-  setStress,
   shapeOf,
-  stressLoaded,
   syllablesOf,
 } from "../src/stress.js";
-import {
-  categoriesLoaded,
-  needsCategories,
-  parseCategories,
-  setCategories,
-} from "../src/categories.js";
+import { needsCategories, parseCategories } from "../src/categories.js";
 import {
   nearestTo,
   needsNeighbours,
-  neighboursLoaded,
   parseNeighbours,
-  setNeighbours,
 } from "../src/neighbours.js";
+import { DataKey, SessionContext } from "../src/session-context.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -252,17 +234,24 @@ let wordChecker: ((w: string) => boolean | Promise<boolean>) | null = null;
 const extraLoads = new Map<string, Promise<void>>();
 
 /**
- * Fetch a side dataset once and hand it to `install`. Kept out of the bundle
- * because most queries never need it; kept in memory once fetched because a
- * solver who rhymes once will rhyme again.
+ * The side data this worker's queries compile against. One worker is one
+ * session, so one context: the engine itself holds no dataset state, which is
+ * what lets several workers hold different data (sharding, multi-index).
+ */
+const ctx = new SessionContext();
+
+/**
+ * Fetch a side dataset once and store it on the context. Kept out of the
+ * bundle because most queries never need it; kept in memory once fetched
+ * because a solver who rhymes once will rhyme again. Keying readiness and
+ * caching on the same `DataKey` means the two can no longer disagree.
  */
 async function ensureExtra(
-  key: string,
+  key: DataKey,
   url: string | null,
-  ready: () => boolean,
   install: (response: Response) => Promise<void>,
 ): Promise<void> {
-  if (ready() || !url) return;
+  if (ctx[key] !== null || !url) return;
   let load = extraLoads.get(key);
   if (!load) {
     load = (async () => {
@@ -1550,12 +1539,12 @@ async function runSession(
           post({ type: "result", score: r.score, text: r.text, note: parts.join("·") });
         }
       } else if (filter.kind === "syllables") {
-        const n = syllablesOf(r.text);
+        const n = syllablesOf(ctx.stress, r.text);
         if (n !== null && n >= filter.lo && n <= filter.hi) {
           post({ type: "result", score: r.score, text: r.text, note: `${n} syll` });
         }
       } else if (filter.kind === "stress") {
-        const shape = shapeOf(r.text);
+        const shape = shapeOf(ctx.stress, r.text);
         // A secondary stress reads as stressed for metrical purposes.
         if (shape && shape.replace(/2/g, "1") === filter.shape.replace(/2/g, "1")) {
           post({ type: "result", score: r.score, text: r.text, note: shape });
@@ -1593,7 +1582,7 @@ async function runSession(
       // Carry the overflowed kernel's step count forward so the progress
       // counter continues instead of resetting to zero on the replay.
       searchStepBase += active.steps;
-      const js = new SearchSession(reader, currentQuery, undefined, {
+      const js = new SearchSession(reader, currentQuery, ctx, undefined, {
         prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
       });
       session = js;
@@ -1672,40 +1661,45 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
               await ensureExtra(
                 "phonetics",
                 msg.phoneticsUrl ?? null,
-                phoneticsLoaded,
-                async (r) => setPhonetics(parsePhonetics(await r.text())),
+                async (r) => {
+                  ctx.phonetics = parsePhonetics(await r.text());
+                },
               );
             }
             if (needsStress(currentQuery)) {
               await ensureExtra(
                 "stress",
                 msg.stressUrl ?? null,
-                stressLoaded,
-                async (r) => setStress(parseStress(await r.text())),
+                async (r) => {
+                  ctx.stress = parseStress(await r.text());
+                },
               );
             }
             if (needsCategories(currentQuery)) {
               await ensureExtra(
                 "categories",
                 msg.categoriesUrl ?? null,
-                categoriesLoaded,
-                async (r) => setCategories(parseCategories(await r.text())),
+                async (r) => {
+                  ctx.categories = parseCategories(await r.text());
+                },
               );
             }
             if (needsNeighbours(currentQuery)) {
               await ensureExtra(
                 "neighbours",
                 msg.neighboursUrl ?? null,
-                neighboursLoaded,
-                async (r) => setNeighbours(parseNeighbours(await r.arrayBuffer())),
+                async (r) => {
+                  ctx.neighbours = parseNeighbours(await r.arrayBuffer());
+                },
               );
             }
             if (needsThesaurus(currentQuery)) {
               await ensureExtra(
                 "thesaurus",
                 msg.thesaurusUrl ?? null,
-                thesaurusLoaded,
-                async (r) => setThesaurus(parseThesaurus(await r.text())),
+                async (r) => {
+                  ctx.thesaurus = parseThesaurus(await r.text());
+                },
               );
             }
           } catch {
@@ -1717,8 +1711,8 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // from, so read it once the data is loaded.
         nearOrder = null;
         const nearWord = /\{\s*near\s*\d*\s*:\s*([a-z ]+)\}/i.exec(currentQuery);
-        if (nearWord && neighboursLoaded()) {
-          const list = nearestTo(nearWord[1].trim(), 64);
+        if (nearWord && ctx.neighbours) {
+          const list = nearestTo(ctx.neighbours, nearWord[1].trim(), 64);
           if (list) nearOrder = new Map(list.map((w, i) => [w, i]));
         }
         resultFilter = null;
@@ -1746,7 +1740,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           try {
             const engine = await getWasmEngine();
             if (token !== runToken) return; // superseded while instantiating
-            session = new WasmSession(engine, currentQuery);
+            session = new WasmSession(engine, currentQuery, ctx);
           } catch (e) {
             if (e instanceof ParseError) {
               post({ type: "parse-error", rest: e.rest, detail: e.detail });
@@ -1765,7 +1759,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         }
         if (!session) {
           try {
-            session = new SearchSession(reader, currentQuery, undefined, {
+            session = new SearchSession(reader, currentQuery, ctx, undefined, {
               prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
             });
           } catch (e) {

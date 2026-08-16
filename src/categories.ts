@@ -19,8 +19,6 @@ export interface Categories {
   index: Map<string, number[]>;
 }
 
-let loaded: Categories | null = null;
-
 /** A category wider than this is a whole branch of the dictionary. */
 export const MAX_CATEGORY = 4000;
 
@@ -47,22 +45,17 @@ export function parseCategories(text: string): Categories {
   return { names, children, index };
 }
 
-export function setCategories(c: Categories | null): void {
-  loaded = c;
-}
-
-export function categoriesLoaded(): boolean {
-  return loaded !== null;
-}
-
 /**
  * Every name below `word`, including its own. Returns null when WordNet has no
  * such noun or verb, and null when the category is so broad that expanding it
  * would be a way of asking for the dictionary.
  */
-export function kindsOf(word: string): string[] | null {
-  if (!loaded) return null;
-  const roots = loaded.index.get(word);
+export function kindsOf(
+  c: Categories | null,
+  word: string,
+): string[] | null {
+  if (!c) return null;
+  const roots = c.index.get(word);
   if (!roots) return null;
   const seen = new Set<number>();
   const stack = [...roots];
@@ -71,9 +64,9 @@ export function kindsOf(word: string): string[] | null {
     const at = stack.pop()!;
     if (seen.has(at)) continue;
     seen.add(at);
-    for (const name of loaded.names[at]) out.add(name);
+    for (const name of c.names[at]) out.add(name);
     if (out.size > MAX_CATEGORY) return null;
-    for (const kid of loaded.children[at]) stack.push(kid);
+    for (const kid of c.children[at]) stack.push(kid);
   }
   return [...out];
 }

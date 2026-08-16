@@ -11,6 +11,9 @@ import { CompressedRangeSource } from "../src/compressed-source.js";
 import { buildIdxz } from "../src/idxz-build.js";
 import { IndexReader } from "../src/index-reader.js";
 import { SearchSession, SearchResult } from "../src/search-session.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 const INDEX_PATH = new URL("../web/public/demo.index", import.meta.url)
   .pathname;
@@ -51,7 +54,7 @@ async function collect(
   maxSteps: number,
   prefetchDepth = 0,
 ): Promise<SearchResult[]> {
-  const session = new SearchSession(reader, query, undefined, { prefetchDepth });
+  const session = new SearchSession(reader, query, ctx, undefined, { prefetchDepth });
   const results: SearchResult[] = [];
   await session.run(maxSteps, 50, (r) => results.push(r));
   return results;

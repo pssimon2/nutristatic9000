@@ -7,9 +7,9 @@
 // replay a query and suppress already-emitted results.
 
 import { ALPHABET, Nfa, NSYM, trim } from "./automata.js";
-import { Box, parseExpr, parseExprBox } from "./expr-parse.js";
-import { DEFAULT_RESTART, ParseError } from "./find-expr.js";
+import { DEFAULT_RESTART, compileConjuncts } from "./find-expr.js";
 import type { SearchResult, SessionStatus } from "./search-session.js";
+import { SessionContext } from "./session-context.js";
 
 /** The kernel ran out of a fixed-capacity table; retry on the JS engine. */
 export class WasmCapacityError extends Error {
@@ -247,20 +247,11 @@ export class WasmSession {
   constructor(
     private readonly engine: WasmEngine,
     query: string,
+    ctx: SessionContext,
   ) {
-    // Parse exactly like compileQuery (same ParseError contract), but keep
-    // the conjunct NFAs unmaterialized for the kernel's lazy filters.
-    const box = new Box();
-    const p = parseExprBox(query, 0, box, false);
-    if (p === null || p !== query.length) {
-      throw new ParseError(p === null ? query : query.slice(p));
-    }
-    for (const conjunct of box.and) {
-      const space = new Nfa();
-      parseExpr(" ", 0, space, true);
-      conjunct.concat(space);
-    }
-    engine.beginQuery(box.and.map((c) => trim(c)));
+    // Same conjuncts as the JS engine (same ParseError contract), kept
+    // unmaterialized for the kernel's lazy filters.
+    engine.beginQuery(compileConjuncts(query, ctx).map((c) => trim(c)));
     engine.owner = this;
   }
 

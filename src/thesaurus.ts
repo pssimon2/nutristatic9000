@@ -14,8 +14,6 @@
 
 export type Thesaurus = Map<string, string[]>;
 
-let loaded: Thesaurus | null = null;
-
 /** Parse tab-separated sense groups into a word -> related-words map. */
 export function parseThesaurus(text: string): Thesaurus {
   const out: Thesaurus = new Map();
@@ -33,17 +31,12 @@ export function parseThesaurus(text: string): Thesaurus {
   return out;
 }
 
-export function setThesaurus(t: Thesaurus | null): void {
-  loaded = t;
-}
-
-export function thesaurusLoaded(): boolean {
-  return loaded !== null;
-}
-
 /** Words sharing a sense with `word`, or null if it isn't in WordNet. */
-export function relatedTo(word: string): string[] | null {
-  return loaded?.get(word) ?? null;
+export function relatedTo(
+  t: Thesaurus | null,
+  word: string,
+): string[] | null {
+  return t?.get(word) ?? null;
 }
 
 export function needsThesaurus(query: string): boolean {

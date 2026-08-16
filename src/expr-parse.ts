@@ -33,18 +33,11 @@ import {
   optimize,
 } from "./automata.js";
 import { ParseError } from "./find-expr.js";
-import {
-  homophonesOf,
-  phoneticsLoaded,
-  rhymesOf,
-} from "./phonetics.js";
-import {
-  MAX_CATEGORY,
-  categoriesLoaded,
-  kindsOf,
-} from "./categories.js";
-import { nearestTo, neighboursLoaded } from "./neighbours.js";
-import { relatedTo, thesaurusLoaded } from "./thesaurus.js";
+import { SessionContext } from "./session-context.js";
+import { homophonesOf, rhymesOf } from "./phonetics.js";
+import { MAX_CATEGORY, kindsOf } from "./categories.js";
+import { nearestTo } from "./neighbours.js";
+import { relatedTo } from "./thesaurus.js";
 import { entriesNfa, listNfa, normalizeEntry } from "./word-lists.js";
 import {
   CONSTRUCT_NAMES,
@@ -97,11 +90,12 @@ export function parseExprBox(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
-  let p = parseBranch(s, i, box, quoted);
+  let p = parseBranch(s, i, box, quoted, ctx);
   while (p !== null && s[p] === "|") {
     const branch = new Box();
-    p = parseBranch(s, p + 1, branch, quoted);
+    p = parseBranch(s, p + 1, branch, quoted, ctx);
     // Union does not distribute over the conjunct lists: materialize.
     const merged = box.materialize();
     merged.union(branch.materialize());
@@ -116,9 +110,10 @@ export function parseExpr(
   i: number,
   fst: Nfa,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   const box = new Box();
-  const p = parseExprBox(s, i, box, quoted);
+  const p = parseExprBox(s, i, box, quoted, ctx);
   if (p !== null) fst.copyFrom(box.materialize());
   return p;
 }
@@ -128,13 +123,14 @@ function parseBranch(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   const first = new Box();
-  let p = parseFactor(s, i, first, quoted);
+  let p = parseFactor(s, i, first, quoted, ctx);
   box.and = first.and;
   while (p !== null && s[p] === "&") {
     const next = new Box();
-    p = parseFactor(s, p + 1, next, quoted);
+    p = parseFactor(s, p + 1, next, quoted, ctx);
     // Intersection is associative: just flatten the conjunct lists.
     box.and.push(...next.and);
   }
@@ -146,12 +142,13 @@ function parseFactor(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   if (s[i] === "!") {
     // Negation applies to the whole factor, so `!.*ee.*` reads as "no double
     // e" rather than binding to the first piece.
     const inner = new Box();
-    const p = parseFactor(s, i + 1, inner, quoted);
+    const p = parseFactor(s, i + 1, inner, quoted, ctx);
     if (p === null || p === i + 1) return null; // nothing to negate
     const negated = complement(inner.materialize());
     if (!negated) return null; // too large to determinize
@@ -163,7 +160,7 @@ function parseFactor(
   let p = i;
   for (;;) {
     const piece = new Box();
-    const n = parsePiece(s, p, piece, quoted);
+    const n = parsePiece(s, p, piece, quoted, ctx);
     if (n === null) return p;
     if (isEpsilon) {
       // ε · X = X: adopt the piece wholesale, conjunct structure intact.
@@ -186,9 +183,10 @@ function parsePiece(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   const atom = new Box();
-  let p = parseAtom(s, i, atom, quoted);
+  let p = parseAtom(s, i, atom, quoted, ctx);
   if (p === null) return null;
 
   let min: number;
@@ -258,15 +256,16 @@ function parseAtom(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   if (i >= s.length) return null;
 
   if (s[i] === '"' && !quoted) {
-    const p = parseExprBox(s, i + 1, box, true);
+    const p = parseExprBox(s, i + 1, box, true, ctx);
     if (p === null || s[p] !== '"') return null;
     return p + 1;
   } else if (s[i] === "(") {
-    const p = parseExprBox(s, i + 1, box, quoted);
+    const p = parseExprBox(s, i + 1, box, quoted, ctx);
     if (p === null || s[p] !== ")") return null;
     return p + 1;
   } else if (s[i] === "<" && s[i + 1] === "<") {
@@ -278,13 +277,13 @@ function parseAtom(
     box.and = bank;
     return close + 2;
   } else if (s[i] === "<") {
-    const p = parseAnagram(s, i + 1, box, quoted);
+    const p = parseAnagram(s, i + 1, box, quoted, ctx);
     if (p === null || s[p] !== ">") return null;
     return p + 1;
   } else if (s[i] === "{") {
     // A brace at atom position is a named constraint; as a quantifier it can
     // only follow an atom, so there is no ambiguity with `A{4,8}`.
-    return parseNamedConstraint(s, i, box, quoted);
+    return parseNamedConstraint(s, i, box, quoted, ctx);
   }
 
   const chars: number[] = [];
@@ -363,6 +362,7 @@ function parseNamedConstraint(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   const head = /^\{\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (!head) return null;
@@ -382,13 +382,13 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!categoriesLoaded()) {
+    if (!ctx.categories) {
       throw new ParseError(
         constructText(s, i),
         "{kind:…} needs the category data, which this build could not load",
       );
     }
-    const kinds = kindsOf(word);
+    const kinds = kindsOf(ctx.categories, word);
     if (!kinds) {
       throw new ParseError(
         constructText(s, i),
@@ -408,13 +408,13 @@ function parseNamedConstraint(
     const limit = /^\s*(\d+)\s*$/.exec(spec);
     if (spec.trim() !== "" && !limit) return null;
     const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!neighboursLoaded()) {
+    if (!ctx.neighbours) {
       throw new ParseError(
         constructText(s, i),
         "{near:…} needs the meaning table, which this build could not load",
       );
     }
-    const words = nearestTo(word, limit ? +limit[1] : 32);
+    const words = nearestTo(ctx.neighbours, word, limit ? +limit[1] : 32);
     if (!words) {
       throw new ParseError(
         constructText(s, i),
@@ -431,13 +431,13 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!thesaurusLoaded()) {
+    if (!ctx.thesaurus) {
       throw new ParseError(
         constructText(s, i),
         "{like:…} needs the thesaurus, which this build could not load",
       );
     }
-    const words = relatedTo(word);
+    const words = relatedTo(ctx.thesaurus, word);
     if (!words) {
       throw new ParseError(
         constructText(s, i),
@@ -453,14 +453,17 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!phoneticsLoaded()) {
+    if (!ctx.phonetics) {
       throw new ParseError(
         constructText(s, i),
         `{${name}:…} needs the pronunciation dictionary, which this build ` +
           "could not load",
       );
     }
-    const words = name === "rhyme" ? rhymesOf(word) : homophonesOf(word);
+    const words =
+      name === "rhyme"
+        ? rhymesOf(ctx.phonetics, word)
+        : homophonesOf(ctx.phonetics, word);
     if (!words) {
       throw new ParseError(
         constructText(s, i),
@@ -504,7 +507,7 @@ function parseNamedConstraint(
     // Unlike the other encodings this wraps a pattern: it constrains how the
     // match is spelled rather than supplying the text.
     if (spec.trim() !== "") return null;
-    const p = parseExprBox(s, i + head[0].length, box, quoted);
+    const p = parseExprBox(s, i + head[0].length, box, quoted, ctx);
     if (p === null || s[p] !== "}") return null;
     box.and.push(elementsNfa());
     return p + 1;
@@ -587,7 +590,7 @@ function parseNamedConstraint(
         : `"${name}" doesn't understand "${spec.trim()}" in ${whole}`,
     );
   }
-  const p = parseExprBox(s, i + head[0].length, box, quoted);
+  const p = parseExprBox(s, i + head[0].length, box, quoted, ctx);
   if (p === null || s[p] !== "}") return null;
   box.and.push(...conjuncts);
   return p + 1;
@@ -690,13 +693,14 @@ function parseAnagram(
   i: number,
   box: Box,
   quoted: boolean,
+  ctx: SessionContext,
 ): number | null {
   const parts: AnagramPart[] = [];
   let p = i;
   while (s[p] !== ">") {
     if (p >= s.length) return null;
     const piece = new Box();
-    const n = parsePiece(s, p, piece, quoted);
+    const n = parsePiece(s, p, piece, quoted, ctx);
     if (n === null) return null;
     p = n;
     parts.push({ expr: optimize(piece.materialize()), count: 1 });

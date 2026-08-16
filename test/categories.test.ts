@@ -7,11 +7,13 @@ import {
   kindsOf,
   needsCategories,
   parseCategories,
-  setCategories,
 } from "../src/categories.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 function matches(pattern: string, text: string): boolean {
-  const filter = compileQuery(pattern);
+  const filter = compileQuery(pattern, ctx);
   let state = filter.startState;
   for (const ch of `${text} `) {
     state = filter.transition(state, ch.charCodeAt(0));
@@ -21,7 +23,7 @@ function matches(pattern: string, text: string): boolean {
 }
 
 beforeAll(() => {
-  setCategories(parseCategories(fs.readFileSync("web/public/categories.txt", "utf8")));
+  ctx.categories = parseCategories(fs.readFileSync("web/public/categories.txt", "utf8"));
 });
 
 describe("categories", () => {
@@ -31,7 +33,7 @@ describe("categories", () => {
   });
 
   it("walks the whole hierarchy, not one level", () => {
-    const birds = kindsOf("bird")!;
+    const birds = kindsOf(ctx.categories, "bird")!;
     expect(birds).toContain("bird"); // the word itself is one
     expect(birds).toContain("penguin");
     expect(birds).toContain("bittern"); // several levels down
@@ -39,13 +41,13 @@ describe("categories", () => {
   });
 
   it("keeps multi-word names, since the corpus indexes phrases", () => {
-    expect(kindsOf("bird")).toContain("bald eagle");
+    expect(kindsOf(ctx.categories, "bird")).toContain("bald eagle");
   });
 
   it("refuses a category that is really the dictionary", () => {
     // ENTITY sits at the root of every noun in WordNet.
-    expect(kindsOf("entity")).toBeNull();
-    expect(kindsOf("zzzqq")).toBeNull();
+    expect(kindsOf(ctx.categories, "entity")).toBeNull();
+    expect(kindsOf(ctx.categories, "zzzqq")).toBeNull();
   });
 
   it("composes with the pattern, which is the whole point", () => {
@@ -56,7 +58,7 @@ describe("categories", () => {
 
   it("explains an unusable category", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{kind:zzzqq}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{kind:zzzqq}", 0, nfa, false, ctx)).toThrow(
       /no category "zzzqq"/,
     );
   });

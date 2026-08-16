@@ -9,6 +9,9 @@ import { IndexReader } from "../src/index-reader.js";
 import { ParseError } from "../src/find-expr.js";
 import { SearchSession } from "../src/search-session.js";
 import { WasmEngine, WasmSession } from "../src/wasm-session.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 const INDEX = "web/public/demo.index";
 const KERNEL = "wasm-kernel/kernel.wasm";
@@ -28,14 +31,14 @@ beforeAll(async () => {
 });
 
 async function jsResults(query: string): Promise<Array<[string, number]>> {
-  const session = new SearchSession(reader, query);
+  const session = new SearchSession(reader, query, ctx);
   const out: Array<[string, number]> = [];
   await session.run(BUDGET, MAX_RESULTS, (r) => out.push([r.text, r.score]));
   return out;
 }
 
 async function wasmResults(query: string): Promise<Array<[string, number]>> {
-  const session = new WasmSession(engine, query);
+  const session = new WasmSession(engine, query, ctx);
   const out: Array<[string, number]> = [];
   await session.run(BUDGET, MAX_RESULTS, (r) => out.push([r.text, r.score]));
   return out;
@@ -77,11 +80,11 @@ describe("WasmSession parity", () => {
   }
 
   it("throws ParseError like the JS engine", () => {
-    expect(() => new WasmSession(engine, "([broken")).toThrow(ParseError);
+    expect(() => new WasmSession(engine, "([broken", ctx)).toThrow(ParseError);
   });
 
   it("resumes with a raised step budget (try harder)", async () => {
-    const session = new WasmSession(engine, "<aaagmnr>");
+    const session = new WasmSession(engine, "<aaagmnr>", ctx);
     const first: string[] = [];
     const status = await session.run(1000, MAX_RESULTS, (r) => first.push(r.text));
     expect(status).toBe("limit");
@@ -99,10 +102,10 @@ describe("WasmSession parity", () => {
     // Two sessions share one engine; creating the second re-seeds the
     // kernel, so the first must refuse to run (the worker relies on this to
     // keep a stale parked run from corrupting the new query's stream).
-    const first = new WasmSession(engine, "<aaagmnr>");
+    const first = new WasmSession(engine, "<aaagmnr>", ctx);
     const got: string[] = [];
     await first.run(500, 5, (r) => got.push(r.text));
-    const second = new WasmSession(engine, "solar s_stem");
+    const second = new WasmSession(engine, "solar s_stem", ctx);
     await expect(first.run(BUDGET, 5, () => {})).rejects.toThrow(/superseded/);
     // The new owner is unaffected.
     const out: string[] = [];
@@ -112,7 +115,7 @@ describe("WasmSession parity", () => {
 
   it("reports progress and honors the yield callback", async () => {
     // A 16-letter anagram reliably runs the whole budget on the demo index.
-    const session = new WasmSession(engine, "<aaeeiimnnorsttu>");
+    const session = new WasmSession(engine, "<aaeeiimnnorsttu>", ctx);
     let progress = 0;
     let yields = 0;
     const status = await session.run(

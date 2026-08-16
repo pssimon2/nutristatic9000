@@ -8,11 +8,13 @@ import {
   needsPhonetics,
   parsePhonetics,
   rhymesOf,
-  setPhonetics,
 } from "../src/phonetics.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 function matches(pattern: string, text: string): boolean {
-  const filter = compileQuery(pattern);
+  const filter = compileQuery(pattern, ctx);
   let state = filter.startState;
   for (const ch of `${text} `) {
     state = filter.transition(state, ch.charCodeAt(0));
@@ -22,7 +24,7 @@ function matches(pattern: string, text: string): boolean {
 }
 
 beforeAll(() => {
-  setPhonetics(parsePhonetics(fs.readFileSync("web/public/phonetics.txt", "utf8")));
+  ctx.phonetics = parsePhonetics(fs.readFileSync("web/public/phonetics.txt", "utf8"));
 });
 
 describe("phonetics", () => {
@@ -33,7 +35,7 @@ describe("phonetics", () => {
   });
 
   it("rhymes from the last primary-stressed vowel", () => {
-    const tree = rhymesOf("tree")!;
+    const tree = rhymesOf(ctx.phonetics, "tree")!;
     expect(tree).toContain("free");
     expect(tree).toContain("we");
     // ANti carries its stress on the first syllable: it rhymes with AUNTIE,
@@ -43,19 +45,19 @@ describe("phonetics", () => {
   });
 
   it("finds homophones", () => {
-    const knight = homophonesOf("knight")!;
+    const knight = homophonesOf(ctx.phonetics, "knight")!;
     expect(knight).toContain("night");
     expect(knight).toContain("knight");
     // The dictionary carries surnames and variant spellings, so homophone
     // groups are wider than a dictionary of common words would give: CAT has
     // CATT, KAT and KATT. Only a word it doesn't know at all comes back null.
-    expect(homophonesOf("zzzqq")).toBeNull();
+    expect(homophonesOf(ctx.phonetics, "zzzqq")).toBeNull();
   });
 
   it("says so for words it doesn't know", () => {
-    expect(rhymesOf("zzzqq")).toBeNull();
+    expect(rhymesOf(ctx.phonetics, "zzzqq")).toBeNull();
     // Orange really has no rhyme, so it forms no group.
-    expect(rhymesOf("orange")).toBeNull();
+    expect(rhymesOf(ctx.phonetics, "orange")).toBeNull();
   });
 
   it("matches through the pattern language and composes", () => {
@@ -66,7 +68,7 @@ describe("phonetics", () => {
 
   it("explains an unknown word rather than failing to parse", () => {
     const nfa = new Nfa();
-    expect(() => parseExpr("{rhyme:zzzqq}", 0, nfa, false)).toThrow(
+    expect(() => parseExpr("{rhyme:zzzqq}", 0, nfa, false, ctx)).toThrow(
       /doesn't know "zzzqq"/,
     );
   });

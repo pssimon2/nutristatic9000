@@ -19,27 +19,12 @@ import {
 } from "../src/result-filter.js";
 import fs from "node:fs";
 import { splitWords } from "../src/compound.js";
-import {
-  needsPhonetics,
-  parsePhonetics,
-  setPhonetics,
-} from "../src/phonetics.js";
-import {
-  needsThesaurus,
-  parseThesaurus,
-  setThesaurus,
-} from "../src/thesaurus.js";
-import {
-  needsCategories,
-  parseCategories,
-  setCategories,
-} from "../src/categories.js";
-import { needsStress, parseStress, setStress, shapeOf, syllablesOf } from "../src/stress.js";
-import {
-  needsNeighbours,
-  parseNeighbours,
-  setNeighbours,
-} from "../src/neighbours.js";
+import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
+import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
+import { needsCategories, parseCategories } from "../src/categories.js";
+import { needsStress, parseStress, shapeOf, syllablesOf } from "../src/stress.js";
+import { needsNeighbours, parseNeighbours } from "../src/neighbours.js";
+import { SessionContext } from "../src/session-context.js";
 import { makeWordChecker } from "../src/index-words.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
@@ -110,11 +95,13 @@ try {
 // the query needs it. Ships next to the web assets.
 // Checked against `expr`, not `pattern`: a {syllables …}/{stress …} wrapper
 // has already been stripped out of the latter.
+const ctx = new SessionContext();
+
 for (const [needed, file, install] of [
-  [needsPhonetics(expr), "phonetics.txt", (t: string) => setPhonetics(parsePhonetics(t))],
-  [needsThesaurus(expr), "thesaurus.txt", (t: string) => setThesaurus(parseThesaurus(t))],
-  [needsCategories(expr), "categories.txt", (t: string) => setCategories(parseCategories(t))],
-  [needsStress(expr), "stress.txt", (t: string) => setStress(parseStress(t))],
+  [needsPhonetics(expr), "phonetics.txt", (t: string) => (ctx.phonetics = parsePhonetics(t))],
+  [needsThesaurus(expr), "thesaurus.txt", (t: string) => (ctx.thesaurus = parseThesaurus(t))],
+  [needsCategories(expr), "categories.txt", (t: string) => (ctx.categories = parseCategories(t))],
+  [needsStress(expr), "stress.txt", (t: string) => (ctx.stress = parseStress(t))],
 ] as Array<[boolean, string, (t: string) => void]>) {
   if (!needed) continue;
   try {
@@ -127,8 +114,8 @@ for (const [needed, file, install] of [
 if (needsNeighbours(expr)) {
   try {
     const buf = fs.readFileSync(new URL("../web/public/neighbours.bin", import.meta.url));
-    setNeighbours(
-      parseNeighbours(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)),
+    ctx.neighbours = parseNeighbours(
+      buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
     );
   } catch {
     // Left unloaded: the parser reports what is missing.
@@ -137,7 +124,7 @@ if (needsNeighbours(expr)) {
 
 let filter;
 try {
-  filter = compileQuery(pattern);
+  filter = compileQuery(pattern, ctx);
 } catch (e) {
   if (e instanceof ParseError) {
     console.error(`error: ${e.message}`);
@@ -164,11 +151,11 @@ async function present(score: number, text: string): Promise<string | null> {
       if (!parts) return null;
       note = `  ${parts.join("·")}`;
     } else if (resultFilter.kind === "syllables") {
-      const n = syllablesOf(text);
+      const n = syllablesOf(ctx.stress, text);
       if (n === null || n < resultFilter.lo || n > resultFilter.hi) return null;
       note = `  ${n} syll`;
     } else if (resultFilter.kind === "stress") {
-      const shape = shapeOf(text);
+      const shape = shapeOf(ctx.stress, text);
       if (!shape || shape.replace(/2/g, "1") !== resultFilter.shape.replace(/2/g, "1")) {
         return null;
       }

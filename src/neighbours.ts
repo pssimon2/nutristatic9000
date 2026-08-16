@@ -30,8 +30,6 @@ export interface Neighbours {
   table: Uint16Array;
 }
 
-let loaded: Neighbours | null = null;
-
 const MAGIC = "NSEM2";
 const HEADER = 16;
 
@@ -57,27 +55,23 @@ export function parseNeighbours(buffer: ArrayBuffer): Neighbours {
   return { words, index, k, table };
 }
 
-export function setNeighbours(n: Neighbours | null): void {
-  loaded = n;
-}
-
-export function neighboursLoaded(): boolean {
-  return loaded !== null;
-}
-
 /**
  * The `limit` nearest words to `word` (nearest first), or null when the
  * vocabulary doesn't contain it. The word itself leads the list: a query
  * asking for words like X should still match X.
  */
-export function nearestTo(word: string, limit = 32): string[] | null {
-  if (!loaded) return null;
-  const at = loaded.index.get(word);
+export function nearestTo(
+  n: Neighbours | null,
+  word: string,
+  limit = 32,
+): string[] | null {
+  if (!n) return null;
+  const at = n.index.get(word);
   if (at === undefined) return null;
   const out = [word];
-  for (let i = 0; i < Math.min(limit, loaded.k); ++i) {
-    const j = loaded.table[at * loaded.k + i];
-    const near = loaded.words[j];
+  for (let i = 0; i < Math.min(limit, n.k); ++i) {
+    const j = n.table[at * n.k + i];
+    const near = n.words[j];
     if (near && near !== word) out.push(near);
   }
   return out;

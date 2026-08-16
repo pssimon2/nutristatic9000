@@ -3,14 +3,16 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   needsStress,
   parseStress,
-  setStress,
   shapeOf,
   syllablesOf,
 } from "../src/stress.js";
 import { FilterError, parseFilterWrapper } from "../src/result-filter.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 beforeAll(() => {
-  setStress(parseStress(fs.readFileSync("web/public/stress.txt", "utf8")));
+  ctx.stress = parseStress(fs.readFileSync("web/public/stress.txt", "utf8"));
 });
 
 describe("syllables and stress", () => {
@@ -21,19 +23,19 @@ describe("syllables and stress", () => {
   });
 
   it("reads a shape whose length is the syllable count", () => {
-    expect(shapeOf("computer")).toBe("010");
-    expect(syllablesOf("computer")).toBe(3);
-    expect(syllablesOf("cat")).toBe(1);
+    expect(shapeOf(ctx.stress, "computer")).toBe("010");
+    expect(syllablesOf(ctx.stress, "computer")).toBe(3);
+    expect(syllablesOf(ctx.stress, "cat")).toBe(1);
   });
 
   it("adds a phrase up word by word", () => {
-    expect(shapeOf("solar system")).toBe("1010");
-    expect(syllablesOf("solar system")).toBe(4);
+    expect(shapeOf(ctx.stress, "solar system")).toBe("1010");
+    expect(syllablesOf(ctx.stress, "solar system")).toBe(4);
   });
 
   it("returns null rather than guessing at an unknown word", () => {
-    expect(shapeOf("zzzqq")).toBeNull();
-    expect(syllablesOf("solar zzzqq")).toBeNull();
+    expect(shapeOf(ctx.stress, "zzzqq")).toBeNull();
+    expect(syllablesOf(ctx.stress, "solar zzzqq")).toBeNull();
   });
 
   it("parses the filter specs", () => {

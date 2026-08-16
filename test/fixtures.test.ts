@@ -9,6 +9,9 @@ import { describe, expect, it } from "vitest";
 import { MemorySource } from "../src/byte-source.js";
 import { IndexReader } from "../src/index-reader.js";
 import { SearchSession } from "../src/search-session.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 const fixtures: Record<string, { steps: number; results: [string, number][] }> =
   JSON.parse(
@@ -25,7 +28,7 @@ describe("golden search fixtures (demo index)", () => {
         new URL("../web/public/demo.index", import.meta.url),
       );
       const reader = await IndexReader.open(new MemorySource(data));
-      const session = new SearchSession(reader, query);
+      const session = new SearchSession(reader, query, ctx);
       const results: [string, number][] = [];
       await session.run(200000, 200, (r) => results.push([r.text, r.score]));
       results.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));

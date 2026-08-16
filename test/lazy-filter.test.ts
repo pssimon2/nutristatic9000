@@ -10,6 +10,9 @@ import { BufferSink, IndexWriter, writeEntries } from "../src/index-writer.js";
 import { Box, parseExprBox } from "../src/expr-parse.js";
 import { makeFilter } from "../src/expr-filter.js";
 import { SearchDriver } from "../src/search-driver.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 async function lazySearch(
   expr: string,
@@ -19,7 +22,7 @@ async function lazySearch(
   writeEntries(new IndexWriter(sink), entries.slice());
 
   const box = new Box();
-  const p = parseExprBox(expr, 0, box, false);
+  const p = parseExprBox(expr, 0, box, false, ctx);
   expect(p, `parse of ${JSON.stringify(expr)}`).toBe(expr.length);
 
   const reader = await IndexReader.open(new MemorySource(sink.bytes()));
@@ -90,7 +93,7 @@ describe("lazy conjunct filter", () => {
 
     for (const query of [`<${letters}>`, `(<${letters}>&_{21})`]) {
       const t0 = performance.now();
-      const driver = makeDriver(reader, compileQuery(query));
+      const driver = makeDriver(reader, compileQuery(query, ctx));
       await driver.next();
       const ms = performance.now() - t0;
       expect(driver.text, query).toBe(shuffled + " ");

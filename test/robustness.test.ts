@@ -14,6 +14,9 @@ import {
 import { MemorySource, SyncFileReader, SyncFileSource, ViewHolder } from "../src/byte-source.js";
 import { IndexReader } from "../src/index-reader.js";
 import { ParseError, compileQuery } from "../src/find-expr.js";
+import { SessionContext } from "../src/session-context.js";
+
+const ctx = new SessionContext();
 
 async function deflateRaw(data: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([data as BlobPart])
@@ -134,15 +137,15 @@ describe("SyncFileSource", () => {
 
 describe("quantifier bounds", () => {
   it("rejects huge lower bounds like huge upper bounds", () => {
-    expect(() => compileQuery("a{300}")).toThrow(ParseError);
-    expect(() => compileQuery("a{300,}")).toThrow(ParseError);
-    expect(() => compileQuery("a{100000000,}")).toThrow(ParseError);
+    expect(() => compileQuery("a{300}", ctx)).toThrow(ParseError);
+    expect(() => compileQuery("a{300,}", ctx)).toThrow(ParseError);
+    expect(() => compileQuery("a{100000000,}", ctx)).toThrow(ParseError);
   });
 
   it("still accepts sane bounds", () => {
-    expect(() => compileQuery("a{2,3}")).not.toThrow();
-    expect(() => compileQuery("a{0,}")).not.toThrow();
-    expect(() => compileQuery("a{255}")).not.toThrow();
+    expect(() => compileQuery("a{2,3}", ctx)).not.toThrow();
+    expect(() => compileQuery("a{0,}", ctx)).not.toThrow();
+    expect(() => compileQuery("a{255}", ctx)).not.toThrow();
   });
 });
 
