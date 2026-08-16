@@ -106,6 +106,9 @@ export async function fetchIdxzPrefix(
 
 export class CompressedRangeSource implements ByteSource {
   private readonly cache = new Map<number, Uint8Array>();
+  // Span of the most recent ensure(); empty until the first call.
+  private pinFirst = 0;
+  private pinLast = -1;
   private readonly inflight = new Map<number, Promise<void>>();
   bytesFetched = 0; // compressed bytes over the wire
   requests = 0;
@@ -172,13 +175,25 @@ export class CompressedRangeSource implements ByteSource {
   }
 
   ensure(start: number, end: number): void | Promise<void> {
-    return this.ensureInternal(start, end);
+    return this.ensureInternal(start, end, true);
   }
 
-  private ensureInternal(start: number, end: number): void | Promise<void> {
+  /** `pin`: see the note on HttpRangeSource.load — a prefetch must not pin. */
+  private ensureInternal(
+    start: number,
+    end: number,
+    pin: boolean,
+  ): void | Promise<void> {
     const bs = this.header.blockSize;
     const first = Math.floor(start / bs);
     const last = Math.floor((end - 1) / bs);
+    if (pin) {
+      // Held un-evictable until the next ensure: the caller reads it with a
+      // synchronous byte() in the continuation, and a prefetch completing in
+      // between must not take it away. (Same hazard as HttpRangeSource.)
+      this.pinFirst = first;
+      this.pinLast = last;
+    }
     let missing: number[] | null = null;
     for (let b = first; b <= last; ++b) {
       const hit = this.cache.get(b);
@@ -293,6 +308,7 @@ export class CompressedRangeSource implements ByteSource {
     while (this.cache.size > this.maxBlocks) {
       const oldest = this.cache.keys().next().value!;
       if (oldest >= keepFirst && oldest <= keepLast) break;
+      if (oldest >= this.pinFirst && oldest <= this.pinLast) break; // promised
       this.cache.delete(oldest);
     }
   }
@@ -323,7 +339,7 @@ export class CompressedRangeSource implements ByteSource {
       Math.floor((this.ewmaBw * this.ewmaRtt) / (this.header.blockSize / 2)),
     );
     if (this.inflight.size >= budget) return;
-    const r = this.ensureInternal(start, end);
+    const r = this.ensureInternal(start, end, false);
     if (r) r.catch(() => {});
   }
 }

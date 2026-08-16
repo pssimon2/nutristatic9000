@@ -201,6 +201,11 @@ export class HttpRangeSource implements ByteSource {
   // Chunks currently being loaded, so concurrent ensure()/prefetch calls for
   // the same chunk share one request instead of double-fetching.
   private readonly inflight = new Map<number, Promise<void>>();
+  // The span of the most recent ensure(), held un-evictable until the next
+  // one. An empty range by construction, so nothing is pinned before the
+  // first call.
+  private pinFirst = 0;
+  private pinLast = -1;
   bytesFetched = 0;
   requests = 0;
   // Live estimates of link bandwidth (bytes/s) and round-trip time (s),
@@ -276,8 +281,30 @@ export class HttpRangeSource implements ByteSource {
   }
 
   ensure(start: number, end: number): void | Promise<void> {
+    return this.load(start, end, true);
+  }
+
+  /**
+   * `pin` marks the span as one a caller is waiting to read.
+   *
+   * Whatever ensure() promises must survive until the caller has read it: the
+   * read happens in the continuation, so a speculative prefetch completing in
+   * between would otherwise be free to evict it — and the caller's next act is
+   * a *synchronous* byte(), which cannot re-fetch. A prefetch passes false,
+   * because it is nobody's promise and must not displace the pin protecting a
+   * real read.
+   */
+  private load(
+    start: number,
+    end: number,
+    pin: boolean,
+  ): void | Promise<void> {
     const first = Math.floor(start / this.chunkSize);
     const last = Math.floor((end - 1) / this.chunkSize);
+    if (pin) {
+      this.pinFirst = first;
+      this.pinLast = last;
+    }
     let missing: number[] | null = null;
     for (let c = first; c <= last; ++c) {
       const hit = this.cache.get(c);
@@ -373,6 +400,7 @@ export class HttpRangeSource implements ByteSource {
     while (this.cache.size > this.maxChunks) {
       const oldest = this.cache.keys().next().value!;
       if (oldest >= firstChunk && oldest <= lastChunk) break; // keep what we just loaded
+      if (oldest >= this.pinFirst && oldest <= this.pinLast) break; // promised
       this.cache.delete(oldest);
     }
   }
@@ -415,7 +443,7 @@ export class HttpRangeSource implements ByteSource {
       Math.floor((this.ewmaBw * this.ewmaRtt) / this.chunkSize),
     );
     if (this.inflight.size >= budget) return;
-    const r = this.ensure(start, end);
+    const r = this.load(start, end, false);
     if (r) r.catch(() => {});
   }
 }
