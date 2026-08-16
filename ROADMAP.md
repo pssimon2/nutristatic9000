@@ -190,7 +190,23 @@ Goal: mechanical, low-risk changes that everything later depends on.
   big-list construct, multi-word phrase, negation-heavy, multi-slot ×
   memory, disk, range(simulated), local-file — each with a step-count and
   wall-clock threshold checked in CI. Kernel-tier PRs must run it.
-- [ ] **S8. `--explain`.** CLI flag (and debug-panel view) printing the
+- [x] **S8. `--explain`.** *(done 2026-08-16)* `find-expr --explain` and the
+  `?debug=1` panel print the compiled plan: the peeled pattern, each conjunct's
+  automaton size, the predicate (marked as checked per match rather than
+  searched), the transforms, and the side datasets the query needs.
+  The number that carries the weight is **finiteness**, which is also a
+  down-payment on P3: a conjunct is finite when its trimmed automaton has no
+  productive cycle, and then its language is counted exactly (capped).
+  `{list:countries}` reports 197 strings — a set a planner could enumerate
+  instead of walking the trie — while `C*` reports unbounded, and a query
+  whose conjuncts are *all* unbounded says so, since that is what usually
+  explains a search that will not end.
+  One subtlety worth keeping: every unquoted literal carries a space
+  self-loop so it tolerates the corpus's spacing, which makes almost every
+  language infinite in the strict sense. Finiteness here means the *letter*
+  sequences are bounded, or `solar s_stem` would report "unbounded" and
+  explain nothing.
+  Original text: CLI flag (and debug-panel view) printing the
   compiled plan: conjuncts, chosen strategy (after Phase P), predicted
   cardinalities, predicates, transforms, data needs. Grows with the
   planner; start with what exists (conjunct count/sizes, filter type).

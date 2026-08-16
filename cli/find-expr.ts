@@ -29,6 +29,7 @@ import {
   emptyStats,
   formatStats,
 } from "../src/stats.js";
+import { formatPlan, planQuery } from "../src/plan.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
   if (e.code === "EPIPE") process.exit(0);
@@ -36,12 +37,14 @@ process.stdout.on("error", (e: NodeJS.ErrnoException) => {
 });
 
 const USAGE =
-  "usage: find-expr [--max-steps N] [--stats] input.index expression\n" +
+  "usage: find-expr [--max-steps N] [--stats] [--explain] input.index expression\n" +
   "  N: step limit (default 1000000; 0 = unlimited)";
 
 const args = process.argv.slice(2);
 const wantStats = args.includes("--stats");
 if (wantStats) args.splice(args.indexOf("--stats"), 1);
+const wantExplain = args.includes("--explain");
+if (wantExplain) args.splice(args.indexOf("--explain"), 1);
 // Same default computation limit as the upstream website; upstream's CLI
 // instead runs unbounded, which exhausts memory on open-ended patterns.
 let maxSteps = 1000000;
@@ -125,6 +128,16 @@ if (needsNeighbours(expr)) {
     );
   } catch {
     // Left unloaded: the parser reports what is missing.
+  }
+}
+
+if (wantExplain) {
+  // Before the search, and on stderr: this describes what is about to run.
+  try {
+    for (const line of formatPlan(planQuery(expr, ctx))) console.error(`# ${line}`);
+  } catch (e) {
+    console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(2);
   }
 }
 

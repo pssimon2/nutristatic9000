@@ -94,6 +94,12 @@ export interface CheckMsg {
   seq: number;
 }
 
+/** `?debug=1` asks what the query compiled to, before searching it. */
+export interface PlanMsg {
+  type: "plan";
+  query: string;
+}
+
 /** "Why did this match?" for one result of the current query. */
 export interface ExplainMsg {
   type: "explain";
@@ -111,4 +117,5 @@ export type InMsg =
   | OpenFileMsg
   | ListCopiesMsg
   | ExplainMsg
-  | CheckMsg;
+  | CheckMsg
+  | PlanMsg;

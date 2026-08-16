@@ -643,6 +643,13 @@ const statsText = (await page.textContent("#stats")).replace(/\s+/g, " ").trim()
 console.log("debug panel:", statsText.slice(0, 90));
 if (!/steps: [\d,]+/.test(statsText)) throw new Error("no step count in debug panel");
 if (!/results: [\d,]+/.test(statsText)) throw new Error("no result count");
+// The plan follows the stats in the same panel.
+await page.waitForFunction(
+  () => /conjunct/.test(document.getElementById("stats").textContent),
+  null, { timeout: 30000 });
+const planText = (await page.textContent("#stats .plan")).replace(/\s+/g, " ").trim();
+console.log("debug plan:", planText.slice(0, 80));
+if (!/conjunct/.test(planText)) throw new Error("no plan in debug panel");
 
 // …and stays out of the way without it.
 await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("A{5}"));

@@ -813,6 +813,18 @@ worker.onmessage = (ev) => {
       acLists = msg.lists as WikiLists;
       updateCompletions();
       break;
+    case "planned": {
+      if (!DEBUG) break;
+      const box = document.createElement("div");
+      box.className = "plan";
+      for (const line of msg.lines as string[]) {
+        const div = document.createElement("div");
+        div.textContent = line;
+        box.append(div);
+      }
+      statsEl.append(box);
+      break;
+    }
     case "explanation": {
       const why = resultsEl.querySelector(
         `button.why[data-match="${CSS.escape(msg.text as string)}"]`,
@@ -903,7 +915,12 @@ worker.onmessage = (ev) => {
       break;
     case "done":
       setStatus("");
-      if (DEBUG) showStats(msg.stats as Stats | null);
+      if (DEBUG) {
+        showStats(msg.stats as Stats | null);
+        // The plan describes the query rather than the run, so it is asked for
+        // once the run settles rather than raced against it.
+        postToWorker({ type: "plan", query: qInput.value.trim() });
+      }
       if (msg.engine === "wasm" && !indexInfo.textContent!.includes("WASM")) {
         indexInfo.textContent += " · WASM engine";
       }

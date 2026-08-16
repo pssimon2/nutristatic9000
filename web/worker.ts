@@ -28,6 +28,7 @@ import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilter, nearOrderKey } from "../src/result-predicate.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { explainMatch } from "../src/explain.js";
+import { formatPlan, planQuery } from "../src/plan.js";
 import type { InMsg, OpenMsg } from "./worker/protocol.js";
 import {
   DownloadReporter,
@@ -1119,6 +1120,16 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           }
         }
         post({ type: "checked", seq: msg.seq, error });
+        break;
+      }
+      case "plan": {
+        let lines: string[] = [];
+        try {
+          lines = formatPlan(planQuery(msg.query, ctx));
+        } catch (e) {
+          lines = [`cannot plan: ${e instanceof Error ? e.message : String(e)}`];
+        }
+        post({ type: "planned", lines });
         break;
       }
       case "explain": {

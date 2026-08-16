@@ -225,6 +225,13 @@ find text -type f | xargs cat | npm run make-index -- wikipedia
 npm run merge-indexes -- 5 wikipedia.*.index wiki-merged.index
 ```
 
+## What a search will do, and what it cost
+
+`npm run find-expr -- --explain INDEX 'PATTERN'` describes the compiled plan
+before searching: the conjuncts, each one's automaton size, and whether it
+denotes a finite set or an unbounded one — `{list:countries}` is 197 strings,
+`C*` is not. The `?debug=1` panel shows the same.
+
 ## What a search cost
 
 `npm run find-expr -- --stats INDEX 'PATTERN'` prints steps, results, frontier
