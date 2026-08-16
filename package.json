@@ -6,6 +6,7 @@
   "license": "GPL-2.0",
   "scripts": {
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "dev": "vite web --port 5174",
     "build": "vite build web",
     "postbuild": "node scripts/build-offline.mjs && node scripts/build-sw.mjs",

@@ -11,9 +11,22 @@ has an ID for tracking — check them off as they ship.
   (like `.idxz`), never as changes to `.index` itself. The round-trip /
   golden tests in `test/index-format.test.ts` and `test/fixtures.test.ts`
   are the contract suite; they must never be weakened.
+  **Correction (2026-08-16):** they are not the contract that sentence claims.
+  `index-format.test.ts` runs this repo's writer into this repo's reader and
+  asserts decoded *meaning*, with no byte-level assertion; `fixtures.test.ts`
+  is a result/step-count lock over `demo.index`. No upstream-generated index is
+  checked in anywhere, so byte compatibility is currently **unverified** — a
+  coordinated writer+reader bug passes green. The genuinely upstream-derived
+  test is `expr-search.test.ts` (a port of `test-expr.cpp`), which pins query
+  semantics, not bytes. Closing this (T3) means committing a small
+  upstream-built index as a fixture and asserting against its bytes; until
+  then GR1 is a maintained intention, not an enforced contract.
 - **GR2.** Every refactor item is behavior-preserving unless its text says
   otherwise. `npm test` green before and after; when a query's observable
   output could change, add a test capturing the old behavior first.
+  Note: `npm test` does not typecheck and does not touch `web/worker.ts` or
+  `web/main.ts`. For anything under `web/`, "green" means `npm run typecheck`
+  plus `npm run test:browser` and `npm run test:offline` — now enforced by S0.
 - **GR3.** Two-speed code doctrine. Kernel tier (Frontier, ExprFilter /
   ProductFilter, index-reader inner loops, wasm bridge): typed arrays, no
   allocation in loops, monomorphic shapes, benchmark run required for every
@@ -34,6 +47,20 @@ has an ID for tracking — check them off as they ship.
 ## Phase 0 — Seams: state, structure, layering
 
 Goal: mechanical, low-risk changes that everything later depends on.
+
+- [x] **S0. Stand up CI.** *(Added 2026-08-16 — not in the original plan, but
+  S7, T2, T3, T4 and E6 all say "checked in CI" and there was no CI at all.)*
+  `.github/workflows/ci.yml`: a fast job (`npm run typecheck`, `npm test`) and
+  a browser job (build + `test:browser` + `test:offline`) — the latter being
+  the only end-to-end coverage `web/worker.ts` and `web/main.ts` have.
+  Typechecking was passing but unenforced: vitest transpiles without checking
+  types, so `npm test` never looked at them. Four scripts hardcoded a
+  Playwright build path (`chromium-1228`) that only matched by luck —
+  `playwright-core` already expected a newer one — so they now share
+  `scripts/chromium-path.mjs`, which honours `PLAYWRIGHT_CHROMIUM`, then
+  playwright's own path, then the newest build present.
+  Also corrected README's claim that byte-compatibility with upstream was
+  "verified byte-for-byte in CI tests": see GR1's note below.
 
 - [x] **S1. Kill module-global mutable state → `SessionContext`.**
   `phonetics.ts:20`, `stress.ts:13`, `categories.ts:22`, `neighbours.ts:33`,

@@ -74,7 +74,19 @@ Deploy the built site to any static host (GitHub Pages, S3, nginx `root`,
 
 The index file format is **byte-compatible with upstream**: indexes built by
 the original C++ tools work here, and indexes built by these TypeScript tools
-work with the C++ binaries (verified byte-for-byte in CI tests).
+work with the C++ binaries.
+
+How far that is actually *verified* is worth being precise about, because it
+is the one property this project promises forever. CI runs a writer→reader
+round-trip (`test/index-format.test.ts`) and a port of upstream's own
+expression suite (`test/expr-search.test.ts`, from `test-expr.cpp`), so the
+node encodings and the query semantics are both pinned. But the round-trip
+compares this repo's writer against this repo's reader — it asserts decoded
+*meaning*, not bytes — and no upstream-generated index is checked in to
+compare against. The one genuine byte-level comparison was done by hand and
+recorded as an expectation (see the note in `test/merge.test.ts`). A committed
+upstream-built fixture would close the gap; until then, treat byte
+compatibility as carefully maintained rather than continuously proven.
 
 ## How it works
 

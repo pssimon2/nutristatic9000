@@ -5,8 +5,9 @@
 // persistence, the interrupt-then-continue race, remove-device-copy, and
 // parse errors. Exits non-zero on any failure.
 import { chromium } from "playwright-core";
+import { chromiumPath } from "./chromium-path.mjs";
 
-const exe = `${process.env.HOME}/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome`;
+const exe = await chromiumPath();
 const base = process.argv[2] || "http://localhost:4517/";
 const browser = await chromium.launch({ executablePath: exe });
 const page = await browser.newPage({ viewport: { width: 900, height: 900 } });

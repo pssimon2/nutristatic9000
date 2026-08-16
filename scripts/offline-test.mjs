@@ -6,9 +6,10 @@
 //
 // usage: node scripts/offline-test.mjs [path/to/nutristatic-offline.html]
 import { chromium } from "playwright-core";
+import { chromiumPath } from "./chromium-path.mjs";
 import path from "node:path";
 
-const exe = `${process.env.HOME}/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome`;
+const exe = await chromiumPath();
 const file = path.resolve(
   process.argv[2] ?? "web/dist/nutristatic-offline.html",
 );

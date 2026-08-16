@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Fast gate: everything that needs no browser. Typechecking was passing but
+  # unenforced — vitest transpiles without checking types, so `npm test` alone
+  # never looked at them.
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+
+  # The only end-to-end coverage of web/worker.ts and web/main.ts, which have
+  # no unit tests at all. Slower (it installs a browser and builds the site),
+  # so it is a separate job rather than a step of the one above.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        run: npm run build
+      - name: Browser suite
+        run: npm run test:browser
+      - name: Offline single-file build
+        run: npm run test:offline
