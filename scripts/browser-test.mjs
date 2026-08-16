@@ -573,6 +573,28 @@ if (await page.$("#results .why-box")) throw new Error("why-box did not toggle s
 console.log("why toggles shut");
 if (await page.$("#results button.why")) throw new Error("the why button is back");
 
+// {compound} must ask "is this a word", not "is this in the corpus". The
+// frequency floor that separates the two reaches the predicate through an
+// adapter in the worker, and that adapter once dropped it silently — unit
+// tests call the checker directly and so could not see it. This asserts the
+// whole browser path: AVAILABLE cut into "avai"+"lable" is the symptom.
+await page.goto(
+  base + "?index=./demo.index&q=" + encodeURIComponent("{compound 2:A{9}}"),
+);
+await page.waitForFunction(() => document.querySelectorAll("#results span.r").length >= 5,
+  null, { timeout: 90000 });
+const cuts = await page.$$eval("#results span.r", (es) =>
+  es.slice(0, 12).map((e) => e.textContent.trim()));
+console.log("compound cuts:", cuts.slice(0, 4).join(" | "));
+const debris = cuts.filter((c) => /avai|lable|educ·|·ation|^\w ·|·\w$/.test(c));
+if (debris.length > 0) {
+  throw new Error(`compound cut into corpus debris: ${debris.join(", ")}`);
+}
+if (!cuts.some((c) => /copy·right/.test(c))) {
+  throw new Error("compound lost the real compounds too");
+}
+console.log("compound pieces are words, not corpus debris");
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(

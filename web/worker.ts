@@ -12,6 +12,7 @@ import { CompressedRangeSource } from "../src/compressed-source.js";
 import { FileRangeSource } from "../src/file-source.js";
 import { IndexReader } from "../src/index-reader.js";
 import { makeWordChecker } from "../src/index-words.js";
+import type { WordCheck } from "../src/compound.js";
 import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
 import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
 import {
@@ -138,7 +139,7 @@ let resultFilters: FilterSpec[] = [];
 // order of closeness — so results should come back that way rather than in
 // corpus-frequency order, which buries the best answer under the commonest.
 let nearOrder: Map<string, number> | null = null;
-let wordChecker: ((w: string) => boolean | Promise<boolean>) | null = null;
+let wordChecker: WordCheck | null = null;
 // The pronouncing dictionary is ~400 KB over the wire and only some queries
 // need it, so it is fetched the first time one does and kept thereafter.
 const extraLoads = new Map<string, Promise<void>>();
@@ -177,12 +178,22 @@ async function ensureExtra(
   await load;
 }
 
-/** The index-backed word predicate, rebuilt whenever the index changes. */
-function isIndexedWord(word: string): boolean | Promise<boolean> {
+/**
+ * The index-backed word predicate, rebuilt whenever the index changes.
+ *
+ * Typed as `WordCheck` rather than spelled out, so it cannot quietly stop
+ * forwarding an argument the checker grew. It did exactly that once: the
+ * frequency floor that tells a word from corpus debris arrived as a second
+ * parameter, this adapter still took one, and TypeScript accepts a
+ * shorter-arity function for a longer signature — so `{compound}` and
+ * `{reversible}` went on answering "is it present" in the browser while the
+ * tests, which call the checker directly, saw the fix.
+ */
+const isIndexedWord: WordCheck = (word, minShare) => {
   if (!reader) return false;
   wordChecker ??= makeWordChecker(reader);
-  return wordChecker(word);
-}
+  return wordChecker(word, minShare);
+};
 
 function getWasmModule(): Promise<WebAssembly.Module> {
   // fetch + compile (not instantiateStreaming): no reliance on the server
