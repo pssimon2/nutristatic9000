@@ -31,7 +31,7 @@ Deployment notes specific to this fork:
 | Structural / keyboard classes | `{roman:…}`, `{rot180:…}`, `{mirror:…}`, `{sevenseg:…}`, `{row1:…}`, `{holes=0:…}`, `{ascending:…}`, `{descending:…}` | Letter-set restrictions and monotone chains |
 | Encodings | `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`, `{elements:…}` | Keypad digits → every spelling; crossword enumerations |
 | Negation | `!expr` | Complement via determinize + completed DFA; capped at 5000 states |
-| Multi-slot | `pattern ; pattern ; …` | Runs each slot in turn and assembles the `{at …}` letters; batching, not cross-slot constraint solving |
+| Multi-slot | `pattern ; pattern ; …` | Runs each slot in turn and assembles the `{at …}` letters, with any candidate selectable; batching, not cross-slot constraint solving |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |
 | Named + inline lists | `{list:greek}`, `{list:red,green,blue}` | Curated categories, or your own written in the query and shared in the URL |

@@ -392,6 +392,15 @@ function resetResultCollapsing(): void {
 // until used: no extra chrome, just the cursor, the title hint, and a brief
 // flash on the word itself.
 resultsEl.addEventListener("click", (ev) => {
+  const cand = (ev.target as HTMLElement | null)?.closest?.("span.cand");
+  if (cand && slots) {
+    const slot = slots[+(cand as HTMLElement).dataset.slot!];
+    if (slot) {
+      slot.chosen = +(cand as HTMLElement).dataset.cand!;
+      renderSlots();
+    }
+    return;
+  }
   const span = (ev.target as HTMLElement | null)?.closest?.(
     "span.r, p.extraction",
   );
@@ -468,6 +477,8 @@ interface Slot {
   query: string;
   extract: ExtractSpec | null;
   results: Array<{ score: number; text: string }>;
+  /** Which candidate feeds the extraction; the top one until told otherwise. */
+  chosen: number;
   done: boolean;
 }
 let slots: Slot[] | null = null;
@@ -483,8 +494,9 @@ function splitSlots(query: string): string[] {
 }
 
 function slotLetters(slot: Slot): string | null {
-  if (!slot.extract || slot.results.length === 0) return null;
-  return applyExtract(slot.extract, slot.results[0].text);
+  const pick = slot.results[slot.chosen];
+  if (!slot.extract || !pick) return null;
+  return applyExtract(slot.extract, pick.text);
 }
 
 function renderSlots(): void {
@@ -517,20 +529,24 @@ function renderSlots(): void {
       answer.textContent = slot.done ? "no match" : "";
       answer.className = "from";
     } else {
-      const top = document.createElement("span");
       const letters = slotLetters(slot);
-      top.className = "r";
-      top.textContent = letters ?? slot.results[0].text;
-      top.dataset.copy = letters ?? slot.results[0].text;
-      answer.append(top);
-      const rest = document.createElement("span");
-      rest.className = "from";
-      rest.textContent = letters
-        ? ` ${slot.results.map((r) => r.text).join(", ")}`
-        : slot.results.length > 1
-          ? ` (also ${slot.results.slice(1).map((r) => r.text).join(", ")})`
-          : "";
-      answer.append(rest);
+      const chosen = slot.results[slot.chosen] ?? slot.results[0];
+      const lead = document.createElement("span");
+      lead.className = "r";
+      lead.textContent = letters ?? chosen.text;
+      lead.dataset.copy = letters ?? chosen.text;
+      answer.append(lead);
+      // The top answer is not always the right one, so every candidate can be
+      // chosen; the extraction above follows the choice.
+      for (let c = 0; c < slot.results.length; ++c) {
+        const cand = document.createElement("span");
+        cand.className = c === slot.chosen ? "cand chosen" : "cand";
+        cand.textContent = ` ${slot.results[c].text}`;
+        cand.dataset.slot = String(i);
+        cand.dataset.cand = String(c);
+        if (slot.results.length > 1) cand.title = "use this answer";
+        answer.append(cand);
+      }
     }
     row.append(q, answer);
     table.append(row);
@@ -576,7 +592,13 @@ function startMultiSlot(queries: string[]): void {
   resultsEl.textContent = "";
   afterEl.textContent = "";
   resultCount = 0;
-  slots = queries.map((q) => ({ query: q, extract: null, results: [], done: false }));
+  slots = queries.map((q) => ({
+    query: q,
+    extract: null,
+    results: [],
+    chosen: 0,
+    done: false,
+  }));
   slotIndex = 0;
   currentComp =
     parseInt(new URLSearchParams(location.search).get("comp") || "", 10) ||

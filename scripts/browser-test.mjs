@@ -224,6 +224,18 @@ await page.click("p.extraction");
 const exClip2 = await page.evaluate(() => navigator.clipboard.readText());
 if (exClip2 !== "aop") throw new Error(`extraction copy gave ${exClip2}`);
 
+// Choosing a different candidate re-reads the extraction from it.
+const second = await page.$$("table.slots tr:first-child span.cand");
+if (second.length < 2) throw new Error("slot offered no alternatives");
+const altText = (await second[1].textContent()).trim();
+await second[1].click();
+const altExtraction = await page.$eval("p.extraction", (e) => e.textContent);
+console.log(`chose "${altText}" -> extraction ${altExtraction}`);
+if (altExtraction === extraction) throw new Error("choice did not change extraction");
+if (altExtraction[0] !== altText[0]) {
+  throw new Error(`extraction ${altExtraction} does not start with ${altText}`);
+}
+
 // Slots without extraction just run the patterns and show the top matches.
 await page.fill("#q", "<aaagmnr> ; solar s_stem");
 await page.click("input[type=submit]");
