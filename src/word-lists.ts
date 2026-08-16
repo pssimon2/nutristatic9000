@@ -7,6 +7,7 @@
 // dropped, every other separator a single space) so multiword entries match.
 
 import { Nfa } from "./automata.js";
+import { GENERATED_LISTS } from "./word-lists-data.js";
 
 /** Normalise like corpus.ts: apostrophes vanish, other punctuation splits. */
 export function normalizeEntry(s: string): string {
@@ -17,29 +18,123 @@ export function normalizeEntry(s: string): string {
     .trim();
 }
 
+/**
+ * Entries are comma-separated, matching the inline `{list:red,green,blue}`
+ * syntax. Not space-separated: a space is a legal character *inside* an entry
+ * (the corpus stores phrases that way), so splitting on it would turn
+ * "antigua and barbuda" into three entries and make `{list:countries}` match
+ * the word AND.
+ */
 const RAW: Record<string, string> = {
   greek:
-    "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi " +
-    "omicron pi rho sigma tau upsilon phi chi psi omega",
+    "alpha,beta,gamma,delta,epsilon,zeta,eta,theta,iota,kappa,lambda,mu,nu," +
+    "xi,omicron,pi,rho,sigma,tau,upsilon,phi,chi,psi,omega",
   nato:
-    "alfa bravo charlie delta echo foxtrot golf hotel india juliett kilo lima " +
-    "mike november oscar papa quebec romeo sierra tango uniform victor whiskey " +
-    "xray yankee zulu",
-  chesspieces: "king queen rook bishop knight pawn",
-  planets: "mercury venus earth mars jupiter saturn uranus neptune",
+    "alfa,bravo,charlie,delta,echo,foxtrot,golf,hotel,india,juliett,kilo," +
+    "lima,mike,november,oscar,papa,quebec,romeo,sierra,tango,uniform,victor," +
+    "whiskey,xray,yankee,zulu",
+  chesspieces: "king,queen,rook,bishop,knight,pawn",
+  planets: "mercury,venus,earth,mars,jupiter,saturn,uranus,neptune",
   months:
-    "january february march april may june july august september october " +
-    "november december",
-  days: "monday tuesday wednesday thursday friday saturday sunday",
+    "january,february,march,april,may,june,july,august,september,october," +
+    "november,december",
+  days: "monday,tuesday,wednesday,thursday,friday,saturday,sunday",
   zodiac:
-    "aries taurus gemini cancer leo virgo libra scorpio sagittarius capricorn " +
-    "aquarius pisces",
-  suits: "hearts diamonds clubs spades",
-  compass: "north south east west northeast northwest southeast southwest",
+    "aries,taurus,gemini,cancer,leo,virgo,libra,scorpio,sagittarius," +
+    "capricorn,aquarius,pisces",
+  suits: "hearts,diamonds,clubs,spades",
+  compass: "north,south,east,west,northeast,northwest,southeast,southwest",
+
+  // Canonical sets small enough that typing them is more reliable than
+  // querying for them — Wikidata's "gemstone" class turns out to be famous
+  // individual stones (including one from Tolkien), and its Bible-book class
+  // runs to 200 entries across several canons.
+  bible:
+    "genesis,exodus,leviticus,numbers,deuteronomy,joshua,judges,ruth,samuel," +
+    "kings,chronicles,ezra,nehemiah,esther,job,psalms,proverbs,ecclesiastes," +
+    "isaiah,jeremiah,lamentations,ezekiel,daniel,hosea,joel,amos,obadiah," +
+    "jonah,micah,nahum,habakkuk,zephaniah,haggai,zechariah,malachi,matthew," +
+    "mark,luke,john,acts,romans,corinthians,galatians,ephesians,philippians," +
+    "colossians,thessalonians,timothy,titus,philemon,hebrews,james,peter," +
+    "jude,revelation",
+  muses:
+    "calliope,clio,erato,euterpe,melpomene,polyhymnia,terpsichore,thalia," +
+    "urania",
+  sins: "pride,greed,lust,envy,gluttony,wrath,sloth",
+  dwarfs: "doc,grumpy,happy,sleepy,bashful,sneezy,dopey",
+  oceans: "pacific,atlantic,indian,arctic,southern",
+  continents:
+    "africa,antarctica,asia,europe,north america,oceania,south america",
+  chinesezodiac:
+    "rat,ox,tiger,rabbit,dragon,snake,horse,goat,monkey,rooster,dog,pig",
+  birthstones:
+    "garnet,amethyst,aquamarine,diamond,emerald,pearl,ruby,peridot,sapphire," +
+    "opal,topaz,turquoise",
+  gemstones:
+    "diamond,ruby,sapphire,emerald,amethyst,topaz,opal,garnet,peridot," +
+    "aquamarine,turquoise,jade,onyx,agate,quartz,zircon,tourmaline," +
+    "moonstone,lapis,obsidian,pearl,amber,jet,coral",
+  tarot:
+    "fool,magician,high priestess,empress,emperor,hierophant,lovers,chariot," +
+    "strength,hermit,wheel of fortune,justice,hanged man,death,temperance," +
+    "devil,tower,star,moon,sun,judgement,world",
+  moons:
+    "moon,phobos,deimos,io,europa,ganymede,callisto,titan,enceladus,mimas," +
+    "tethys,dione,rhea,iapetus,miranda,ariel,umbriel,titania,oberon,triton," +
+    "charon",
+  shakespeare:
+    "hamlet,macbeth,othello,king lear,romeo and juliet,julius caesar," +
+    "the tempest,twelfth night,much ado about nothing,as you like it," +
+    "a midsummer nights dream,the merchant of venice," +
+    "the taming of the shrew,richard ii,richard iii,henry iv,henry v," +
+    "henry vi,henry viii,king john,titus andronicus,the comedy of errors," +
+    "loves labours lost,the two gentlemen of verona," +
+    "the merry wives of windsor,troilus and cressida," +
+    "alls well that ends well,measure for measure,timon of athens," +
+    "coriolanus,antony and cleopatra,pericles,cymbeline,the winters tale",
+
+  // Sourced from Wikidata; regenerate with `node scripts/build-lists.mjs`.
+  ...GENERATED_LISTS,
 };
 
 /** Alternative spellings that should resolve to the same list. */
 const ALIASES: Record<string, string> = {
+  country: "countries",
+  nations: "countries",
+  nation: "countries",
+  states: "usstates",
+  state: "usstates",
+  capital: "capitals",
+  element: "elements",
+  constellation: "constellations",
+  president: "presidents",
+  presidentsurnames: "presidents",
+  god: "greekgods",
+  gods: "greekgods",
+  greekgod: "greekgods",
+  norsegod: "norsegods",
+  dogs: "dogbreeds",
+  dog: "dogbreeds",
+  breed: "dogbreeds",
+  breeds: "dogbreeds",
+  moon: "moons",
+  gem: "gemstones",
+  gems: "gemstones",
+  gemstone: "gemstones",
+  birthstone: "birthstones",
+  ocean: "oceans",
+  continent: "continents",
+  muse: "muses",
+  sin: "sins",
+  deadlysins: "sins",
+  dwarves: "dwarfs",
+  sevendwarfs: "dwarfs",
+  books: "bible",
+  biblebooks: "bible",
+  plays: "shakespeare",
+  shakespeareplays: "shakespeare",
+  majorarcana: "tarot",
+  zodiacchinese: "chinesezodiac",
   greekletters: "greek",
   natoalphabet: "nato",
   chess: "chesspieces",
@@ -56,7 +151,7 @@ export function wordList(name: string): string[] | null {
   if (CACHE.has(key)) return CACHE.get(key)!;
   const raw = RAW[key];
   if (!raw) return null;
-  const entries = raw.split(" ").map(normalizeEntry).filter((e) => e !== "");
+  const entries = raw.split(",").map(normalizeEntry).filter((e) => e !== "");
   CACHE.set(key, entries);
   return entries;
 }

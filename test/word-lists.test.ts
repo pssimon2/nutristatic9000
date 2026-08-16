@@ -155,3 +155,60 @@ describe("entriesNfa is a prefix trie", () => {
     ).size);
   });
 });
+
+describe("the shipped list catalogue", () => {
+  it("stores multiword entries whole", () => {
+    // Entries are comma-separated precisely so a space can appear inside one.
+    // Space-separating turned "antigua and barbuda" into three entries, which
+    // made {list:countries} match the word AND.
+    const countries = wordList("countries")!;
+    expect(countries).toContain("antigua and barbuda");
+    expect(countries).toContain("united states");
+    expect(countries).not.toContain("and");
+    expect(countries).not.toContain("united");
+  });
+
+  it("matches whole multiword entries and nothing less", () => {
+    expect(matches("{list:countries}", "united states")).toBe(true);
+    expect(matches("{list:countries}", "france")).toBe(true);
+    expect(matches("{list:countries}", "and")).toBe(false);
+    expect(matches("{list:continents}", "north america")).toBe(true);
+    expect(matches("{list:tarot}", "wheel of fortune")).toBe(true);
+  });
+
+  it("resolves the names a solver would actually type", () => {
+    expect(wordList("country")).toBe(wordList("countries"));
+    expect(wordList("state")).toBe(wordList("usstates"));
+    expect(wordList("element")).toBe(wordList("elements"));
+    expect(wordList("dwarves")).toBe(wordList("dwarfs"));
+  });
+
+  it("folds diacritics so entries can match the folded corpus", () => {
+    // Boötes reached the list as "bo tes" before folding was added, and so
+    // could never match anything the index holds.
+    const c = wordList("constellations")!;
+    expect(c).toContain("bootes");
+    expect(c).not.toContain("bo tes");
+  });
+
+  it("keeps every entry in corpus form", () => {
+    for (const name of listNames()) {
+      const entries = wordList(name)!;
+      expect(entries.length, name).toBeGreaterThan(0);
+      for (const e of entries) {
+        // Lowercase, single-spaced, no punctuation: exactly what the index
+        // stores, or the entry is unmatchable.
+        expect(e, `${name}: ${JSON.stringify(e)}`).toMatch(/^[a-z0-9]+( [a-z0-9]+)*$/);
+      }
+    }
+  });
+
+  it("has the categories hunts actually ask for", () => {
+    for (const name of [
+      "countries", "capitals", "usstates", "elements", "constellations",
+      "presidents", "bible", "shakespeare", "tarot", "moons", "greekgods",
+    ]) {
+      expect(listNames(), name).toContain(name);
+    }
+  });
+});
