@@ -6,9 +6,6 @@ import { cliOpenIndex } from "../src/node-io.js";
 import {
   type ExtractSpec,
   type RankSpec,
-  applyExtract,
-  parseExtract,
-  parseRank,
 } from "../src/extract-spec.js";
 import {
   type FilterSpec,
@@ -30,6 +27,8 @@ import {
   formatStats,
 } from "../src/stats.js";
 import { formatPlan, planQuery } from "../src/plan.js";
+import { OutputTransform } from "../src/output.js";
+import { shapeOfQuery } from "../src/query-shape.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
   if (e.code === "EPIPE") process.exit(0);
@@ -79,17 +78,11 @@ let extract: ExtractSpec | null = null;
 let rank: RankSpec | null = null;
 let resultFilters: FilterSpec[] = [];
 try {
-  const ex = parseExtract(pattern);
-  if (ex) {
-    extract = ex.spec;
-    pattern = ex.inner;
-  }
-  const rk = parseRank(pattern);
-  if (rk) {
-    rank = rk.spec;
-    pattern = rk.inner;
-  }
-  const rf = parseFilterWrappers(pattern);
+  // The same peel, in the same order, as the browser — shapeOfQuery owns it.
+  const shape = shapeOfQuery(pattern, 12);
+  extract = shape.extract;
+  rank = shape.rank;
+  const rf = parseFilterWrappers(shape.pattern);
   resultFilters = rf.specs;
   pattern = rf.inner;
 } catch (e) {
@@ -153,7 +146,7 @@ try {
 const reader = await cliOpenIndex(indexPath);
 const driver = makeDriver(reader, filter);
 const isWord = makeWordChecker(reader);
-let rawRank = 0;
+const output = new OutputTransform(extract, rank);
 
 /**
  * Apply the output wrappers to one match: null drops it, otherwise the line
@@ -175,14 +168,11 @@ async function present(score: number, text: string): Promise<string | null> {
     ++predicatePassed;
     if (verdict.notes.length > 0) note = `  ${verdict.notes.join("  ")}`;
   }
-  ++rawRank;
-  if (rank && (rawRank < rank.from || rawRank > rank.to)) return null;
-  if (extract) {
-    const picked = applyExtract(extract, text);
-    if (picked === null) return null;
-    return `${formatScore(score)} ${picked}  (${text})${note}`;
-  }
-  return `${formatScore(score)} ${text}${note}`;
+  const shown = output.apply(text);
+  if (shown === null) return null;
+  return shown.source === null
+    ? `${formatScore(score)} ${shown.text}${note}`
+    : `${formatScore(score)} ${shown.text}  (${shown.source})${note}`;
 }
 
 try {

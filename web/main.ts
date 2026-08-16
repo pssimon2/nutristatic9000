@@ -7,6 +7,7 @@ import {
 import type { EarlyProbe, InMsg } from "./worker/protocol.js";
 import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
 import { type Stats, formatStats } from "../src/stats.js";
+import { OutputTransform } from "../src/output.js";
 import { type Completion, completionsAt } from "../src/complete.js";
 import type { WikiLists } from "../src/word-lists.js";
 
@@ -278,7 +279,12 @@ let caesarText: string | null = null;
 // Set when the query is wrapped in `{rank …:…}`: a window into the ranked
 // stream, so mid-frequency answers are reachable without scrolling.
 let rankSpec: RankSpec | null = null;
-let rawRank = 0; // engine results seen this search, before any filtering
+/**
+ * The rank window and {at}, shared with the CLI; rebuilt per search. Starts as
+ * a no-wrapper transform rather than null, so a result arriving before one is
+ * built is shown rather than silently dropped.
+ */
+let output = new OutputTransform(null, null);
 let pageResults: Array<{ score: number; text: string; note?: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
@@ -333,8 +339,8 @@ function renderResult(score: number, text: string, note?: string): void {
   const span = document.createElement("span");
   span.className = "r";
   span.style.fontSize = `${fontSize(score)}em`;
+  const picked = extractSpec ? applyExtract(extractSpec, text) : null;
   if (extractSpec) {
-    const picked = applyExtract(extractSpec, text);
     if (picked === null) return; // match too short for these positions
     span.textContent = picked;
     span.dataset.copy = picked; // copy the extraction, not the source word
@@ -373,8 +379,10 @@ function renderResult(score: number, text: string, note?: string): void {
 }
 
 function addResult(score: number, text: string, note?: string): void {
-  ++rawRank;
-  if (rankSpec && (rawRank < rankSpec.from || rawRank > rankSpec.to)) return;
+  // The rank window and {at} are applied by the shared transform, so the
+  // browser and the CLI cannot disagree about which result is rank N.
+  const shown = output.apply(text);
+  if (!shown) return;
   pageResults.push({ score, text, note });
   if (collapseVariants && isVariantOfShown(text)) {
     ++hiddenVariants;
@@ -398,7 +406,6 @@ function showAllVariants(): void {
 }
 
 function resetResultCollapsing(): void {
-  rawRank = 0;
   collapseVariants = true;
   pageResults = [];
   hiddenVariants = 0;
@@ -669,6 +676,9 @@ function startSearch(query: string): void {
     rankSpec = shape.rank;
     caesarText = shape.caesar;
     queryLiterals = shape.literals;
+    // Built here rather than in resetResultCollapsing, which runs before the
+    // wrappers are known and would hand it the previous search's specs.
+    output = new OutputTransform(extractSpec, rankSpec);
   } catch (e) {
     setStatus(e instanceof ExtractError ? e.message : String(e), true);
     return;

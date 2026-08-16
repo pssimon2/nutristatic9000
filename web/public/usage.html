@@ -148,7 +148,7 @@ crosswords; the search box applies the same folding to whatever you type.
 
 <ul>
 <li><b>Extraction — <tt>{at 3:expr}</tt></b>. Hunts rarely need the word, they
-need a letter from it. <tt><a href="/9000/?q=%7Bat%203%3AA%7B7%7D%7D">{at
+need a letter from it. <tt><a href="./?q=%7Bat%203%3AA%7B7%7D%7D">{at
 3:A{7}}</a></tt> lists the third letter of each seven-letter match, with the
 match it came from beside it, so an extraction can be read straight off the
 screen instead of transcribed by hand. Positions are 1-based, count letters
@@ -175,14 +175,14 @@ values: <tt>sum</tt> uses a=1…z=26, <tt>scrabble</tt> uses tile values. Write
 <tt>=100</tt>, <tt>&lt;30</tt>, <tt>&lt;=30</tt>, <tt>&gt;25</tt>,
 <tt>&gt;=25</tt> or a range <tt>=50..60</tt>. Spaces and digits count zero, so
 a phrase totals by its letters however the words fall.
-<tt><a href="/9000/?q=%7Bsum%3D100%3AA*%7D">{sum=100:A*}</a></tt> finds
+<tt><a href="./?q=%7Bsum%3D100%3AA%2A%7D">{sum=100:A*}</a></tt> finds
 words totalling 100;
-<tt><a href="/9000/?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a></tt>
+<tt><a href="./?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a></tt>
 finds high-scoring five-letter words. It composes with everything —
 <tt>{sum=52:A*}&amp;.*ll</tt> — and unlike most constraints it can <em>bound</em>
 the search rather than only filtering it: a branch whose total can no longer
 reach the ceiling has no transition at all, so
-<tt><a href="/9000/?q=%7Bsum%3C%3D25%3AA*%7D">{sum&lt;=25:A*}</a></tt> runs out
+<tt><a href="./?q=%7Bsum%3C%3D25%3AA%2A%7D">{sum&lt;=25:A*}</a></tt> runs out
 of matches and stops where a bare <tt>A*</tt> would keep going. That bounds the
 space explored; it does not make a rare total common, so a narrow target like
 <tt>{sum=100:A*}</tt> is still a needle in a haystack and will happily spend
@@ -205,17 +205,17 @@ letters (<tt>{count(aeiou)=3:...}</tt>) or a class name: <tt>vowel</tt>,
 <li><tt>{letters=11:expr}</tt> — eleven letters, however the spaces fall;
 <tt>{words=3:expr}</tt> — exactly three words.
 </ul>
-<tt><a href="/9000/?q=%7Bdistinct%3AA%7B6%7D%7D">{distinct:A{6}}</a></tt>
+<tt><a href="./?q=%7Bdistinct%3AA%7B6%7D%7D">{distinct:A{6}}</a></tt>
 finds six-letter words with no repeated letter. "No letter repeated" is
 expressed as 26 independent two-state counters rather than one machine over
 sets of letters, which is why it costs almost nothing.
 
 <li><b>Letter banks and sub-anagrams.</b>
-<tt><a href="/9000/?q=%3C%3Cwashington%3E%3E">&lt;&lt;washington&gt;&gt;</a></tt>
+<tt><a href="./?q=%3C%3Cwashington%3E%3E">&lt;&lt;washington&gt;&gt;</a></tt>
 is a letter bank: only those letters, each reusable as often as you like, and
 every distinct one must appear — it finds "was nothing" and "showing that".
 <tt>{bank:washington}</tt> is the same thing spelled out.
-<tt><a href="/9000/?q=%7Bsub%3Acryptography%7D">{sub:cryptography}</a></tt> is
+<tt><a href="./?q=%7Bsub%3Acryptography%7D">{sub:cryptography}</a></tt> is
 a sub-anagram: any subset of those letters, respecting how many of each you
 have, so it spells "crypt" but not "ccc". Both take letters, not a pattern,
 and compose like any other atom.
@@ -223,7 +223,7 @@ and compose like any other atom.
 <li><b>Edit distance — <tt>{del1:beast}</tt>, <tt>{add1:cargo}</tt>,
 <tt>{subst1:cargo}</tt>, <tt>{edit&lt;=2:cargo}</tt></b>. Deleted-letter and
 added-letter puzzles otherwise mean brute force or leaving the tool.
-<tt><a href="/9000/?q=%7Bdel1%3Abeast%7D">{del1:beast}</a></tt> finds BEST,
+<tt><a href="./?q=%7Bdel1%3Abeast%7D">{del1:beast}</a></tt> finds BEST,
 EAST, BEAT and BAST; <tt>{add1:cargo}</tt> finds CARGOS;
 <tt>{subst1:cargo}</tt> finds FARGO and LARGO. Each numbered operator spends
 exactly that many edits of its own kind, while <tt>{edit&lt;=2:...}</tt> mixes
@@ -232,7 +232,7 @@ swap letters and digits only — never spaces, so a word is never split in two.
 Up to 5 edits on words up to 40 characters.
 <br>The argument does not have to be a word you name: an edit can wrap
 <i>any</i> pattern, so
-<tt><a href="/9000/?q=%7Bdel1%3A%7Bkind%3Ainstrument%7D%7D">{del1:{kind:instrument}}</a></tt>
+<tt><a href="./?q=%7Bdel1%3A%7Bkind%3Ainstrument%7D%7D">{del1:{kind:instrument}}</a></tt>
 asks for anything one letter off <i>some</i> instrument, and
 <tt>{subst1:{list:greek}}</tt> for anything one swap off a Greek letter.
 Deleting a letter costs almost nothing over a big set, but substituting or
@@ -244,7 +244,7 @@ BEAS), <tt>{add1(vowel)&#58;…}</tt> inserts a vowel. Because that replaces a
 thirty-six-way branch with a one-way one, it is also what makes an edit over a
 large set affordable.
 <br>The two together answer questions that used to need two passes by hand.
-<tt><a href="/9000/?q=%7Bkind%3Ainstrument%7D%26%7Badd1%3A%7Bkind%3Abird%7D%7D">{kind:instrument}&amp;{add1:{kind:bird}}</a></tt>
+<tt><a href="./?q=%7Bkind%3Ainstrument%7D%26%7Badd1%3A%7Bkind%3Abird%7D%7D">{kind:instrument}&amp;{add1:{kind:bird}}</a></tt>
 is "an instrument that becomes a bird when you drop a letter" — CLOCK, because
 COCK is a bird — and adding <tt>(a)</tt> to the <tt>{add1…}</tt> restricts it
 to instruments that gained an A.
@@ -254,8 +254,8 @@ to instruments that gained an A.
 one that earns its keep: it evaluates all 25 shifts at once and lets the corpus
 say which is a phrase — and <b>the matched shift is shown beside each
 result</b>, so you get the key as well as the plaintext.
-<tt><a href="/9000/?q=%7Brot13%3Acvmmn%7D">{rot13:cvmmn}</a></tt> gives PIZZA;
-<tt><a href="/9000/?q=%7Batbash%3Agsv%7D">{atbash:gsv}</a></tt> gives THE.
+<tt><a href="./?q=%7Brot13%3Acvmmn%7D">{rot13:cvmmn}</a></tt> gives PIZZA;
+<tt><a href="./?q=%7Batbash%3Agsv%7D">{atbash:gsv}</a></tt> gives THE.
 Transforms take a literal, never a character class: rotating <tt>C</tt> would
 mean "the class you get by shifting the consonants", which is no use to
 anyone.
@@ -273,7 +273,7 @@ renderable on a seven-segment display; <tt>{holes=0:expr}</tt>,
 QWERTY row (TYPEWRITER is row 1).
 <li><tt>{ascending:expr}</tt> / <tt>{descending:expr}</tt> — letters never go
 backwards / forwards (ALMOST, BILLOWY / SPOONFED).
-<li><tt><a href="/9000/?q=%7Bt9%3A2665%7D">{t9:2665}</a></tt> — phone-keypad
+<li><tt><a href="./?q=%7Bt9%3A2665%7D">{t9:2665}</a></tt> — phone-keypad
 digits, resolved to every spelling the corpus knows: BOOK, COOL, COOK at once.
 The ambiguity is exactly what the corpus is for.
 <li><tt>{enum:4,3,5}</tt> — the crossword enumeration, rather than hand-rolling
@@ -282,7 +282,7 @@ The ambiguity is exactly what the corpus is for.
 
 <li><b>Negation — <tt>!expr</tt></b>. The language already had intersection
 (<tt>&amp;</tt>); this is its missing dual.
-<tt><a href="/9000/?q=A%7B5%7D%26!.*ee.*">A{5}&amp;!.*ee.*</a></tt> is five
+<tt><a href="./?q=A%7B5%7D%26%21.%2Aee.%2A">A{5}&amp;!.*ee.*</a></tt> is five
 letters with no double E, and <tt>A{4}&amp;!.*[aeiou].*</tt> finds four-letter
 strings with no vowel at all. <tt>!</tt> applies to the whole factor, so
 <tt>!.*ee.*</tt> reads as "no double E" rather than binding to the first
@@ -296,7 +296,7 @@ letter from each, and stitching those together is work otherwise done by hand
 <em>between</em> queries. Separate patterns with <tt>;</tt> and they run in
 turn, one row each, with the letters they contribute assembled at the top —
 click that line to copy it.
-<tt><a href="/9000/?q=%7Bat%201%3A%3Caaagmnr%3E%7D%20%3B%20%7Bat%202%3Asolar%20s_stem%7D%20%3B%20%7Bat%201%3AA%7B5%7D%26.*zz.*%7D">{at
+<tt><a href="./?q=%7Bat%201%3A%3Caaagmnr%3E%7D%20%3B%20%7Bat%202%3Asolar%20s_stem%7D%20%3B%20%7Bat%201%3AA%7B5%7D%26.%2Azz.%2A%7D">{at
 1:&lt;aaagmnr&gt;} ; {at 2:solar s_stem} ; {at 1:A{5}&amp;.*zz.*}</a></tt>
 gives <b>AOP</b>. The top answer is not always the right one, so every
 candidate in a row is clickable: pick a different one and the assembled
@@ -309,7 +309,7 @@ half: the tool runs your slots and reads the extraction, it does not search for
 an assignment that satisfies a cross-slot constraint.
 
 <li><b>Rhyme and homophones — <tt>{rhyme:tree}</tt>, <tt>{homo:knight}</tt></b>.
-<tt><a href="/9000/?q=%7Brhyme%3Anight%7D%26A%7B5%7D">{rhyme:night}&amp;A{5}</a></tt>
+<tt><a href="./?q=%7Brhyme%3Anight%7D%26A%7B5%7D">{rhyme:night}&amp;A{5}</a></tt>
 gives RIGHT, WHITE, LIGHT, WRITE; <tt>{homo:knight}</tt> gives NIGHT and NITE.
 A rhyme runs from the last <em>primary</em>-stressed vowel, which is the
 convention English rhyme follows — ANTI carries its stress on the first
@@ -330,12 +330,12 @@ it is not re-fetched when the site updates, and rhymes keep working offline.
 letters, matches <tt>.a..e..</tt>, and clues something like <em>reluctant</em>",
 where either half alone is useless and together they are decisive. That
 intersection is the whole point, and it is one query here:
-<tt><a href="/9000/?q=%7Blike%3Areluctant%7D%26A%7B5%7D%26l....">{like:reluctant}&amp;A{5}&amp;l....</a></tt>
+<tt><a href="./?q=%7Blike%3Areluctant%7D%26A%7B5%7D%26l....">{like:reluctant}&amp;A{5}&amp;l....</a></tt>
 gives LOATH.
 <br><b>Two kinds of "means something like".</b> <tt>{like:…}</tt> is a
 thesaurus: words that share a dictionary sense, which is precise but narrow —
 it gives LOATH for RELUCTANT and stops there.
-<tt><a href="/9000/?q=%7Bnear%3Aking%7D%26A%7B7%7D">{near:king}&amp;A{7}</a></tt>
+<tt><a href="./?q=%7Bnear%3Aking%7D%26A%7B7%7D">{near:king}&amp;A{7}</a></tt>
 is the other kind: words an embedding model places nearby, which is fuzzier
 and much wider — RELUCTANT reaches WILLING, OPPOSED and REFUSED, and KING
 reaches KINGDOM, ROYALTY, MAJESTY, MONARCH and PRESLEY. Use <tt>{like:…}</tt>
@@ -379,7 +379,7 @@ asked, per candidate, whether the pieces are words.
 <li><b>Palindromes and reversals — <tt>{palindrome:A{5}}</tt>,
 <tt>{reversible:A{6}}</tt></b>. Both are checked on finished matches rather
 than built into the automaton, which is what makes them cheap:
-<tt><a href="/9000/?q=%7Bpalindrome%3AA%7B5%7D%7D">{palindrome:A{5}}</a></tt>
+<tt><a href="./?q=%7Bpalindrome%3AA%7B5%7D%7D">{palindrome:A{5}}</a></tt>
 gives LEVEL, REFER, RADAR (as an automaton a length-n palindrome would need
 26<sup>n/2</sup> states), and <tt>{reversible:A{6}}</tt> finds words whose
 mirror is also indexed — ANIMAL ← LAMINA — without the reverse-direction index
@@ -392,7 +392,7 @@ junk tokens, and seeing the mirror lets you dismiss a bad one at a glance.
 the tool. <tt>{morse:…}</tt> takes unspaced dots and dashes and resolves them
 into every letter-splitting at once — <tt>{morse:.....--.-..}</tt> gives HAND
 — which is exactly the ambiguity the corpus is there to settle.
-<tt><a href="/9000/?q=%7Belements%3AA%7B6%7D%7D">{elements:A{6}}</a></tt>
+<tt><a href="./?q=%7Belements%3AA%7B6%7D%7D">{elements:A{6}}</a></tt>
 keeps only matches spellable in chemical symbols: SEARCH is Se·Ar·C·H,
 BACON is Ba·C·O·N. All 118 symbols are known; spelling is a segmentation, so
 it stays regular and composes (<tt>{elements:A*}&amp;.*con</tt>).
@@ -400,7 +400,7 @@ it stays regular and composes (<tt>{elements:A*}&amp;.*con</tt>).
 <li><b>Categories — <tt>{kind:bird}</tt></b>. "A seven-letter bird" is the
 shape of half the crossword clues ever written, and it is a question about a
 category rather than a pattern.
-<tt><a href="/9000/?q=%7Bkind%3Abird%7D%26A%7B7%7D">{kind:bird}&amp;A{7}</a></tt>
+<tt><a href="./?q=%7Bkind%3Abird%7D%26A%7B7%7D">{kind:bird}&amp;A{7}</a></tt>
 answers it, walking WordNet's whole kind-of hierarchy — BIRD reaches over 1700
 names, several levels down, including phrases like BALD EAGLE. Any of
 WordNet's ~96,000 senses works the same way, so this is the hierarchy rather
@@ -410,10 +410,10 @@ say) is refused: at that width it is a way of asking for the dictionary.
 <li><b>Syllables and metre — <tt>{syllables=3:…}</tt>, <tt>{stress 100:…}</tt></b>.
 How a word is <em>said</em> is not a property of how it is spelled, so both are
 checked on finished matches.
-<tt><a href="/9000/?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt>
+<tt><a href="./?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt>
 gives seven-letter words of three syllables; the comparisons are the usual
 ones (<tt>=</tt>, <tt>&lt;=</tt>, <tt>&gt;=</tt>, a range).
-<tt><a href="/9000/?q=%7Bstress%20100%3AA%7B7%7D%7D">{stress 100:A{7}}</a></tt>
+<tt><a href="./?q=%7Bstress%20100%3AA%7B7%7D%7D">{stress 100:A{7}}</a></tt>
 takes a shape of one digit per syllable — 1 stressed, 0 not — so that one is a
 dactyl (PRIVACY, GENERAL, HISTORY), useful for verse and lyrics. A phrase adds
 up word by word, and a word the dictionary doesn't know is left out rather
@@ -463,14 +463,14 @@ whole query; the rest compose anywhere.
 </table>
 <h3 class="grp">count<span class="gb"> — count letters, values or occurrences</span></h3>
 <table class="ref">
-<tr><td><tt>count.sum</tt></td><td>letter values total a number (a=1…z=26)</td><td><tt><a href="./?q=%7Bsum%3D100%3AA*%7D">{sum=100:A*}</a></tt></td></tr>
+<tr><td><tt>count.sum</tt></td><td>letter values total a number (a=1…z=26)</td><td><tt><a href="./?q=%7Bsum%3D100%3AA%2A%7D">{sum=100:A*}</a></tt></td></tr>
 <tr><td><tt>count.scrabble</tt></td><td>Scrabble tile values total a number</td><td><tt><a href="./?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a></tt></td></tr>
-<tr><td><tt>count</tt></td><td>how many letters of a set appear</td><td><tt><a href="./?q=%7Bcount(e)%3D2%3AA*%7D">{count(e)=2:A*}</a></tt></td></tr>
-<tr><td><tt>count.letters</tt></td><td>how many letters, ignoring spaces</td><td><tt><a href="./?q=%7Bletters%3D11%3AA*%7D">{letters=11:A*}</a></tt></td></tr>
-<tr><td><tt>count.words</tt></td><td>how many words</td><td><tt><a href="./?q=%7Bwords%3D3%3AA*%7D">{words=3:A*}</a></tt></td></tr>
-<tr><td><tt>count.all</tt></td><td>every letter of a set appears</td><td><tt><a href="./?q=%7Ball(aeiou)%3AA*%7D">{all(aeiou):A*}</a></tt></td></tr>
+<tr><td><tt>count</tt></td><td>how many letters of a set appear</td><td><tt><a href="./?q=%7Bcount%28e%29%3D2%3AA%2A%7D">{count(e)=2:A*}</a></tt></td></tr>
+<tr><td><tt>count.letters</tt></td><td>how many letters, ignoring spaces</td><td><tt><a href="./?q=%7Bletters%3D11%3AA%2A%7D">{letters=11:A*}</a></tt></td></tr>
+<tr><td><tt>count.words</tt></td><td>how many words</td><td><tt><a href="./?q=%7Bwords%3D3%3AA%2A%7D">{words=3:A*}</a></tt></td></tr>
+<tr><td><tt>count.all</tt></td><td>every letter of a set appears</td><td><tt><a href="./?q=%7Ball%28aeiou%29%3AA%2A%7D">{all(aeiou):A*}</a></tt></td></tr>
 <tr><td><tt>count.distinct</tt></td><td>no letter is repeated</td><td><tt><a href="./?q=%7Bdistinct%3AA%7B6%7D%7D">{distinct:A{6}}</a></tt></td></tr>
-<tr><td><tt>count.maxrep</tt></td><td>no letter repeats more than N times</td><td><tt><a href="./?q=%7Bmaxrep%3D2%3AA*%7D">{maxrep=2:A*}</a></tt></td></tr>
+<tr><td><tt>count.maxrep</tt></td><td>no letter repeats more than N times</td><td><tt><a href="./?q=%7Bmaxrep%3D2%3AA%2A%7D">{maxrep=2:A*}</a></tt></td></tr>
 </table>
 <h3 class="grp">bag<span class="gb"> — restrict which letters are available</span></h3>
 <table class="ref">
@@ -500,7 +500,7 @@ whole query; the rest compose anywhere.
 </table>
 <h3 class="grp">shape<span class="gb"> — restrict letters by how they look or where they are typed</span></h3>
 <table class="ref">
-<tr><td><tt>shape.roman</tt></td><td>only Roman-numeral letters</td><td><tt><a href="./?q=%7Broman%3AA*%7D">{roman:A*}</a></tt></td></tr>
+<tr><td><tt>shape.roman</tt></td><td>only Roman-numeral letters</td><td><tt><a href="./?q=%7Broman%3AA%2A%7D">{roman:A*}</a></tt></td></tr>
 <tr><td><tt>shape.rot180</tt></td><td>only letters that survive a half turn</td><td><tt><a href="./?q=%7Brot180%3AA%7B4%7D%7D">{rot180:A{4}}</a></tt></td></tr>
 <tr><td><tt>shape.mirror</tt></td><td>only letters with a vertical mirror line</td><td><tt><a href="./?q=%7Bmirror%3AA%7B5%7D%7D">{mirror:A{5}}</a></tt></td></tr>
 <tr><td><tt>shape.sevenseg</tt></td><td>only letters a seven-segment display can show</td><td><tt><a href="./?q=%7Bsevenseg%3AA%7B4%7D%7D">{sevenseg:A{4}}</a></tt></td></tr>
@@ -542,8 +542,8 @@ The bare name still works everywhere, so old links keep working; the prefix is
 there for when two names look related and are not. <tt>rot13</tt> decodes a
 shifted literal and <tt>rot180</tt> is the set of letters that survive being
 turned upside down — written out as
-<tt><a href="/9000/?q=%7Bcipher.rot13%3Auryyb%7D">{cipher.rot13:uryyb}</a></tt>
-and <tt><a href="/9000/?q=%7Bshape.rot180%3AA%7B4%7D%7D">{shape.rot180:A{4}}</a></tt>
+<tt><a href="./?q=%7Bcipher.rot13%3Auryyb%7D">{cipher.rot13:uryyb}</a></tt>
+and <tt><a href="./?q=%7Bshape.rot180%3AA%7B4%7D%7D">{shape.rot180:A{4}}</a></tt>
 they can no longer be mistaken for each other. Naming the wrong group is an
 error that tells you the right one, rather than a silent reinterpretation.
 <ul>
@@ -564,7 +564,7 @@ the whole query; the rest compose anywhere.
 <li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing
 and composes with everything:
-<tt><a href="/9000/?q=.*%7Blist%3Anato%7D.*">.*{list:nato}.*</a></tt> finds a
+<tt><a href="./?q=.%2A%7Blist%3Anato%7D.%2A">.*{list:nato}.*</a></tt> finds a
 code word hidden inside a phrase, and <tt>{list:days}&amp;A{6}</tt> keeps only
 the six-letter ones.
 <br>Shipped lists: <tt>countries</tt>, <tt>capitals</tt>, <tt>usstates</tt>,
@@ -589,7 +589,7 @@ is fetched at run time and the lists work in the offline build too.
 one. <a href="lists.html">Browse the catalogue</a> to see what exists; a name
 that does not exist suggests the closest one that does.
 <br><b>Your own list</b> goes straight in the query:
-<tt><a href="/9000/?q=.*%7Blist%3Ared%2Cgreen%2Cblue%7D.*">.*{list:red,green,blue}.*</a></tt>.
+<tt><a href="./?q=.%2A%7Blist%3Ared%2Cgreen%2Cblue%7D.%2A">.*{list:red,green,blue}.*</a></tt>.
 Anything with a comma in it is read as entries rather than a list name (so a
 single entry needs a trailing comma: <tt>{list:sigma,}</tt>), entries are
 normalised the same way — <tt>{list:New York,Los Angeles}</tt> works — and the
@@ -599,7 +599,7 @@ save.
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,
-<tt><a href="/9000/?q=%7Brank%20200-2000%3AA%7B5%7D%7D">{rank
+<tt><a href="./?q=%7Brank%20200-2000%3AA%7B5%7D%7D">{rank
 200-2000:A{5}}</a></tt> starts at rank 200. A bare
 <tt>{rank 200:...}</tt> runs from there to the end. Ranks count the engine's
 own frequency order, before any folding.
@@ -658,7 +658,7 @@ allowed anywhere.</p>
 
 <p>By default, spaces may be inserted anywhere in the
 expression when matching. That means that an expression like
-<tt><a href="/?q=CVCVCVCVCV">CVCVCVCVCV</a></tt> (five alternating
+<tt><a href="./?q=CVCVCVCVCV">CVCVCVCVCV</a></tt> (five alternating
 consonant-vowel pairs) matches words like "literature" as well as phrase
 fragments like "have become" or "was used as a".</p>
 
@@ -666,10 +666,10 @@ fragments like "have become" or "was used as a".</p>
 phrases</em>"</tt> in the pattern.
 Within the quotation marks, spaces will not be inserted unless the pattern
 specifically allows them. So the expression
-<tt><a href="/?q=%22CVCVCVCVCV%22">"CVCVCVCVCV"</a></tt> only matches single
-10-letter words; <tt><a href="/?q=%22CVCVC-VCVCV%22">"CVCVC-VCVCV"</a></tt>
+<tt><a href="./?q=%22CVCVCVCVCV%22">"CVCVCVCVCV"</a></tt> only matches single
+10-letter words; <tt><a href="./?q=%22CVCVC-VCVCV%22">"CVCVC-VCVCV"</a></tt>
 matches either single words or evenly split pairs of 5-letter words;
-<tt><a href="/?q=%22CVCVC%20VCVCV%22">"CVCVC VCVCV"</a></tt> matches only pairs
+<tt><a href="./?q=%22CVCVC%20VCVCV%22">"CVCVC VCVCV"</a></tt> matches only pairs
 of 5-letter words.</p>
 
 <p>Quotation marks can be used on all or part of the query, as desired.</p>
@@ -679,7 +679,7 @@ of 5-letter words.</p>
 <p>By analogy with the standard <tt>|</tt> (alternation) operator, the &amp;
 operator requires both sides to match for the pattern to match. This is useful
 for applying several constraints in parallel. For example,
-<tt><a href="/?q=%22_*a_*%26_*b_*%26_*c_*%26_{5,}%22">"_*a_*&amp;_*b_*&amp;_*c_*&amp;_{5,}"</a></tt>
+<tt><a href="./?q=%22_%2Aa_%2A%26_%2Ab_%2A%26_%2Ac_%2A%26_%7B5%2C%7D%22">"_*a_*&amp;_*b_*&amp;_*c_*&amp;_{5,}"</a></tt>
 matches single words that contain all of "a", "b" and "c" (but in no
 particular order) and are also at least 5 letters long overall.</p>
 
@@ -692,16 +692,16 @@ still gets harder with each added constraint's rarity.)</p>
 
 <p>Text inside <tt>&lt;<em>angle brackets</em>&gt;</tt> matches anything that
 contains the same parts but in any order. So
-<tt><a href="/?q=%3Ccat%3E">&lt;act&gt;</a></tt> matches "act", "cat", "atc" and
+<tt><a href="./?q=%3Cact%3E">&lt;act&gt;</a></tt> matches "act", "cat", "atc" and
 so on.</p>
 
 <p>The parts of an anagram are normally letters, but can themselves be any
 regular expression (in parentheses). For example,
-<tt><a href="/?q=%3C%28ag%29%28m%29%28ra%29__%3E">&lt;(ag)(m)(ra)__&gt;</a></tt>
+<tt><a href="./?q=%3C%28ag%29%28m%29%28ra%29__%3E">&lt;(ag)(m)(ra)__&gt;</a></tt>
 matches any 7-letter word or phrase containing "ag", "m", "ra", and any
 other two letters. Anagrams can also be part of a larger expression, if
 you have partial information about the order of something, such as
-<tt><a href="/?q=%3Caan%3Eg%3Camr%3E">&lt;aan&gt;g&lt;amr&gt;</a></tt> which
+<tt><a href="./?q=%3Caan%3Eg%3Camr%3E">&lt;aan&gt;g&lt;amr&gt;</a></tt> which
 matches "anagram" but not "margana".</p>
 
 <p>Remember, if you want to restrict your anagram to single words, use
@@ -738,7 +738,7 @@ at least 5 letters using a possibly-empty suffix of the first part, a filled
 in letter, and a possibly-empty prefix of the second part. For that first
 row, this pattern locates all such words:</p>
 
-<pre><a href="/?q=%22(((((m?o)?c)?h)?i)?t)?_(h(a(t(o(ry?)?)?)?)?)?%26_{5,}%22">"(((((m?o)?c)?h)?i)?t)?_(h(a(t(o(ry?)?)?)?)?)?&amp;_{5,}"</a></pre>
+<pre><a href="./?q=%22%28%28%28%28%28m%3Fo%29%3Fc%29%3Fh%29%3Fi%29%3Ft%29%3F_%28h%28a%28t%28o%28ry%3F%29%3F%29%3F%29%3F%29%3F%29%3F%26_%7B5%2C%7D%22">"(((((m?o)?c)?h)?i)?t)?_(h(a(t(o(ry?)?)?)?)?)?&amp;_{5,}"</a></pre>
 
 <p>Note that the puzzle directions further require "common non-plural,
 non-capitalized English" words, and that each letter (A-Z) be used exactly once;
@@ -756,7 +756,7 @@ three will be left over for future use. The boldface letters indicate the
 start of a word in the clue (a word break happens just before each boldface
 letter). This pattern finds the solution:</p>
 
-<pre><a href="/?q=%22<(-may)%3F(-sit)%3F(tit)%3F(ble)%3F(com)%3F(iks)%3F(ial)%3F(im%20b)%3F(-mon)%3F>%22%26(_{18})">"&lt;(-may)?(-sit)?(tit)?(ble)?(com)?(iks)?(ial)?(im b)?(-mon)?&gt;"&amp;(_{18})</a></pre>
+<pre><a href="./?q=%22%3C%28-may%29%3F%28-sit%29%3F%28tit%29%3F%28ble%29%3F%28com%29%3F%28iks%29%3F%28ial%29%3F%28im%20b%29%3F%28-mon%29%3F%3E%22%26%28_%7B18%7D%29">"&lt;(-may)?(-sit)?(tit)?(ble)?(com)?(iks)?(ial)?(im b)?(-mon)?&gt;"&amp;(_{18})</a></pre>
 
 <p>The anagram operator is used to reorder the triples. Each triple is made
 individually optional in the anagram, but a constraint is added to the end
@@ -776,7 +776,7 @@ assume the puzzle designer didn't include any extraneous letters, so this is
 like an anagram with repeated letters collapsed into one. This pattern finds
 what can be formed from one of these letter banks:</p>
 
-<pre><a href="/?q=[aehimnprsw]*%26_*a_*%26_*e_*%26_*h_*%26_*i_*%26_*m_*%26_*n_*%26_*p_*%26_*r_*%26_*s_*%26_*w_*">[aehimnprsw]*&amp;_*a_*&amp;_*e_*&amp;_*h_*&amp;_*i_*&amp;_*m_*&amp;_*n_*&amp;_*p_*&amp;_*r_*&amp;_*s_*&amp;_*w_*</a></pre>
+<pre><a href="./?q=%5Baehimnprsw%5D%2A%26_%2Aa_%2A%26_%2Ae_%2A%26_%2Ah_%2A%26_%2Ai_%2A%26_%2Am_%2A%26_%2An_%2A%26_%2Ap_%2A%26_%2Ar_%2A%26_%2As_%2A%26_%2Aw_%2A">[aehimnprsw]*&amp;_*a_*&amp;_*e_*&amp;_*h_*&amp;_*i_*&amp;_*m_*&amp;_*n_*&amp;_*p_*&amp;_*r_*&amp;_*s_*&amp;_*w_*</a></pre>
 
 <p>This rather cumbersome expression requires a phrase made from letters in the
 bank and also (this is the cumbersome part) requires each letter to be used
@@ -792,7 +792,7 @@ depicted objects with one letter removed from each. For example, one of the
 stars contained drawings of CHARM, ELTON, CHEST, and ONE. This pattern finds
 what can be made from this with one letter dropped from each:</p>
 
-<pre><a href="/?q=%28c%3Fh%3Fa%3Fr%3Fm%3F%26_%7B4%7D%29%28e%3Fl%3Ft%3Fo%3Fn%3F%26_%7B4%7D%29%28c%3Fh%3Fe%3Fs%3Ft%3F%26_%7B4%7D%29%28o%3Fn%3Fe%3F%26_%7B2%7D%29">(c?h?a?r?m?&amp;_{4})(e?l?t?o?n?&amp;_{4})(c?h?e?s?t?&amp;_{4})(o?n?e?&amp;_{2})</a></pre>
+<pre><a href="./?q=%28c%3Fh%3Fa%3Fr%3Fm%3F%26_%7B4%7D%29%28e%3Fl%3Ft%3Fo%3Fn%3F%26_%7B4%7D%29%28c%3Fh%3Fe%3Fs%3Ft%3F%26_%7B4%7D%29%28o%3Fn%3Fe%3F%26_%7B2%7D%29">(c?h?a?r?m?&amp;_{4})(e?l?t?o?n?&amp;_{4})(c?h?e?s?t?&amp;_{4})(o?n?e?&amp;_{2})</a></pre>
 
 <p>Within each word, every letter is optional, but a constraint is also added
 to the subpattern requiring that N-1 of the letters be used. The answer
@@ -805,7 +805,7 @@ nonsense strings like "SEPAP" and "HEGM" and "add water" by inserting the
 letters W, A, T, E, R -- in that order, but not necessarily consecutively --
 into the given letters. This pattern finds the answer for HEGM:</p>
 
-<pre><a href="/?q=%3Cwaterhegm%3E%26_*w_*a_*t_*e_*r_*">&lt;waterhegm&gt;&amp;_*w_*a_*t_*e_*r_*</a></pre>
+<pre><a href="./?q=%3Cwaterhegm%3E%26_%2Aw_%2Aa_%2At_%2Ae_%2Ar_%2A">&lt;waterhegm&gt;&amp;_*w_*a_*t_*e_*r_*</a></pre>
 
 <p>The word is required to be an anagram of &lt;waterhegm&gt; with the added
 constraint that the letters in "water" appear in that order. The answer "wheat
@@ -817,7 +817,7 @@ germ" shows up on top.</p>
 a series of (mostly) three-letter chunks. The series was in the right order,
 but the chunks were scrambled internally:</p>
 
-<pre><a href="/?q=%3Chet%3E%3Cral%3E%3Cseg%3E%3Ctan%3E%3Crut%3E%3Cbla%3E%3Coody%3E%3Cafl%3E%3Cndi%3E%3Ccin%3E%3Cawe%3E%3Cter%3E">&lt;het&gt;&lt;ral&gt;&lt;seg&gt;&lt;tan&gt;&lt;rut&gt;&lt;bla&gt;&lt;oody&gt;&lt;afl&gt;&lt;ndi&gt;&lt;cin&gt;&lt;awe&gt;&lt;ter&gt;</a></pre>
+<pre><a href="./?q=%3Chet%3E%3Cral%3E%3Cseg%3E%3Ctan%3E%3Crut%3E%3Cbla%3E%3Coody%3E%3Cafl%3E%3Cndi%3E%3Ccin%3E%3Cawe%3E%3Cter%3E">&lt;het&gt;&lt;ral&gt;&lt;seg&gt;&lt;tan&gt;&lt;rut&gt;&lt;bla&gt;&lt;oody&gt;&lt;afl&gt;&lt;ndi&gt;&lt;cin&gt;&lt;awe&gt;&lt;ter&gt;</a></pre>
 
 <p>The answer, "the largest natural body of land in ice water", shows up first.
 (Interpreting it requires some cleverness by the human solver!)</p>
@@ -870,9 +870,9 @@ time; the downloaded-index mode has no such cost at all).</p>
 <p>Because the search proceeds forward from the start of the answer string,
 patterns which are constrained at the beginning work much better than patterns
 which are constrained at the end. For example,
-<tt><a href="/?q=the_*">the_*</a></tt>
+<tt><a href="./?q=the_%2A">the_*</a></tt>
 gives results very quickly;
-<tt><a href="/?q=_*est">_*est</a></tt> takes a long time to return. The first
+<tt><a href="./?q=_%2Aest">_*est</a></tt> takes a long time to return. The first
 pattern can walk the subtrie starting with "the"; the second pattern
 effectively walks every word and phrase in the index in frequency order,
 checking for each one whether it ends in "est".</p>

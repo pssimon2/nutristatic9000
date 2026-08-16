@@ -14,6 +14,7 @@ parts that look odd. `ROADMAP.md` is what to build next; this is how.
 | `npm run check-layers` | engine↛app imports, and import cycles |
 | `npm run check-docs` | the usage guide's construct reference matches the catalogue |
 | `npm run bench` | nine query shapes still explore the index identically |
+| `npm run check-links` | every example link searches what its label says, relatively |
 | `npm run build && npm run test:browser` | the only end-to-end coverage of `web/worker.ts` and `web/main.ts` |
 | `npm run test:offline` | the single-file `file://` build |
 

@@ -25,6 +25,8 @@ jobs:
         run: npm run check-docs
       - name: Layering and import cycles
         run: npm run check-layers
+      - name: Example links run what they say
+        run: npm run check-links
       - name: Unit tests
         run: npm test
       - name: Engine behaviour is unchanged

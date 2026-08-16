@@ -275,7 +275,21 @@ Goal: mechanical, low-risk changes that everything later depends on.
   re-regex (`worker.ts:1719`). Grammar/semantics unchanged (GR2) except:
   wrapper nesting order now *means* its order (add tests for
   `{rank:{at:…}}` vs `{at:{rank:…}}`).
-- [ ] **C3. Shared executor.** One `executePlan(ctx, plan, budget, sink)` in
+- [~] **C3. Shared executor.** *(the duplicated stages are shared; one loop
+  each remains)* `src/output.ts` owns the rank window and `{at}` extraction
+  for both front ends, and counts ranks itself — the count is the subtle part,
+  since `{rank 200-2000:…}` is a window into the *surviving* stream and two
+  implementations of "advanced exactly once" is one more than is safe. The CLI
+  now peels wrappers with `shapeOfQuery` too, so both use one order.
+  Verified byte-identical CLI output across `{at}`, `{rank}`, nesting, a
+  filter and a plain query before and after.
+  **Not done:** the single `executePlan(ctx, plan, budget, sink)`. The CLI
+  still runs its own driver loop, and folding it into `SearchSession` would
+  buy one loop at the cost of changing what the CLI is — it streams, where the
+  session pages. The stages that were genuinely duplicated (predicates in C1,
+  output here) are shared; the loop is where the two front ends legitimately
+  differ.
+  Original text: One `executePlan(ctx, plan, budget, sink)` in
   `src/engine/exec/` running: search → predicates → transforms (innermost
   first) → sink. CLI sink = stdout lines; worker sink = postMessage. Kills
   the triplicated pipeline (`present()` in `cli/find-expr.ts:159`,
