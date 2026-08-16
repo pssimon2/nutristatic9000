@@ -1604,7 +1604,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             session = new WasmSession(engine, currentQuery);
           } catch (e) {
             if (e instanceof ParseError) {
-              post({ type: "parse-error", rest: e.rest });
+              post({ type: "parse-error", rest: e.rest, detail: e.detail });
               return;
             }
             // A superseded search may fail for staleness reasons (its index
@@ -1625,7 +1625,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             });
           } catch (e) {
             if (e instanceof ParseError) {
-              post({ type: "parse-error", rest: e.rest });
+              post({ type: "parse-error", rest: e.rest, detail: e.detail });
               return;
             }
             throw e;

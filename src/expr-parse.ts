@@ -32,8 +32,10 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
+import { ParseError } from "./find-expr.js";
 import { listNfa } from "./word-lists.js";
 import {
+  CONSTRUCT_NAMES,
   bankConstraint,
   cipherNfa,
   classConstraint,
@@ -42,6 +44,7 @@ import {
   encodingNfa,
   morseNfa,
   namedConstraint,
+  suggestConstruct,
 } from "./value-constraint.js";
 
 const CODE_SPACE = 0x20;
@@ -332,6 +335,12 @@ function parseAtom(
  * named by `name`. Returns null (a parse error) for an unknown name, so the
  * user gets the standard "can't parse" pointer at the offending text.
  */
+/** The `{…}` construct starting at `i`, for error messages. */
+function constructText(s: string, i: number): string {
+  const close = s.indexOf("}", i);
+  return close < 0 ? s.slice(i) : s.slice(i, close + 1);
+}
+
 function parseNamedConstraint(
   s: string,
   i: number,
@@ -356,7 +365,13 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const list = listNfa(s.slice(i + head[0].length, close));
-    if (!list) return null;
+    if (!list) {
+      throw new ParseError(
+        constructText(s, i),
+        `no such list "${s.slice(i + head[0].length, close).trim()}" — ` +
+          "write entries with commas to give your own",
+      );
+    }
     box.and = [list];
     return close + 1;
   }
@@ -364,7 +379,9 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const m = morseNfa(s.slice(i + head[0].length, close));
-    if (!m || spec.trim() !== "") return null;
+    if (!m || spec.trim() !== "") {
+      throw new ParseError(constructText(s, i), "{morse:…} takes dots and dashes");
+    }
     box.and = [m];
     return close + 1;
   }
@@ -382,7 +399,14 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const enc = encodingNfa(name, spec, s.slice(i + head[0].length, close));
-    if (!enc) return null;
+    if (!enc) {
+      throw new ParseError(
+        constructText(s, i),
+        name === "t9"
+          ? "{t9:…} takes keypad digits 2-9"
+          : "{enum:…} takes word lengths, e.g. {enum:4,3,5}",
+      );
+    }
     box.and = [enc];
     return close + 1;
   }
@@ -391,7 +415,12 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const cipher = cipherNfa(name, spec, s.slice(i + head[0].length, close));
-    if (!cipher) return null;
+    if (!cipher) {
+      throw new ParseError(
+        constructText(s, i),
+        `{${name}…} takes literal text, and rot/caesar take a shift`,
+      );
+    }
     box.and = [cipher];
     return close + 1;
   }
@@ -400,7 +429,12 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const edit = editConstraint(name, spec, s.slice(i + head[0].length, close));
-    if (!edit) return null;
+    if (!edit) {
+      throw new ParseError(
+        constructText(s, i),
+        `{${name}…} takes a literal word, up to 5 edits — e.g. {del1:beast}`,
+      );
+    }
     box.and = [edit];
     return close + 1;
   }
@@ -410,12 +444,30 @@ function parseNamedConstraint(
     const close = s.indexOf("}", i);
     if (close < 0) return null;
     const bank = bankConstraint(s.slice(i + head[0].length, close), name);
-    if (!bank) return null;
+    if (!bank) {
+      throw new ParseError(
+        constructText(s, i),
+        `{${name}:…} takes letters — e.g. {sub:cryptography}`,
+      );
+    }
     box.and = bank;
     return close + 1;
   }
   const conjuncts = namedConstraint(name, spec) ?? classConstraint(name, spec);
-  if (!conjuncts) return null;
+  if (!conjuncts) {
+    const whole = s.slice(i, s.indexOf("}", i) + 1 || undefined);
+    if (!CONSTRUCT_NAMES.includes(name)) {
+      const near = suggestConstruct(name);
+      throw new ParseError(
+        whole,
+        `no such constraint "${name}"${near ? ` — did you mean "${near}"?` : ""}`,
+      );
+    }
+    throw new ParseError(
+      whole,
+      `"${name}" doesn't understand "${spec.trim()}" in ${whole}`,
+    );
+  }
   const p = parseExprBox(s, i + head[0].length, box, quoted);
   if (p === null || s[p] !== "}") return null;
   box.and.push(...conjuncts);

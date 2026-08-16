@@ -11,8 +11,16 @@ import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
 export const DEFAULT_RESTART = 1e-6;
 
 export class ParseError extends Error {
-  constructor(readonly rest: string) {
-    super(`can't parse "${rest}"`);
+  /**
+   * `detail` explains a construct that was recognised but wrong — an unknown
+   * name, a malformed comparison — where "can't parse" would leave the user
+   * guessing which of two dozen constructs they mistyped.
+   */
+  constructor(
+    readonly rest: string,
+    readonly detail?: string,
+  ) {
+    super(detail ?? `can't parse "${rest}"`);
   }
 }
 

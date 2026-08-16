@@ -363,6 +363,17 @@ await page.unroute("**/demo.index.idxz*");
 await page.click("#dlfull"); // clean up the device copy
 await waitInfo("loading only");
 
+// A mistyped constraint names itself and suggests the real one.
+await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("{sumx=100:A*}"));
+await page.waitForFunction(
+  () => document.getElementById("status").className === "error",
+  null,
+  { timeout: 60000 },
+);
+const typo = await page.textContent("#status");
+console.log("typo help:", typo);
+if (!/did you mean "sum"/.test(typo)) throw new Error("no suggestion offered");
+
 // Parse error.
 await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("((("));
 await page.waitForFunction(

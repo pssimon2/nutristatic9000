@@ -36,6 +36,19 @@ function matches(pattern: string, text: string): boolean {
   return filter.isAccepting(state);
 }
 
+
+/** Rejected either by throwing an explanation or by failing to parse. */
+function rejects(pattern: string): void {
+  const nfa = new Nfa();
+  let end: number | null = null;
+  try {
+    end = parseExpr(pattern, 0, nfa, false);
+  } catch {
+    return;
+  }
+  expect(end).not.toBe(pattern.length);
+}
+
 const a1z26 = (s: string) =>
   [...s].reduce((n, c) => n + (A1Z26[c.charCodeAt(0)] ?? 0), 0);
 
@@ -110,10 +123,7 @@ describe("{sum:…} in patterns", () => {
   it("rejects unknown names and malformed comparisons", () => {
     // The grammar allows an empty expression, so a bad construct shows up as
     // a short parse — exactly what the callers report as "can't parse".
-    const nfa = new Nfa();
-    for (const bad of ["{nosuch=1:A*}", "{sum=:A*}", "{sum~5:A*}"]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
-    }
+    for (const bad of ["{nosuch=1:A*}", "{sum=:A*}", "{sum~5:A*}"]) rejects(bad);
   });
 });
 
@@ -154,7 +164,6 @@ describe("occurrence and multiset constraints", () => {
   });
 
   it("rejects malformed specs", () => {
-    const nfa = new Nfa();
     for (const bad of [
       "{count=2:A*}",
       "{count():A*}",
@@ -163,7 +172,7 @@ describe("occurrence and multiset constraints", () => {
       "{words=0:A*}",
       "{maxrep>=2:A*}",
     ]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+      rejects(bad);
     }
   });
 });
@@ -186,10 +195,7 @@ describe("letter banks and sub-anagrams", () => {
   });
 
   it("rejects empty or non-letter banks", () => {
-    const nfa = new Nfa();
-    for (const bad of ["{sub:}", "{bank:12}", "<<>>"]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
-    }
+    for (const bad of ["{sub:}", "{bank:12}", "<<>>"]) rejects(bad);
   });
 });
 
@@ -226,10 +232,7 @@ describe("edit-distance operators", () => {
   });
 
   it("rejects unusable words and bounds", () => {
-    const nfa = new Nfa();
-    for (const bad of ["{del1:}", "{del0:cargo}", "{edit<=9:cargo}", "{del1:ab!}"]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
-    }
+    for (const bad of ["{del1:}", "{del0:cargo}", "{edit<=9:cargo}", "{del1:ab!}"]) rejects(bad);
   });
 });
 
@@ -253,10 +256,7 @@ describe("cipher transforms", () => {
   });
 
   it("rejects non-literal or malformed arguments", () => {
-    const nfa = new Nfa();
-    for (const bad of ["{caesar:}", "{caesar:a1}", "{rot:abc}", "{atbash=1:gsv}"]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
-    }
+    for (const bad of ["{caesar:}", "{caesar:a1}", "{rot:abc}", "{atbash=1:gsv}"]) rejects(bad);
   });
 });
 
@@ -300,10 +300,7 @@ describe("structural classes and encodings", () => {
   });
 
   it("rejects unknown classes and malformed arguments", () => {
-    const nfa = new Nfa();
-    for (const bad of ["{roman=2:A*}", "{row9:A*}", "{t9:2601}", "{enum:x}", "{holes=7:A*}"]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
-    }
+    for (const bad of ["{roman=2:A*}", "{row9:A*}", "{t9:2601}", "{enum:x}", "{holes=7:A*}"]) rejects(bad);
   });
 });
 
@@ -326,8 +323,7 @@ describe("complement", () => {
   });
 
   it("rejects an empty or oversized negation", () => {
-    const nfa = new Nfa();
-    expect(parseExpr("!", 0, nfa, false)).not.toBe(1);
+    rejects("!");
   });
 });
 
@@ -342,10 +338,7 @@ describe("morse and element spelling", () => {
   });
 
   it("rejects morse that isn't dots and dashes", () => {
-    const nfa = new Nfa();
-    for (const bad of ["{morse:abc}", "{morse:}"]) {
-      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
-    }
+    for (const bad of ["{morse:abc}", "{morse:}"]) rejects(bad);
   });
 
   it("spells words in chemical symbols", () => {
@@ -358,5 +351,31 @@ describe("morse and element spelling", () => {
   it("knows all 118 symbols", async () => {
     const { elementSymbolCount } = await import("../src/value-constraint.js");
     expect(elementSymbolCount()).toBe(118);
+  });
+});
+
+describe("error messages", () => {
+  it("names an unknown constraint and suggests the real one", () => {
+    const nfa = new Nfa();
+    expect(() => parseExpr("{sumx=100:A*}", 0, nfa, false)).toThrow(
+      /no such constraint "sumx".*did you mean "sum"/,
+    );
+    expect(() => parseExpr("{distinkt:A{6}}", 0, nfa, false)).toThrow(
+      /did you mean "distinct"/,
+    );
+  });
+
+  it("says what a known constraint didn't understand", () => {
+    const nfa = new Nfa();
+    expect(() => parseExpr("{sum=abc:A*}", 0, nfa, false)).toThrow(
+      /"sum" doesn't understand "=abc"/,
+    );
+  });
+
+  it("offers no suggestion when nothing is close", () => {
+    const nfa = new Nfa();
+    expect(() => parseExpr("{zzzzzzzz:A*}", 0, nfa, false)).toThrow(
+      /no such constraint "zzzzzzzz"$/,
+    );
   });
 });

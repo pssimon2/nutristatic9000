@@ -570,3 +570,41 @@ export function elementsNfa(): Nfa {
   }
   return nfa;
 }
+
+/** Every `{name…}` construct, for error messages and suggestions. */
+export const CONSTRUCT_NAMES = [
+  "sum", "scrabble", "count", "letters", "words", "all", "distinct", "maxrep",
+  "sub", "bank", "del", "add", "subst", "edit", "caesar", "rot", "rot13",
+  "rot180", "atbash", "t9", "enum", "morse", "elements", "roman", "mirror",
+  "sevenseg", "holes", "row1", "row2", "row3", "ascending", "descending",
+  "list", "compound", "palindrome", "reversible", "at", "rank",
+];
+
+/** Closest known construct name, when it's close enough to be a typo. */
+export function suggestConstruct(name: string): string | null {
+  const distance = (a: string, b: string): number => {
+    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; ++i) {
+      const row = [i];
+      for (let j = 1; j <= b.length; ++j) {
+        row[j] = Math.min(
+          prev[j] + 1,
+          row[j - 1] + 1,
+          prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+        );
+      }
+      prev = row;
+    }
+    return prev[b.length];
+  };
+  let best: string | null = null;
+  let bestD = Infinity;
+  for (const known of CONSTRUCT_NAMES) {
+    const d = distance(name, known);
+    if (d < bestD) {
+      bestD = d;
+      best = known;
+    }
+  }
+  return bestD <= 2 ? best : null;
+}

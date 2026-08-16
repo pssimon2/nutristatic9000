@@ -619,7 +619,9 @@ worker.onmessage = (ev) => {
       }
       break;
     case "parse-error":
-      setStatus(`can't parse "${msg.rest}"`, true);
+      // A recognised-but-wrong construct explains itself; anything else falls
+      // back to pointing at the text that failed.
+      setStatus(msg.detail ?? `can't parse "${msg.rest}"`, true);
       break;
     case "download-error": {
       // The index that was loaded before the download is still usable; a

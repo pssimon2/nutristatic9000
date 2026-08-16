@@ -63,10 +63,11 @@ describe("{list:…} in patterns", () => {
     expect(matches("{list:days}&A{6}", "tuesday")).toBe(false); // wrong length
   });
 
-  it("rejects unknown lists", () => {
+  it("explains an unknown list instead of just failing to parse", () => {
     const nfa = new Nfa();
-    const bad = "{list:nosuch}";
-    expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+    expect(() => parseExpr("{list:nosuch}", 0, nfa, false)).toThrow(
+      /no such list "nosuch"/,
+    );
   });
 });
 
