@@ -19,8 +19,13 @@ if (!listPath) {
   console.error("usage: build-neighbours.mjs count_1w.txt [out.bin] [vocab] [K]");
   process.exit(2);
 }
-const VOCAB = Number(vocabArg ?? 20000);
-const K = Number(kArg ?? 48);
+const VOCAB = Number(vocabArg ?? 60000);
+const K = Number(kArg ?? 40);
+// Neighbour indices are u16, so the vocabulary has to fit in one.
+if (VOCAB > 65535) {
+  console.error("vocabulary must be <= 65535 (indices are u16)");
+  process.exit(2);
+}
 
 // Frequency-ordered, letters only: puzzle answers are words, not tokens.
 const words = [];
@@ -59,31 +64,38 @@ console.log(`\n  embedding done in ${((Date.now() - started) / 1000).toFixed(0)}
 const nbr = new Uint16Array(words.length * K);
 const BLOCK = 64;
 const t1 = Date.now();
-const scores = new Float32Array(words.length);
+const topScore = new Float32Array(K);
+const topIdx = new Int32Array(K);
 for (let a = 0; a < words.length; a += BLOCK) {
   const end = Math.min(a + BLOCK, words.length);
   for (let i = a; i < end; ++i) {
     const base = i * DIM;
-    scores.fill(-2);
+    // Keep the running top K in a small sorted array (worst first) rather
+    // than scanning the whole score vector K times: almost every candidate
+    // loses to the current worst and costs one comparison.
+    topScore.fill(-2);
+    topIdx.fill(0);
+    let worst = -2;
     for (let j = 0; j < words.length; ++j) {
       if (j === i) continue;
       let dot = 0;
       const jb = j * DIM;
       for (let d = 0; d < DIM; ++d) dot += vectors[base + d] * vectors[jb + d];
-      scores[j] = dot;
-    }
-    // Partial selection: K passes over a 20k array beats sorting it.
-    for (let slot = 0; slot < K; ++slot) {
-      let best = -1;
-      let bestScore = -2;
-      for (let j = 0; j < words.length; ++j) {
-        if (scores[j] > bestScore) {
-          bestScore = scores[j];
-          best = j;
-        }
+      if (dot <= worst) continue;
+      // Slide it into place, dropping the current worst off the front.
+      let at = 0;
+      while (at < K - 1 && topScore[at + 1] < dot) {
+        topScore[at] = topScore[at + 1];
+        topIdx[at] = topIdx[at + 1];
+        ++at;
       }
-      nbr[i * K + slot] = best < 0 ? i : best;
-      if (best >= 0) scores[best] = -2;
+      topScore[at] = dot;
+      topIdx[at] = j;
+      worst = topScore[0];
+    }
+    // Stored nearest-first, so a smaller {near N:…} takes the closest N.
+    for (let slot = 0; slot < K; ++slot) {
+      nbr[i * K + slot] = topIdx[K - 1 - slot];
     }
   }
   const done = end;

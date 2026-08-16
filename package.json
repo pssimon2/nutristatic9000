@@ -17,7 +17,9 @@
     "wordlist-index": "tsx cli/wordlist-index.ts",
     "compress-index": "tsx cli/compress-index.ts",
     "build-wasm": "clang --target=wasm32-unknown-unknown -O3 -nostdlib -Wl,--no-entry -Wl,--export-dynamic -Wl,--allow-undefined -Wl,--initial-memory=17039360 -Wl,--max-memory=3221225472 -o wasm-kernel/kernel.wasm wasm-kernel/kernel.c",
-    "build-offline": "node scripts/build-offline.mjs"
+    "build-offline": "node scripts/build-offline.mjs",
+    "test:browser": "sh scripts/browser-test.sh",
+    "test:offline": "node scripts/offline-test.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

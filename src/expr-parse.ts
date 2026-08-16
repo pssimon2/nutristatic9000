@@ -390,7 +390,7 @@ function parseNamedConstraint(
     if (!words) {
       throw new ParseError(
         constructText(s, i),
-        `"${word}" is not in the meaning vocabulary (the 20,000 commonest ` +
+        `"${word}" is not in the meaning vocabulary (the 60,000 commonest ` +
           "words); {like:…} covers a much larger dictionary",
       );
     }

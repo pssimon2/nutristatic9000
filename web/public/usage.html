@@ -318,9 +318,10 @@ when you want a synonym and <tt>{near:…}</tt> when you want whatever the clue
 is gesturing at. <tt>{near 8:word}</tt> narrows the net, <tt>{near 40:word}</tt>
 widens it (default 32).
 <br>No model runs in your browser: the embeddings are computed when the site is
-built, and only each word's nearest neighbours are shipped — about 2 MB,
-fetched once, for the 20,000 commonest words. Anything rarer is not in that
-vocabulary and says so; <tt>{like:…}</tt> covers a far larger dictionary.
+built, and only each word's nearest neighbours are shipped — about 5 MB,
+fetched once, covering the 60,000 commonest words (CIPHER, AZURE, ANAGRAM,
+TUNDRA and the like, not just everyday vocabulary). Anything rarer than that
+says so; <tt>{like:…}</tt> covers a far larger dictionary.
 <br><b>What {like:…} is and isn't:</b> a thesaurus, not a semantic model. It
 answers "what else means roughly this", from the senses WordNet groups a word
 into — every sense of it, since the pattern is what narrows things down. It
