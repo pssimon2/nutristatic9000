@@ -1094,9 +1094,22 @@ function applyCompletion(i: number): void {
   updateHelp();
 }
 
+/** Whether the harvested catalogue has been asked for; ask at most once. */
+let acListsRequested = false;
+
 function updateCompletions(): void {
   const cursor = qInput.selectionStart ?? qInput.value.length;
   const { token, items } = completionsAt(qInput.value, cursor, acLists);
+  // Someone is typing a list name and the catalogue is not here yet. It used
+  // to arrive only as a side effect of *running* a query that used a list, so
+  // the menu offered the few lists compiled into the bundle and none of the
+  // thousand harvested ones — `{list:pok` suggested nothing, with pokemon in
+  // the catalogue all along. Fetch it now; when it lands, `lists-ready`
+  // re-renders this menu.
+  if (token.kind === "listname" && !acLists && !acListsRequested) {
+    acListsRequested = true;
+    postToWorker({ type: "want-lists", listsUrl: dataUrl("lists.txt") });
+  }
   acToken = { start: token.start, prefix: token.prefix };
   acItems = items;
   acIndex = items.length > 0 ? 0 : -1;

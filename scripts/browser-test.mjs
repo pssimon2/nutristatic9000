@@ -613,6 +613,29 @@ if (/Try harder/.test(impossible)) {
   throw new Error("offered to try harder on a pattern that can never match");
 }
 
+// Typing a list name must offer the *harvested* catalogue, not just the few
+// lists compiled into the bundle. The catalogue used to arrive only as a side
+// effect of running a query that used one, so a fresh page suggested nothing
+// for "{list:pok" with pokemon in the catalogue the whole time.
+await page.goto(base + "?index=./demo.index");
+await page.waitForSelector("#q", { timeout: 30000 });
+await page.click("#q");
+await page.fill("#q", "");
+await page.type("#q", "{list:pok", { delay: 15 });
+try {
+  await page.waitForSelector("#ac li", { timeout: 30000 });
+} catch {
+  // No menu at all is the exact symptom of the catalogue never being asked
+  // for: nothing built into the bundle starts with "pok".
+  throw new Error('no completions for "{list:pok" — the harvested catalogue was never fetched');
+}
+const listNames = await page.$$eval("#ac li", (es) =>
+  es.map((e) => e.textContent.trim()));
+console.log("harvested list completions:", listNames.slice(0, 3).join(" | "));
+if (!listNames.some((t) => /pokemon/i.test(t))) {
+  throw new Error(`no harvested list suggested for "{list:pok": ${listNames.join(", ")}`);
+}
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(

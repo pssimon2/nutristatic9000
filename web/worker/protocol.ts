@@ -106,6 +106,20 @@ export interface ExplainMsg {
   text: string;
 }
 
+/**
+ * Fetch the harvested `{list:…}` catalogue for the *completion menu*, with no
+ * query waiting on it.
+ *
+ * Until this existed the catalogue arrived only as a side effect of compiling
+ * a query that used one, so typing `{list:` offered the handful of lists
+ * compiled into the bundle and none of the thousand harvested ones — the menu
+ * could not suggest what it had never been told about.
+ */
+export interface WantListsMsg {
+  type: "want-lists";
+  listsUrl?: string | null;
+}
+
 export type InMsg =
   | OpenMsg
   | SearchMsg
@@ -118,4 +132,5 @@ export type InMsg =
   | ListCopiesMsg
   | ExplainMsg
   | CheckMsg
-  | PlanMsg;
+  | PlanMsg
+  | WantListsMsg;

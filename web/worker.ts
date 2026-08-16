@@ -1173,6 +1173,24 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         post({ type: "planned", lines });
         break;
       }
+      case "want-lists": {
+        // The completion menu asking, not a query: fetch once, hand it over,
+        // and stay quiet if it fails — a menu that cannot be enriched is not
+        // an error worth interrupting anyone about.
+        if (ctx.lists) {
+          post({ type: "lists-ready", lists: ctx.lists });
+          break;
+        }
+        try {
+          await ensureExtra("lists", msg.listsUrl ?? null, async (r) => {
+            ctx.lists = parseWikiLists(await r.text());
+          });
+          if (ctx.lists) post({ type: "lists-ready", lists: ctx.lists });
+        } catch {
+          // No catalogue: the built-in lists still complete.
+        }
+        break;
+      }
       case "explain": {
         // currentQuery is the engine-level pattern: the result filter and the
         // output wrappers have already been peeled off it, which is exactly
