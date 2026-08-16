@@ -31,6 +31,7 @@ import {
   intersectExprs,
   optimize,
 } from "./automata.js";
+import { listNfa } from "./word-lists.js";
 import {
   bankConstraint,
   cipherNfa,
@@ -336,6 +337,16 @@ function parseNamedConstraint(
   } else if (name === "rot" && spec.trim() === "180") {
     name = "rot180"; // the visual class, not a 180-place shift
     spec = "";
+  }
+  if (name === "list") {
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const list = listNfa(
+      s.slice(i + head[0].length, close).trim().toLowerCase().replace(/[^a-z]/g, ""),
+    );
+    if (!list) return null;
+    box.and = [list];
+    return close + 1;
   }
   if (["t9", "enum"].includes(name)) {
     // Encodings take a literal argument (digits, or a list of word lengths).

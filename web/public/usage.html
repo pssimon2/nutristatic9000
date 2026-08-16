@@ -238,6 +238,17 @@ The ambiguity is exactly what the corpus is for.
 <tt>A{4} A{3} A{5}</tt>.
 </ul>
 
+<li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
+categories. A list is just a large alternation, so it costs the engine nothing
+and composes with everything:
+<tt><a href="/9000/?q=.*%7Blist%3Anato%7D.*">.*{list:nato}.*</a></tt> finds a
+code word hidden inside a phrase, and <tt>{list:days}&amp;A{6}</tt> keeps only
+the six-letter ones. Shipped lists: <tt>greek</tt>, <tt>nato</tt>,
+<tt>months</tt>, <tt>days</tt>, <tt>zodiac</tt>, <tt>planets</tt>,
+<tt>chess</tt>, <tt>suits</tt>, <tt>compass</tt> (a few have aliases, e.g.
+<tt>chesspieces</tt>). Entries are stored the way the corpus stores text, so
+multiword ones match.
+
 <li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
 often mid-frequency: real, but not the most common thing. Rather than
 scrolling past the head of the list,
