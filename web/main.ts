@@ -6,6 +6,7 @@ import {
   parseExtract,
   parseRank,
 } from "../src/extract-spec.js";
+import type { EarlyProbe, InMsg } from "./worker/protocol.js";
 
 // UI thread: form handling, URL state (?q=...&comp=...&index=...), and
 // rendering of streamed results — mirroring the upstream CGI's pages, but
@@ -188,6 +189,15 @@ if (OFFLINE) {
     type: "module",
   });
 }
+/**
+ * Every message to the worker goes through here, so the compiler checks the
+ * wire shape against the one definition in worker/protocol.ts. The page used
+ * to post bare literals that nothing validated.
+ */
+function postToWorker(msg: InMsg, transfer: Transferable[] = []): void {
+  worker.postMessage(msg, transfer);
+}
+
 // Without these, a worker that fails to boot (old browser, CSP, a stale
 // asset after a redeploy) leaves the page silently stuck on "loading".
 worker.onerror = (e) => {
@@ -585,7 +595,7 @@ function runNextSlot(): void {
     runNextSlot();
     return;
   }
-  worker.postMessage({
+  postToWorker({
     type: "search",
     query: pattern,
     // Resolved here: the page knows its own base, the worker script does not.
@@ -666,7 +676,7 @@ function startSearch(query: string): void {
     parseInt(new URLSearchParams(location.search).get("comp") || "", 10) ||
     MAX_COMPUTATION;
   setStatus("searching…");
-  worker.postMessage({
+  postToWorker({
     type: "search",
     query: pattern,
     // Resolved here: the page knows its own base, the worker script does not.
@@ -693,7 +703,7 @@ function tryHarder(): void {
     // Range mode isn't step-budgeted; "keep searching" just runs another
     // bytes/time window over the network from where it left off.
     setStatus("searching…");
-    worker.postMessage({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
+    postToWorker({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
     return;
   }
   currentComp *= 2;
@@ -707,13 +717,13 @@ function tryHarder(): void {
     history.pushState(null, "", `?${p}`);
   }
   setStatus("searching harder…");
-  worker.postMessage({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
+  postToWorker({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
 }
 
 function moreResults(): void {
   afterEl.textContent = "";
   setStatus("fetching more results…");
-  worker.postMessage({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
+  postToWorker({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
 }
 
 worker.onmessage = (ev) => {
@@ -784,7 +794,7 @@ worker.onmessage = (ev) => {
       }
       // Refresh which indexes are marked available offline (a copy may have
       // just been added or removed).
-      if (!OFFLINE) worker.postMessage({ type: "list-copies" });
+      if (!OFFLINE) postToWorker({ type: "list-copies" });
       break;
     case "copies":
       annotateOfflineCopies(new Set(msg.urls));
@@ -836,7 +846,7 @@ worker.onmessage = (ev) => {
             setStatus("loading index…");
             const q = qInput.value.trim();
             if (q) pendingQuery = q;
-            worker.postMessage({ type: "open", url: indexUrl });
+            postToWorker({ type: "open", url: indexUrl });
           }),
         );
       }
@@ -941,7 +951,7 @@ function startFullDownload(): void {
   setStatus("");
   afterEl.textContent = "";
   indexReady = false;
-  worker.postMessage({ type: "download-full" });
+  postToWorker({ type: "download-full" });
 }
 
 // Discard a resumable partial download and return to plain range mode.
@@ -954,12 +964,12 @@ dlRemove.addEventListener("click", () => {
   setStatus("");
   setDlMsg("");
   afterEl.textContent = "";
-  worker.postMessage({ type: "remove-copy" });
+  postToWorker({ type: "remove-copy" });
 });
 
 dlFull.addEventListener("click", () => {
   if (downloading) {
-    worker.postMessage({ type: "cancel-download" });
+    postToWorker({ type: "cancel-download" });
   } else if (deviceCopy) {
     // Deleting a finished copy discards a large, slow-to-refetch download:
     // confirm first.
@@ -980,7 +990,7 @@ dlFull.addEventListener("click", () => {
     dlFull.disabled = true;
     setStatus("");
     afterEl.textContent = ""; // old Try-harder buttons target a dead session
-    worker.postMessage({ type: "remove-copy" });
+    postToWorker({ type: "remove-copy" });
   } else {
     startFullDownload();
   }
@@ -1001,7 +1011,7 @@ function applyQuery(query: string): void {
     document.title = "Nutristatic 9000";
     home.hidden = false;
     resultsView.hidden = true;
-    worker.postMessage({ type: "stop" });
+    postToWorker({ type: "stop" });
   }
 }
 
@@ -1023,14 +1033,18 @@ async function postOpen(): Promise<void> {
     ]);
     if (settled) {
       const [probe, table] = settled as [unknown, ArrayBuffer | null];
-      worker.postMessage(
-        { type: "open", url: indexUrl, early: { probe, table } },
+      postToWorker(
+        {
+          type: "open",
+          url: indexUrl,
+          early: { probe: probe as EarlyProbe | null, table },
+        },
         table ? [table] : [],
       );
       return;
     }
   }
-  worker.postMessage({ type: "open", url: indexUrl });
+  postToWorker({ type: "open", url: indexUrl });
 }
 
 /**
@@ -1056,7 +1070,7 @@ function setupOffline(): void {
     offlineName = file.name;
     indexReady = false;
     indexInfo.textContent = `opening ${file.name}…`;
-    worker.postMessage({ type: "open-file", file, name: file.name });
+    postToWorker({ type: "open-file", file, name: file.name });
   };
   input.addEventListener("change", () => {
     if (input.files && input.files[0]) openFile(input.files[0]);

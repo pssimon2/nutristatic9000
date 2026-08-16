@@ -54,6 +54,19 @@ Goal: mechanical, low-risk changes that everything later depends on.
   generations, engine selection, `runSession`), `web/worker/protocol.ts`
   (all message interfaces — imported by `ui/` too, not re-declared).
   No logic changes; pure extraction.
+  *Partly done (2026-08-16):* `worker/protocol.ts` (inbound messages; `main.ts`
+  now posts through a typed `postToWorker`, so the wire is compiler-checked),
+  `worker/storage.ts` (OPFS + marker/progress parsing + range arithmetic, now
+  covered by 27 unit tests in `test/worker-storage.test.ts` — it had none),
+  and `worker/net.ts` (retry/watchdog/`fetchPieces`, progress via callback so
+  it no longer knows the page protocol). worker.ts 1,849 → 1,497 lines.
+  **Still to extract:** source selection and the download paths
+  (`downloadWhole`, `downloadViaSidecar`, `CacheChunkStore`, `parseEarlyProbe`,
+  `openIndex`) into `worker/sources.ts`, and the run lifecycle into
+  `worker/orchestrator.ts` — the latter is the one that has to move ~20
+  module-level mutable bindings, so it wants its own commit.
+  Outbound (worker→page) messages are still untyped; typing them has to
+  account for `postReady`'s replay.
 - [ ] **S3. Lift query-language knowledge out of `web/main.ts`.**
   `splitSlots` (`main.ts:495`), the `{at}`/`{rank}` stripping
   (`main.ts:642`), and slot orchestration move to `src/` (they will be

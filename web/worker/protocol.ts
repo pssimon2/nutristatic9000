@@ -1,0 +1,94 @@
+// The page↔worker message contract.
+//
+// This is the only place the wire shapes are written down. The page used to
+// post bare object literals, so nothing checked that what it sent matched what
+// the worker destructured; importing `InMsg` on both sides makes the compiler
+// the referee.
+//
+// Outbound (worker→page) messages are still posted untyped — see the note on
+// `post` in worker.ts. Typing them is a separate change, because it has to
+// account for the UI's `postReady` replay.
+
+/**
+ * The page races a HEAD/Range probe against worker startup and hands over the
+ * result, so the worker doesn't repeat a round trip that is already in flight.
+ */
+export interface EarlyProbe {
+  ok: boolean;
+  status: number;
+  contentRange: string | null;
+  contentLength: string | null;
+  etag?: string | null;
+  lastModified?: string | null;
+}
+
+export interface OpenMsg {
+  type: "open";
+  url: string;
+  early?: {
+    probe: EarlyProbe | null;
+    table: ArrayBuffer | null;
+  };
+}
+
+export interface SearchMsg {
+  type: "search";
+  query: string;
+  /** Where to fetch the side datasets; the page resolves these. */
+  phoneticsUrl?: string | null;
+  thesaurusUrl?: string | null;
+  neighboursUrl?: string | null;
+  categoriesUrl?: string | null;
+  stressUrl?: string | null;
+  maxSteps: number;
+  maxResults: number;
+  // Range mode only: stop after this many bytes fetched or ms elapsed
+  // (0 = disabled). The real cost limiter remotely — steps are the ceiling.
+  byteBudget?: number;
+  timeMs?: number;
+}
+
+export interface ContinueMsg {
+  type: "continue";
+  maxSteps: number;
+  maxResults: number;
+  byteBudget?: number;
+  timeMs?: number;
+}
+
+export interface StopMsg {
+  type: "stop";
+}
+
+export interface DownloadFullMsg {
+  type: "download-full";
+}
+
+export interface CancelDownloadMsg {
+  type: "cancel-download";
+}
+
+export interface RemoveCopyMsg {
+  type: "remove-copy";
+}
+
+export interface OpenFileMsg {
+  type: "open-file";
+  file: Blob;
+  name: string;
+}
+
+export interface ListCopiesMsg {
+  type: "list-copies";
+}
+
+export type InMsg =
+  | OpenMsg
+  | SearchMsg
+  | ContinueMsg
+  | StopMsg
+  | DownloadFullMsg
+  | CancelDownloadMsg
+  | RemoveCopyMsg
+  | OpenFileMsg
+  | ListCopiesMsg;

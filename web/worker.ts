@@ -31,6 +31,34 @@ import {
   parseNeighbours,
 } from "../src/neighbours.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
+import type { EarlyProbe, InMsg, OpenMsg } from "./worker/protocol.js";
+import {
+  DOWNLOAD_CONCURRENCY,
+  DOWNLOAD_PIECE,
+  FETCH_TIMEOUT,
+  PIECE_TIMEOUT,
+  StopError,
+  fetchBytesWithRetry,
+  fetchPieces,
+  fetchWithRetry,
+  openCache,
+  retryLoop,
+} from "./worker/net.js";
+import {
+  addRange,
+  checkPartial,
+  coveredBytes,
+  opfsHandle,
+  opfsName,
+  opfsOkName,
+  opfsReadMarker,
+  opfsReadProg,
+  opfsRemove,
+  opfsWriteMarker,
+  parseOpfsMarker,
+  progName,
+  rangeCovered,
+} from "./worker/storage.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -55,54 +83,6 @@ const TINY_LIMIT = 4 * 1024 * 1024;
 // searches, so a heavy anagram that is slow to stream returns in well under
 // a second.
 const FULL_DOWNLOAD_LIMIT = 2 * 1024 * 1024 * 1024;
-// Full downloads happen in ranged pieces with per-piece retry, so a flaky
-// (especially mobile) connection doesn't restart the whole transfer. A few
-// pieces stream concurrently to keep the pipe full across RTTs.
-const DOWNLOAD_PIECE = 4 * 1024 * 1024;
-const DOWNLOAD_CONCURRENCY = 4;
-
-/**
- * Fetch [0, size) in retried pieces, DOWNLOAD_CONCURRENCY at a time, handing
- * each completed piece to `write(part, offset)` (offset-addressed, so
- * completion order doesn't matter). Reports progress as bytes completed.
- */
-async function fetchPieces(
-  url: string,
-  size: number,
-  write: (part: Uint8Array, offset: number) => void,
-  signal?: AbortSignal,
-  done?: Array<[number, number]>,
-  markDone?: (s: number, e: number) => void,
-): Promise<void> {
-  let nextOffset = 0;
-  let loaded = done ? coveredBytes(done) : 0;
-  if (loaded > 0) post({ type: "loading", mode: "download", bytes: size, loaded });
-  const runner = async (): Promise<void> => {
-    for (;;) {
-      const off = nextOffset;
-      if (off >= size) return;
-      nextOffset += DOWNLOAD_PIECE;
-      const end = Math.min(off + DOWNLOAD_PIECE, size);
-      if (done && rangeCovered(done, off, end)) continue; // already downloaded
-      const part = await fetchBytesWithRetry(
-        url,
-        { headers: { Range: `bytes=${off}-${end - 1}` }, signal },
-        4,
-        PIECE_TIMEOUT,
-      );
-      if (part.length !== end - off) {
-        throw new Error(`short range response (${part.length} bytes at ${off})`);
-      }
-      write(part, off);
-      markDone?.(off, off + part.length);
-      loaded += part.length;
-      post({ type: "loading", mode: "download", bytes: size, loaded });
-    }
-  };
-  await Promise.all(
-    Array.from({ length: DOWNLOAD_CONCURRENCY }, () => runner()),
-  );
-}
 const CACHE_NAME = "nutrimatic-index-v1";
 // Chunk keys include the chunk size, so entries cached under a different
 // chunking are never reinterpreted.
@@ -117,76 +97,6 @@ const PREWARM_BYTES = 128 * 1024;
 // prefetch turns serial fetch stalls into parallel transfers.
 const PREFETCH_DEPTH = 48;
 
-interface EarlyProbe {
-  ok: boolean;
-  status: number;
-  contentRange: string | null;
-  contentLength: string | null;
-  etag?: string | null;
-  lastModified?: string | null;
-}
-
-interface OpenMsg {
-  type: "open";
-  url: string;
-  early?: {
-    probe: EarlyProbe | null;
-    table: ArrayBuffer | null;
-  };
-}
-interface SearchMsg {
-  type: "search";
-  query: string;
-  /** Where to fetch the side datasets; the page resolves these. */
-  phoneticsUrl?: string | null;
-  thesaurusUrl?: string | null;
-  neighboursUrl?: string | null;
-  categoriesUrl?: string | null;
-  stressUrl?: string | null;
-  maxSteps: number;
-  maxResults: number;
-  // Range mode only: stop after this many bytes fetched or ms elapsed
-  // (0 = disabled). The real cost limiter remotely — steps are the ceiling.
-  byteBudget?: number;
-  timeMs?: number;
-}
-interface ContinueMsg {
-  type: "continue";
-  maxSteps: number;
-  maxResults: number;
-  byteBudget?: number;
-  timeMs?: number;
-}
-interface StopMsg {
-  type: "stop";
-}
-interface DownloadFullMsg {
-  type: "download-full";
-}
-interface CancelDownloadMsg {
-  type: "cancel-download";
-}
-interface RemoveCopyMsg {
-  type: "remove-copy";
-}
-interface OpenFileMsg {
-  type: "open-file";
-  file: Blob;
-  name: string;
-}
-interface ListCopiesMsg {
-  type: "list-copies";
-}
-type InMsg =
-  | OpenMsg
-  | SearchMsg
-  | ContinueMsg
-  | StopMsg
-  | DownloadFullMsg
-  | CancelDownloadMsg
-  | RemoveCopyMsg
-  | OpenFileMsg
-  | ListCopiesMsg;
 
 let reader: IndexReader | null = null;
 let rangeSource:
@@ -353,273 +263,12 @@ function macroYield(): Promise<void> {
   });
 }
 
-// Per-attempt watchdog: a stalled connection must fail into the retry loop
-// instead of hanging the UI forever. Generous — this is a stall detector,
-// not a latency budget (a 4MB piece on slow mobile can legitimately take
-// minutes).
-const FETCH_TIMEOUT = 60_000;
-const PIECE_TIMEOUT = 300_000;
+/** Named-cache open, defaulting to the whole-index cache. */
+const openCacheNamed = (name = CACHE_NAME) => openCache(name);
 
-async function fetchWithRetry(
-  url: string,
-  init?: RequestInit,
-  attempts = 4,
-  timeoutMs = FETCH_TIMEOUT,
-): Promise<Response> {
-  const r = await retryLoop(url, init, attempts, timeoutMs, (resp) =>
-    Promise.resolve(resp),
-  );
-  return r;
-}
-
-/**
- * Like fetchWithRetry but reads the whole body while the watchdog and the
- * cancel relay are still armed — the headers arriving says nothing about the
- * body not stalling, and the body is where the transfer time is. Bulk (piece)
- * downloads must use this so "cancel" interrupts them mid-body.
- */
-async function fetchBytesWithRetry(
-  url: string,
-  init?: RequestInit,
-  attempts = 4,
-  timeoutMs = FETCH_TIMEOUT,
-): Promise<Uint8Array> {
-  return retryLoop(
-    url,
-    init,
-    attempts,
-    timeoutMs,
-    async (resp) => new Uint8Array(await resp.arrayBuffer()),
-  );
-}
-
-async function retryLoop<T>(
-  url: string,
-  init: RequestInit | undefined,
-  attempts: number,
-  timeoutMs: number,
-  consume: (resp: Response) => Promise<T>,
-): Promise<T> {
-  const outer = init?.signal ?? null;
-  let lastErr: unknown;
-  for (let i = 0; i < attempts; ++i) {
-    if (outer?.aborted) throw new StopError("download cancelled");
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-    const onOuterAbort = () => ctrl.abort();
-    outer?.addEventListener("abort", onOuterAbort);
-    try {
-      const resp = await fetch(url, { ...init, signal: ctrl.signal });
-      if (resp.ok) return await consume(resp);
-      lastErr = new Error(`HTTP ${resp.status}`);
-      if (resp.status >= 400 && resp.status < 500) break; // no point retrying
-    } catch (e) {
-      if (outer?.aborted) throw new StopError("download cancelled");
-      lastErr = e;
-    } finally {
-      clearTimeout(timer);
-      outer?.removeEventListener("abort", onOuterAbort);
-    }
-    await new Promise((r) => setTimeout(r, 700 * (i + 1)));
-  }
-  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
-}
-
-async function openCache(name = CACHE_NAME): Promise<Cache | null> {
-  try {
-    return await caches.open(name);
-  } catch {
-    return null; // no Cache API (or private mode restrictions): just refetch
-  }
-}
-
-// ---- OPFS-backed index storage ----
-// Downloaded indexes live in the origin-private filesystem and are read with
-// synchronous access handles: instant open (no whole-file load into RAM) and
-// near-memory search speed via a small chunk LRU over OS-cached disk reads.
-
-function opfsName(url: string): string {
-  return "idx-" + encodeURIComponent(url);
-}
-
-// Completion sentinel: pieces are written concurrently at absolute offsets,
-// so an interrupted download can leave a full-size file with zeroed holes
-// that a size check alone would accept. The marker (containing the size) is
-// written only after every piece has landed and been flushed.
-function opfsOkName(url: string): string {
-  return opfsName(url) + ".ok";
-}
-
-interface OpfsMarker {
-  size: number;
-  validator: string | null;
-}
-
-/** Parse a marker file: JSON {size, validator}, or the legacy bare size. */
-function parseOpfsMarker(text: string | null): OpfsMarker | null {
-  if (!text) return null;
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed === "number") return { size: parsed, validator: null };
-    if (parsed && typeof parsed.size === "number") {
-      return { size: parsed.size, validator: parsed.validator ?? null };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function opfsReadMarker(url: string): Promise<string | null> {
-  try {
-    const root = await navigator.storage.getDirectory();
-    const handle = await root.getFileHandle(opfsOkName(url));
-    return await (await handle.getFile()).text();
-  } catch {
-    return null;
-  }
-}
-
-// Persisted partial-download progress: which uncompressed byte ranges of the
-// index file a prior (interrupted) download already wrote, so the next attempt
-// resumes instead of restarting. Ranges are half-open [start, end), kept
-// sorted and non-overlapping. Path-independent: whether the bytes arrived via
-// the compressed sidecar or plain ranges, a covered range needs no re-fetch.
-interface OpfsProg {
-  size: number;
-  validator: string | null;
-  ranges: Array<[number, number]>;
-}
-
-function progName(url: string): string {
-  return opfsName(url) + ".prog";
-}
-
-async function opfsReadProg(url: string): Promise<OpfsProg | null> {
-  let text: string;
-  try {
-    const root = await navigator.storage.getDirectory();
-    const handle = await root.getFileHandle(progName(url));
-    text = await (await handle.getFile()).text();
-  } catch {
-    return null;
-  }
-  try {
-    const p = JSON.parse(text);
-    if (
-      p &&
-      typeof p.size === "number" &&
-      Array.isArray(p.ranges) &&
-      p.ranges.every(
-        (r: unknown) =>
-          Array.isArray(r) &&
-          r.length === 2 &&
-          typeof r[0] === "number" &&
-          typeof r[1] === "number",
-      )
-    ) {
-      return { size: p.size, validator: p.validator ?? null, ranges: p.ranges };
-    }
-  } catch {
-    // corrupt record: treat as no progress
-  }
-  return null;
-}
-
-/** Insert [s, e) into a sorted, non-overlapping range list (mutates in place). */
-function addRange(ranges: Array<[number, number]>, s: number, e: number): void {
-  if (e <= s) return;
-  let i = 0;
-  while (i < ranges.length && ranges[i][1] < s) i++;
-  let ns = s;
-  let ne = e;
-  let j = i;
-  while (j < ranges.length && ranges[j][0] <= ne) {
-    ns = Math.min(ns, ranges[j][0]);
-    ne = Math.max(ne, ranges[j][1]);
-    j++;
-  }
-  ranges.splice(i, j - i, [ns, ne]);
-}
-
-/** True if [s, e) is fully covered by the sorted, non-overlapping list. */
-function rangeCovered(
-  ranges: Array<[number, number]>,
-  s: number,
-  e: number,
-): boolean {
-  if (e <= s) return true;
-  for (const [rs, re] of ranges) {
-    if (rs > s) break;
-    if (e <= re) return true;
-  }
-  return false;
-}
-
-function coveredBytes(ranges: Array<[number, number]>): number {
-  let n = 0;
-  for (const [s, e] of ranges) n += e - s;
-  return n;
-}
-
-/**
- * Coverage of an unfinished download for this index, or null if there's no
- * resumable partial (finished, absent, or stale). `loaded`/`total` are both
- * uncompressed index bytes, so `loaded / total` is the fraction present.
- */
-async function checkPartial(
-  url: string,
-  expectedSize: number,
-): Promise<{ loaded: number; total: number } | null> {
-  const marker = parseOpfsMarker(await opfsReadMarker(url));
-  const validatorOk = (v: string | null | undefined) =>
-    v == null || currentValidator == null || v === currentValidator;
-  if (marker != null && marker.size === expectedSize && validatorOk(marker.validator)) {
-    return null; // a finished copy exists
-  }
-  const prog = await opfsReadProg(url);
-  if (prog == null || prog.size !== expectedSize || !validatorOk(prog.validator)) {
-    return null;
-  }
-  const loaded = coveredBytes(prog.ranges);
-  return loaded > 0 ? { loaded, total: expectedSize } : null;
-}
-
-async function opfsWriteMarker(url: string, content: string): Promise<void> {
-  const root = await navigator.storage.getDirectory();
-  const handle = await root.getFileHandle(opfsOkName(url), { create: true });
-  const sync = await (handle as any).createSyncAccessHandle();
-  try {
-    sync.truncate(0);
-    sync.write(new TextEncoder().encode(content), { at: 0 });
-    sync.flush();
-  } finally {
-    sync.close();
-  }
-}
-
-async function opfsRemove(url: string): Promise<void> {
-  try {
-    const root = await navigator.storage.getDirectory();
-    await root.removeEntry(opfsName(url)).catch(() => {});
-    await root.removeEntry(opfsOkName(url)).catch(() => {});
-    await root.removeEntry(progName(url)).catch(() => {});
-  } catch {
-    // OPFS unavailable
-  }
-}
-
-async function opfsHandle(
-  url: string,
-  create: boolean,
-): Promise<FileSystemFileHandle | null> {
-  try {
-    const root = await navigator.storage.getDirectory();
-    return await root.getFileHandle(opfsName(url), { create });
-  } catch {
-    return null; // OPFS unavailable (old browser, private mode, no worker)
-  }
-}
+/** The progress reporter fetchPieces posts through, for an index of `size`. */
+const downloadProgress = (size: number) => (loaded: number) =>
+  post({ type: "loading", mode: "download", bytes: size, loaded });
 
 /** Open a previously downloaded index from OPFS, or null. */
 async function openOpfsIndex(
@@ -744,7 +393,7 @@ async function downloadToOpfs(
 
     const viaZ = await downloadViaSidecar(url, size, write, signal, done, markDone);
     if (!viaZ) {
-      await fetchPieces(url, size, write, signal, done, markDone);
+      await fetchPieces(url, size, write, downloadProgress(size), signal, done, markDone);
     }
     sync.flush();
     progSync.close();
@@ -771,7 +420,7 @@ async function downloadToOpfs(
 
 /** Persists range chunks so repeat queries and visits reuse them. */
 class CacheChunkStore implements ChunkStore {
-  private readonly cachePromise = openCache(CHUNK_CACHE_NAME);
+  private readonly cachePromise = openCacheNamed(CHUNK_CACHE_NAME);
   constructor(
     private readonly url: string,
     private readonly chunkSize: number,
@@ -902,7 +551,7 @@ async function downloadWhole(
   ranged: boolean,
   signal?: AbortSignal,
 ): Promise<Uint8Array> {
-  const cache = await openCache();
+  const cache = await openCacheNamed();
   if (cache) {
     const hit = await cache.match(url);
     if (hit && cachedCopyStale(hit)) {
@@ -926,7 +575,13 @@ async function downloadWhole(
       signal,
     );
     if (!viaZ) {
-      await fetchPieces(url, size, (part, off) => data.set(part, off), signal);
+      await fetchPieces(
+        url,
+        size,
+        (part, off) => data.set(part, off),
+        downloadProgress(size),
+        signal,
+      );
     }
   } else {
     // No Range support: stream the body so progress still moves, with a
@@ -1183,7 +838,7 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
   // stale bytes. Purge them before any source touches the store.
   if (probe.validator) {
     try {
-      const cache = await openCache(CHUNK_CACHE_NAME);
+      const cache = await openCacheNamed(CHUNK_CACHE_NAME);
       const key = `${url}?nutrimatic-validator`;
       const prev = cache && (await cache.match(key));
       const prevVal = prev ? await prev.text() : null;
@@ -1223,7 +878,7 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
   }
 
   // A previously downloaded full copy means zero network traffic.
-  const cache = await openCache();
+  const cache = await openCacheNamed();
   const hit = cache && (await cache.match(url));
   if (hit && cachedCopyStale(hit)) {
     await cache!.delete(url); // same-size rebuild caught by the validator
@@ -1264,12 +919,12 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
         makeStore: (blockSize) => new CacheChunkStore(url + ".idxz", blockSize),
         tableStore: {
           get: async () => {
-            const cache = await openCache(CHUNK_CACHE_NAME);
+            const cache = await openCacheNamed(CHUNK_CACHE_NAME);
             const hit = cache && (await cache.match(`${url}?nutrimatic-idxz-table`));
             return hit ? new Uint8Array(await hit.arrayBuffer()) : undefined;
           },
           put: (data) => {
-            void openCache(CHUNK_CACHE_NAME)
+            void openCacheNamed(CHUNK_CACHE_NAME)
               .then((c) => c?.put(`${url}?nutrimatic-idxz-table`, new Response(data as BodyInit)))
               .catch(() => {});
           },
@@ -1295,7 +950,7 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
     if (prewarm) prewarm.catch(() => {});
     const r = await IndexReader.open(src);
     if (stale()) return;
-    const partial = await checkPartial(url, probe.length);
+    const partial = await checkPartial(url, probe.length, currentValidator);
     if (stale()) return;
     rangeSource = src;
     reader = r;
@@ -1349,7 +1004,7 @@ let downloadCtrl: AbortController | null = null;
  * full local copy). Keys cover both the plain and `.idxz` chunk stores. */
 async function purgeChunks(url: string): Promise<void> {
   try {
-    const cache = await openCache(CHUNK_CACHE_NAME);
+    const cache = await openCacheNamed(CHUNK_CACHE_NAME);
     if (!cache) return;
     // Keys are `${url}?nutrimatic-...` (plain store, validator, table) and
     // `${url}.idxz?nutrimatic-chunk=...` (compressed store). Matching those
@@ -1420,7 +1075,7 @@ async function downloadFull(): Promise<void> {
       wasmEngine = null; // rebuild from the disk copy on next search
       // The full copy supersedes the Cache Storage copy AND any persisted
       // range chunks for this index: free the quota.
-      void openCache().then((c) => c?.delete(currentUrl!)).catch(() => {});
+      void openCacheNamed().then((c) => c?.delete(currentUrl!)).catch(() => {});
       void purgeChunks(currentUrl);
       postReady({
         type: "ready",
@@ -1622,7 +1277,6 @@ async function runSession(
   }
 }
 
-class StopError extends Error {}
 
 // self.onmessage (not bare onmessage): survives IIFE bundling for the inlined
 // offline worker, where an undeclared assignment would fail in strict mode.
@@ -1803,7 +1457,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           // cancel or a mid-transfer network drop leaves a partial behind.
           if (lastReady) {
             const partial = currentUrl
-              ? await checkPartial(currentUrl, currentSize)
+              ? await checkPartial(currentUrl, currentSize, currentValidator)
               : null;
             post(
               typeof lastReady === "object" && lastReady !== null
@@ -1826,7 +1480,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         diskSource?.close();
         diskSource = null;
         await opfsRemove(url);
-        await openCache().then((c) => c?.delete(url)).catch(() => {});
+        await openCacheNamed().then((c) => c?.delete(url)).catch(() => {});
         await openIndex(url);
         break;
       }
