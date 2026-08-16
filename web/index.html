@@ -125,21 +125,9 @@
               margin-left: auto; white-space: nowrap; }
     @media (max-width: 600px) { #ac { min-width: 0; width: 100%; }
                                 #ac .eg { display: none; } }
-    /* "why?" sits beside the result but must not inherit its scaled size.
-       System colors rather than fixed greys: the page follows the OS theme,
-       and a hardcoded #333 explanation is invisible on a dark background. */
-    #results button.why {
-      font: inherit; font-size: 11px; vertical-align: middle;
-      margin-left: 0.5em; padding: 0 .35em; cursor: pointer;
-      color: GrayText; background: none; border: 1px solid ButtonBorder;
-      border-radius: 3px; opacity: .4; transition: opacity .12s;
-    }
-    /* Always faintly present rather than hover-only: it moved out of the
-       result span (its label was polluting copy-to-clipboard), which broke the
-       descendant hover rule and left it invisible unless focused. */
-    #results span.r:hover + button.why,
-    #results button.why:hover,
-    #results button.why:focus { opacity: 1; }
+    /* The explanation opens under the result that was clicked. System colors
+       rather than fixed greys: the page follows the OS theme, and a hardcoded
+       #333 explanation is invisible on a dark background. */
     #results .why-box {
       font-size: 13px; margin: .2em 0 .6em 1.2em; padding: .4em .6em;
       border-left: 3px solid ButtonBorder; color: CanvasText;

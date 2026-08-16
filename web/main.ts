@@ -359,19 +359,9 @@ function renderResult(score: number, text: string, note?: string): void {
     tag.textContent = ` ${tagText}`;
     span.append(tag);
   }
-  span.title = `score ${score.toPrecision(4)} · click to copy`;
+  span.title = `score ${score.toPrecision(4)} · click to copy and explain`;
   span.dataset.match = text;
-  // Copy is the common action and stays on the result itself; the explanation
-  // gets its own target so neither steals the other's click. It is a *sibling*
-  // of the result, not a child: inside, its label lands in the span's
-  // textContent, which is what copy-to-clipboard falls back to.
-  const why = document.createElement("button");
-  why.className = "why";
-  why.type = "button";
-  why.textContent = "why?";
-  why.title = "explain how this match satisfies the query";
-  why.dataset.match = text;
-  resultsEl.append(span, why, document.createElement("br"));
+  resultsEl.append(span, document.createElement("br"));
   ++resultCount;
   for (const run of wordRuns(text)) {
     if (!queryLiterals.some((lit) => lit.includes(run))) shownRuns.add(run);
@@ -417,20 +407,6 @@ function resetResultCollapsing(): void {
 // until used: no extra chrome, just the cursor, the title hint, and a brief
 // flash on the word itself.
 resultsEl.addEventListener("click", (ev) => {
-  const why = (ev.target as HTMLElement | null)?.closest?.("button.why");
-  if (why) {
-    ev.stopPropagation();
-    const target = (why as HTMLElement).dataset.match ?? "";
-    const open = resultsEl.querySelector(
-      `.why-box[data-match="${CSS.escape(target)}"]`,
-    );
-    if (open) {
-      open.remove(); // second click closes it
-      return;
-    }
-    postToWorker({ type: "explain", text: target });
-    return;
-  }
   const cand = (ev.target as HTMLElement | null)?.closest?.("span.cand");
   if (cand && slots) {
     const slot = slots[+(cand as HTMLElement).dataset.slot!];
@@ -457,6 +433,21 @@ resultsEl.addEventListener("click", (ev) => {
       // Clipboard blocked (permissions/insecure context): leave the text be.
     },
   );
+  // The same click also opens the explanation. These used to be two targets —
+  // the result copied, a "why?" button beside it explained — which meant a
+  // control sitting next to all 1,000 results for the rarer of the two
+  // actions. One target loses nothing: copying is silent either way, and a
+  // second click closes the box again.
+  const match = (span as HTMLElement).dataset.match;
+  if (match === undefined) return;
+  const open = resultsEl.querySelector(
+    `.why-box[data-match="${CSS.escape(match)}"]`,
+  );
+  if (open) {
+    open.remove();
+    return;
+  }
+  postToWorker({ type: "explain", text: match });
 });
 
 function actionButton(label: string, onClick: () => void): HTMLButtonElement {
@@ -837,7 +828,7 @@ worker.onmessage = (ev) => {
     }
     case "explanation": {
       const why = resultsEl.querySelector(
-        `button.why[data-match="${CSS.escape(msg.text as string)}"]`,
+        `span.r[data-match="${CSS.escape(msg.text as string)}"]`,
       );
       if (!why) break;
       const box = document.createElement("div");
@@ -866,7 +857,7 @@ worker.onmessage = (ev) => {
         }
         box.append(line);
       }
-      // After the <br> that follows the button, so the box sits on its own
+      // After the <br> that follows the result, so the box sits on its own
       // line under the match it explains.
       (why.nextElementSibling ?? why).after(box);
       break;
