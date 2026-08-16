@@ -12,7 +12,8 @@
 
 import fs from "node:fs";
 
-const [dictPath, outPath = "web/public/phonetics.txt"] = process.argv.slice(2);
+const [dictPath, outPath = "web/public/phonetics.txt",
+  stressPath = "web/public/stress.txt"] = process.argv.slice(2);
 if (!dictPath) {
   console.error("usage: build-phonetics.mjs cmudict.dict [out.txt]");
   process.exit(2);
@@ -30,6 +31,9 @@ function normalize(word) {
 
 const rhymes = new Map(); // rhyme key -> Set of spellings
 const homophones = new Map(); // full pronunciation -> Set of spellings
+// Stress shape, one digit per syllable: 1 primary, 2 secondary, 0 unstressed.
+// Syllable count falls out of its length, so one string carries both.
+const stress = new Map();
 
 for (const line of fs.readFileSync(dictPath, "utf8").split("\n")) {
   if (!line || line.startsWith(";;;")) continue;
@@ -59,6 +63,16 @@ for (const line of fs.readFileSync(dictPath, "utf8").split("\n")) {
   rhymes.get(rhymeKey).add(word);
   if (!homophones.has(fullKey)) homophones.set(fullKey, new Set());
   homophones.get(fullKey).add(word);
+
+  // First pronunciation wins: alternates rarely differ in syllable count, and
+  // a word needs one answer.
+  if (!stress.has(word)) {
+    const shape = phones
+      .filter((p) => /\d$/.test(p))
+      .map((p) => p.slice(-1))
+      .join("");
+    if (shape) stress.set(word, shape);
+  }
 }
 
 const out = [];
@@ -76,6 +90,12 @@ for (const words of homophones.values()) {
 }
 
 fs.writeFileSync(outPath, `${out.join("\n")}\n`);
+const stressLines = [...stress].map(([word, shape]) => `${word} ${shape}`);
+fs.writeFileSync(stressPath, `${stressLines.join("\n")}\n`);
+console.log(
+  `wrote ${stressPath}: ${stressLines.length} words with stress shapes, ` +
+    `${(fs.statSync(stressPath).size / 1024).toFixed(0)} KB`,
+);
 const kb = (fs.statSync(outPath).size / 1024).toFixed(0);
 console.log(
   `wrote ${outPath}: ${rhymeGroups} rhyme groups, ${homoGroups} homophone groups, ${kb} KB`,

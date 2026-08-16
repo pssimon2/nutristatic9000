@@ -32,6 +32,8 @@ Deployment notes specific to this fork:
 | Encodings | `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`, `{elements:…}` | Keypad digits → every spelling; crossword enumerations |
 | Negation | `!expr` | Complement via determinize + completed DFA; capped at 5000 states |
 | Rhyme / homophones | `{rhyme:tree}`, `{homo:knight}` | CMU pronouncing dictionary, rhyming from the last primary-stressed vowel; lazily fetched (~340 KB gzipped), built by `scripts/build-phonetics.mjs` |
+| Categories | `{kind:bird}`, `{kind:tree}` | WordNet's kind-of hierarchy, walked at query time from a shipped graph (96k senses, 89k edges) |
+| Syllables / metre | `{syllables=3:…}`, `{stress 100:…}` | Result filters over CMUdict stress shapes; phrases add up word by word |
 | Meaning (embedding) | `{near:king}`, `{near 8:word}` | Nearest neighbours from ConceptNet Numberbatch, precomputed by `scripts/build-neighbours.mjs`, with WordNet antonyms removed; ~5 MB table for 60k words, no model in the browser. `scripts/bench-embeddings.mjs` is the comparison that chose it |
 | Meaning (thesaurus) | `{like:reluctant}` | WordNet sense groups (a thesaurus, not a semantic model); lazily fetched, built by `scripts/build-thesaurus.mjs` |
 | Multi-slot | `pattern ; pattern ; …` | Runs each slot in turn and assembles the `{at …}` letters, with any candidate selectable; batching, not cross-slot constraint solving |

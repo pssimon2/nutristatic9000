@@ -595,6 +595,8 @@ function runNextSlot(): void {
     phoneticsUrl: dataUrl("phonetics.txt"),
     thesaurusUrl: dataUrl("thesaurus.txt"),
     neighboursUrl: dataUrl("neighbours.bin"),
+    categoriesUrl: dataUrl("categories.txt"),
+    stressUrl: dataUrl("stress.txt"),
     // Only the head of each slot matters; the extraction reads the top answer.
     maxResults: 3,
     ...runBudget(),
@@ -674,6 +676,8 @@ function startSearch(query: string): void {
     phoneticsUrl: dataUrl("phonetics.txt"),
     thesaurusUrl: dataUrl("thesaurus.txt"),
     neighboursUrl: dataUrl("neighbours.bin"),
+    categoriesUrl: dataUrl("categories.txt"),
+    stressUrl: dataUrl("stress.txt"),
     // A rank window has to be reached before it can be shown; ask the engine
     // for enough results to cover it (bounded, so a huge "to" can't run away).
     maxResults: rankSpec

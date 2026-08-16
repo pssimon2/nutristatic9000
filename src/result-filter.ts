@@ -12,11 +12,13 @@
 export type FilterSpec =
   | { kind: "compound"; pieces: number }
   | { kind: "palindrome" }
-  | { kind: "reversible" };
+  | { kind: "reversible" }
+  | { kind: "syllables"; lo: number; hi: number }
+  | { kind: "stress"; shape: string };
 
 export class FilterError extends Error {}
 
-const NAMES = ["compound", "palindrome", "reversible"];
+const NAMES = ["compound", "palindrome", "reversible", "syllables", "stress"];
 
 /** Letters and digits of `text`, spaces dropped. */
 export function letters(text: string): string {
@@ -65,6 +67,35 @@ export function parseFilterWrapper(
       throw new FilterError("{compound N:…} takes 2 to 5 pieces");
     }
     return { spec: { kind: "compound", pieces }, inner };
+  }
+  if (name === "syllables") {
+    // Same comparisons the counting constraints take.
+    const m = /^(=|<=|>=|<|>)?\s*(\d+)(?:\s*\.\.\s*(\d+))?$/.exec(arg);
+    if (!m) {
+      throw new FilterError('{syllables …} takes a count, e.g. {syllables=3:…}');
+    }
+    const n = Number(m[2]);
+    const upper = m[3] === undefined ? n : Number(m[3]);
+    const ranges: Record<string, [number, number]> = {
+      "<": [0, n - 1],
+      "<=": [0, n],
+      ">": [n + 1, Infinity],
+      ">=": [n, Infinity],
+      "=": [n, upper],
+      "": [n, upper],
+    };
+    const [lo, hi] = ranges[m[1] ?? ""];
+    if (hi < lo) throw new FilterError(`empty range (${lo}-${hi})`);
+    return { spec: { kind: "syllables", lo, hi }, inner };
+  }
+  if (name === "stress") {
+    if (!/^[012]+$/.test(arg)) {
+      throw new FilterError(
+        "{stress:…} takes a shape of 0, 1 and 2 — one digit per syllable, " +
+          "e.g. {stress:100:…} for a dactyl",
+      );
+    }
+    return { spec: { kind: "stress", shape: arg }, inner };
   }
   if (arg !== "") throw new FilterError(`{${name}:…} takes no argument`);
   return { spec: { kind: name as "palindrome" | "reversible" }, inner };

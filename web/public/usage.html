@@ -316,7 +316,9 @@ and much wider — RELUCTANT reaches WILLING, OPPOSED and REFUSED, and KING
 reaches KINGDOM, ROYALTY, MAJESTY, MONARCH and PRESLEY. Use <tt>{like:…}</tt>
 when you want a synonym and <tt>{near:…}</tt> when you want whatever the clue
 is gesturing at. <tt>{near 8:word}</tt> narrows the net, <tt>{near 40:word}</tt>
-widens it (default 32).
+widens it (default 32). <b>Results come back closest-first</b> rather than
+commonest-first, which is why <tt>{near:king}&amp;A{7}</tt> leads with MONARCH
+rather than KINGDOM.
 <br>No model runs in your browser: neighbours are computed when the site is
 built and only the lists are shipped — about 5 MB, fetched once, covering
 60,000 words (CIPHER, AZURE, TREACHERY, OBELISK and the like, not just
@@ -369,6 +371,28 @@ into every letter-splitting at once — <tt>{morse:.....--.-..}</tt> gives HAND
 keeps only matches spellable in chemical symbols: SEARCH is Se·Ar·C·H,
 BACON is Ba·C·O·N. All 118 symbols are known; spelling is a segmentation, so
 it stays regular and composes (<tt>{elements:A*}&amp;.*con</tt>).
+
+<li><b>Categories — <tt>{kind:bird}</tt></b>. "A seven-letter bird" is the
+shape of half the crossword clues ever written, and it is a question about a
+category rather than a pattern.
+<tt><a href="/9000/?q=%7Bkind%3Abird%7D%26A%7B7%7D">{kind:bird}&amp;A{7}</a></tt>
+answers it, walking WordNet's whole kind-of hierarchy — BIRD reaches over 1700
+names, several levels down, including phrases like BALD EAGLE. Any of
+WordNet's ~96,000 senses works the same way, so this is the hierarchy rather
+than a list somebody curated. A category covering more than 4000 names (ENTITY,
+say) is refused: at that width it is a way of asking for the dictionary.
+
+<li><b>Syllables and metre — <tt>{syllables=3:…}</tt>, <tt>{stress 100:…}</tt></b>.
+How a word is <em>said</em> is not a property of how it is spelled, so both are
+checked on finished matches.
+<tt><a href="/9000/?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt>
+gives seven-letter words of three syllables; the comparisons are the usual
+ones (<tt>=</tt>, <tt>&lt;=</tt>, <tt>&gt;=</tt>, a range).
+<tt><a href="/9000/?q=%7Bstress%20100%3AA%7B7%7D%7D">{stress 100:A{7}}</a></tt>
+takes a shape of one digit per syllable — 1 stressed, 0 not — so that one is a
+dactyl (PRIVACY, GENERAL, HISTORY), useful for verse and lyrics. A phrase adds
+up word by word, and a word the dictionary doesn't know is left out rather
+than guessed at.
 
 <li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing

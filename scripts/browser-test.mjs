@@ -264,13 +264,47 @@ const near = await page.$$eval("#results span.r", (els) =>
 console.log("near:king &A{7}:", JSON.stringify(near.slice(0, 5)));
 if (!near.includes("monarch")) throw new Error("semantic neighbours failed");
 
+// Categories, and semantic ranking of {near:…} results.
+await page.fill("#q", "{kind:bird}&A{7}");
+await page.click("input[type=submit]");
+await waitDone();
+const birds = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 8).map((e) => e.firstChild.textContent),
+);
+console.log("kind:bird &A{7}:", JSON.stringify(birds.slice(0, 4)));
+if (!birds.includes("penguin")) throw new Error("category walk failed");
+
+await page.fill("#q", "{near:king}&A{7}");
+await page.click("input[type=submit]");
+await waitDone();
+const ranked = await page.$$eval("#results span.r", (els) =>
+  els.map((e) => e.firstChild.textContent),
+);
+console.log("near:king ranked:", JSON.stringify(ranked.slice(0, 4)));
+// Closest first, not commonest first: MONARCH must beat KINGDOM.
+if (ranked.indexOf("monarch") > ranked.indexOf("kingdom")) {
+  throw new Error("results are not ranked by closeness");
+}
+
+await page.fill("#q", "{syllables=3:A{7}}");
+await page.click("input[type=submit]");
+await waitDone();
+const sylls = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 5).map((e) => ({
+    word: e.firstChild.textContent,
+    note: e.querySelector(".from")?.textContent?.trim(),
+  })),
+);
+console.log("syllables=3:", JSON.stringify(sylls.slice(0, 3).map((s) => `${s.word} ${s.note}`)));
+if (!sylls.every((s) => s.note === "3 syll")) throw new Error("syllable filter failed");
+
 // The datasets land in their own cache, so a redeploy doesn't re-fetch them.
 const dataCached = await page.evaluate(async () => {
   const c = await caches.open("nutristatic9000-data");
   return (await c.keys()).map((r) => new URL(r.url).pathname.split("/").pop());
 });
 console.log("data cache:", JSON.stringify(dataCached.sort()));
-for (const f of ["phonetics.txt", "thesaurus.txt", "neighbours.bin"]) {
+for (const f of ["phonetics.txt", "thesaurus.txt", "neighbours.bin", "categories.txt", "stress.txt"]) {
   if (!dataCached.includes(f)) throw new Error(`${f} not cached separately`);
 }
 const shellKeys = await page.evaluate(async () => {
@@ -278,7 +312,7 @@ const shellKeys = await page.evaluate(async () => {
   const c = await caches.open(names[0]);
   return (await c.keys()).map((r) => new URL(r.url).pathname);
 });
-if (shellKeys.some((k) => /phonetics|thesaurus|neighbours/.test(k))) {
+if (shellKeys.some((k) => /phonetics|thesaurus|neighbours|categories|stress/.test(k))) {
   throw new Error("datasets leaked into the versioned shell cache");
 }
 

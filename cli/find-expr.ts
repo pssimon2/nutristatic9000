@@ -30,6 +30,12 @@ import {
   setThesaurus,
 } from "../src/thesaurus.js";
 import {
+  needsCategories,
+  parseCategories,
+  setCategories,
+} from "../src/categories.js";
+import { needsStress, parseStress, setStress, shapeOf, syllablesOf } from "../src/stress.js";
+import {
   needsNeighbours,
   parseNeighbours,
   setNeighbours,
@@ -102,9 +108,13 @@ try {
 
 // Compilation is synchronous, so load the pronouncing dictionary first when
 // the query needs it. Ships next to the web assets.
+// Checked against `expr`, not `pattern`: a {syllables …}/{stress …} wrapper
+// has already been stripped out of the latter.
 for (const [needed, file, install] of [
-  [needsPhonetics(pattern), "phonetics.txt", (t: string) => setPhonetics(parsePhonetics(t))],
-  [needsThesaurus(pattern), "thesaurus.txt", (t: string) => setThesaurus(parseThesaurus(t))],
+  [needsPhonetics(expr), "phonetics.txt", (t: string) => setPhonetics(parsePhonetics(t))],
+  [needsThesaurus(expr), "thesaurus.txt", (t: string) => setThesaurus(parseThesaurus(t))],
+  [needsCategories(expr), "categories.txt", (t: string) => setCategories(parseCategories(t))],
+  [needsStress(expr), "stress.txt", (t: string) => setStress(parseStress(t))],
 ] as Array<[boolean, string, (t: string) => void]>) {
   if (!needed) continue;
   try {
@@ -114,7 +124,7 @@ for (const [needed, file, install] of [
   }
 }
 
-if (needsNeighbours(pattern)) {
+if (needsNeighbours(expr)) {
   try {
     const buf = fs.readFileSync(new URL("../web/public/neighbours.bin", import.meta.url));
     setNeighbours(
@@ -153,6 +163,16 @@ async function present(score: number, text: string): Promise<string | null> {
       const parts = await splitWords(text, resultFilter.pieces, isWord);
       if (!parts) return null;
       note = `  ${parts.join("·")}`;
+    } else if (resultFilter.kind === "syllables") {
+      const n = syllablesOf(text);
+      if (n === null || n < resultFilter.lo || n > resultFilter.hi) return null;
+      note = `  ${n} syll`;
+    } else if (resultFilter.kind === "stress") {
+      const shape = shapeOf(text);
+      if (!shape || shape.replace(/2/g, "1") !== resultFilter.shape.replace(/2/g, "1")) {
+        return null;
+      }
+      note = `  ${shape}`;
     } else if (resultFilter.kind === "palindrome") {
       if (!isPalindrome(text)) return null;
     } else {

@@ -29,6 +29,21 @@ import {
   thesaurusLoaded,
 } from "../src/thesaurus.js";
 import {
+  needsStress,
+  parseStress,
+  setStress,
+  shapeOf,
+  stressLoaded,
+  syllablesOf,
+} from "../src/stress.js";
+import {
+  categoriesLoaded,
+  needsCategories,
+  parseCategories,
+  setCategories,
+} from "../src/categories.js";
+import {
+  nearestTo,
   needsNeighbours,
   neighboursLoaded,
   parseNeighbours,
@@ -144,6 +159,8 @@ interface SearchMsg {
   phoneticsUrl?: string | null;
   thesaurusUrl?: string | null;
   neighboursUrl?: string | null;
+  categoriesUrl?: string | null;
+  stressUrl?: string | null;
   maxSteps: number;
   maxResults: number;
   // Range mode only: stop after this many bytes fetched or ms elapsed
@@ -225,6 +242,10 @@ let searchStepBase = 0;
 // here rather than in the automaton, because "is this a word" is a question
 // only the index can answer.
 let resultFilter: FilterSpec | null = null;
+// When a query asks for words near another, the neighbour list is already in
+// order of closeness — so results should come back that way rather than in
+// corpus-frequency order, which buries the best answer under the commonest.
+let nearOrder: Map<string, number> | null = null;
 let wordChecker: ((w: string) => boolean | Promise<boolean>) | null = null;
 // The pronouncing dictionary is ~400 KB over the wire and only some queries
 // need it, so it is fetched the first time one does and kept thereafter.
@@ -1491,7 +1512,7 @@ async function runSession(
   const emit = (r: { score: number; text: string }) => {
     if (token !== runToken) return; // superseded: stop talking to the UI
     emitted.add(r.text);
-    if (resultFilter) {
+    if (resultFilter || nearOrder) {
       pending.push(r);
       return;
     }
@@ -1499,7 +1520,27 @@ async function runSession(
   };
   const flushPending = async (): Promise<void> => {
     const filter = resultFilter;
-    if (!filter) return;
+    if (!filter && !nearOrder) return;
+    if (nearOrder) {
+      // Closest first; a phrase ranks by its nearest word, and anything the
+      // list doesn't mention sorts after everything it does.
+      const at = (text: string): number => {
+        let best = Infinity;
+        for (const word of text.split(" ")) {
+          const i = nearOrder!.get(word);
+          if (i !== undefined && i < best) best = i;
+        }
+        return best;
+      };
+      pending.sort((a, b) => at(a.text) - at(b.text));
+    }
+    if (!filter) {
+      for (const r of pending) {
+        if (token !== runToken) return;
+        post({ type: "result", score: r.score, text: r.text });
+      }
+      return;
+    }
     for (const r of pending) {
       if (token !== runToken) return;
       if (filter.kind === "compound") {
@@ -1507,6 +1548,17 @@ async function runSession(
         // Show the cut, so a weak reading (FOLLOW·ING) is visible as one.
         if (parts) {
           post({ type: "result", score: r.score, text: r.text, note: parts.join("·") });
+        }
+      } else if (filter.kind === "syllables") {
+        const n = syllablesOf(r.text);
+        if (n !== null && n >= filter.lo && n <= filter.hi) {
+          post({ type: "result", score: r.score, text: r.text, note: `${n} syll` });
+        }
+      } else if (filter.kind === "stress") {
+        const shape = shapeOf(r.text);
+        // A secondary stress reads as stressed for metrical purposes.
+        if (shape && shape.replace(/2/g, "1") === filter.shape.replace(/2/g, "1")) {
+          post({ type: "result", score: r.score, text: r.text, note: shape });
         }
       } else if (filter.kind === "palindrome") {
         if (isPalindrome(r.text)) post({ type: "result", score: r.score, text: r.text });
@@ -1611,7 +1663,9 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         if (
           needsPhonetics(currentQuery) ||
           needsThesaurus(currentQuery) ||
-          needsNeighbours(currentQuery)
+          needsNeighbours(currentQuery) ||
+          needsCategories(currentQuery) ||
+          needsStress(currentQuery)
         ) {
           try {
             if (needsPhonetics(currentQuery)) {
@@ -1620,6 +1674,22 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
                 msg.phoneticsUrl ?? null,
                 phoneticsLoaded,
                 async (r) => setPhonetics(parsePhonetics(await r.text())),
+              );
+            }
+            if (needsStress(currentQuery)) {
+              await ensureExtra(
+                "stress",
+                msg.stressUrl ?? null,
+                stressLoaded,
+                async (r) => setStress(parseStress(await r.text())),
+              );
+            }
+            if (needsCategories(currentQuery)) {
+              await ensureExtra(
+                "categories",
+                msg.categoriesUrl ?? null,
+                categoriesLoaded,
+                async (r) => setCategories(parseCategories(await r.text())),
               );
             }
             if (needsNeighbours(currentQuery)) {
@@ -1642,6 +1712,14 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             // Fall through: the parser reports what is missing.
           }
           if (token !== runToken) return;
+        }
+        // Ordering by closeness needs the same list the pattern was built
+        // from, so read it once the data is loaded.
+        nearOrder = null;
+        const nearWord = /\{\s*near\s*\d*\s*:\s*([a-z ]+)\}/i.exec(currentQuery);
+        if (nearWord && neighboursLoaded()) {
+          const list = nearestTo(nearWord[1].trim(), 64);
+          if (list) nearOrder = new Map(list.map((w, i) => [w, i]));
         }
         resultFilter = null;
         try {
