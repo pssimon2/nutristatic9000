@@ -81,5 +81,30 @@ for (const query of ["{rhyme:tree}", "{like:reluctant}"]) {
   }
 }
 
+// The completion menu asks the worker for two things that only exist as
+// fetched datasets: the harvested `{list:…}` catalogue and the 124,980
+// `{kind:…}` names. Neither can be fetched from a file:// page, and the menu
+// has to shrug rather than break — the lists compiled into the bundle must
+// still complete, and nothing may throw.
+await page.click("#q");
+for (const [typed, expected] of [
+  ["{list:gre", /greek/],   // built into the bundle: must still be offered
+  ["{list:pok", null],      // harvested only: nothing, and no error
+  ["{kind:bir", null],      // worker-side dataset: same
+]) {
+  await page.fill("#q", "");
+  await page.type("#q", typed, { delay: 15 });
+  await page.waitForTimeout(1200);
+  const items = await page.$$eval("#ac li", (es) =>
+    es.map((e) => e.textContent.trim()));
+  console.log(`  ${typed} -> ${items.length ? items.slice(0, 2).join(", ") : "(none)"}`);
+  if (expected && !items.some((t) => expected.test(t))) {
+    throw new Error(`${typed} lost its built-in completions offline`);
+  }
+  if (!expected && items.length > 0) {
+    throw new Error(`${typed} offered ${items[0]} with no dataset to offer it from`);
+  }
+}
+
 await browser.close();
 console.log("OFFLINE BUILD TEST OK");
