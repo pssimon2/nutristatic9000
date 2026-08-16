@@ -99,6 +99,22 @@ describe("a description cell is prose, not a member", () => {
   });
 });
 
+describe("images and categories are not members", () => {
+  // A thumbnail in a table cell offered "100px" as a lunar deity, and "135px"
+  // as an Armenian cheese.
+  it("ignores a File link and its display parameters", () => {
+    expect(entryLink("| [[File:Selene.jpg|100px|center]] || [[Selene]]")).toBe(
+      "Selene",
+    );
+    expect(entryLink("* [[Image:Cheese.jpg|135px]]")).toBeNull();
+  });
+
+  it("ignores category and template links", () => {
+    expect(entryLink("* [[Category:Lunar deities]]")).toBeNull();
+    expect(entryLink("| [[Template:Infobox]] || x")).toBeNull();
+  });
+});
+
 describe("the article stops being a list", () => {
   const article = [
     '{| class="wikitable"',

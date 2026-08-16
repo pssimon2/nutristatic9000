@@ -62,6 +62,13 @@ export function stripApparatus(line: string): string {
 const CELL_SLACK = 16;
 
 /**
+ * Links that are not to articles. A `[[File:Selene.jpg|100px|center]]` in a
+ * table cell offered "100px" as a lunar deity, and a category link names the
+ * shelf rather than anything on it.
+ */
+const NON_ARTICLE = /^\s*(file|image|category|template|media|help|portal)\s*:/i;
+
+/**
  * The entry named by a table cell, or null. The link has to *begin* the cell
  * and be substantially all of it.
  *
@@ -79,6 +86,7 @@ function cellEntry(row: string): string | null {
     const t = cell.trim();
     const m = /^\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/.exec(t);
     if (!m) continue;
+    if (NON_ARTICLE.test(m[1])) continue; // an image or a category, not a member
     if (t.length - m[0].length > CELL_SLACK) continue; // prose about an entry
     return m[2] || m[1];
   }
@@ -89,7 +97,7 @@ function cellEntry(row: string): string | null {
 export function entryLink(line: string): string | null {
   const t = stripApparatus(line).trim();
   const bullet = /^[*#]+\s*\[\[([^\]|]+)(?:\|([^\]]*))?\]\]/.exec(t);
-  if (bullet) return bullet[2] || bullet[1];
+  if (bullet) return NON_ARTICLE.test(bullet[1]) ? null : bullet[2] || bullet[1];
   // A table cell, but not the control lines {| |- |+ |} nor a header row (!).
   if (t.startsWith("|") && !/^\|[-+}]/.test(t) && !t.startsWith("|}")) {
     return cellEntry(t);
