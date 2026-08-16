@@ -65,10 +65,12 @@ Goal: mechanical, low-risk changes that everything later depends on.
   through `validatorFrom`. worker.ts 1,849 → 1,437 lines, and 36 unit tests
   (`test/worker-storage.test.ts`, `test/worker-sources.test.ts`) now cover
   logic that no test could reach before.
-  **Still to extract:** the download paths themselves (`downloadWhole`,
-  `downloadViaSidecar`, `downloadToOpfs`, `openOpfsIndex`) and the run
-  lifecycle into `worker/orchestrator.ts` — the latter has to move ~20
-  module-level mutable bindings, so it wants its own commit.
+  `worker/downloads.ts` now holds the download paths (`downloadWhole`,
+  `downloadViaSidecar`, `downloadToOpfs`, `openOpfsIndex`), reporting through
+  a `DownloadReporter` and taking the validator as an argument, so they carry
+  no worker state. worker.ts 1,849 → 1,097 lines across five modules.
+  **Still to extract:** the run lifecycle into `worker/orchestrator.ts` — it
+  has to move ~20 module-level mutable bindings, so it wants its own commit.
   Outbound (worker→page) messages are still untyped; typing them has to
   account for `postReady`'s replay.
 - [ ] **S3. Lift query-language knowledge out of `web/main.ts`.**
