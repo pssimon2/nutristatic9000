@@ -463,14 +463,14 @@ whole query; the rest compose anywhere.
 </table>
 <h3 class="grp">count<span class="gb"> — count letters, values or occurrences</span></h3>
 <table class="ref">
-<tr><td><tt>count.sum</tt></td><td>letter values total a number (a=1…z=26)</td><td><tt><a href="./?q=%7Bsum%3D100%3AA%2A%7D">{sum=100:A*}</a></tt></td></tr>
+<tr><td><tt>count.sum</tt></td><td>letter values total a number (a=1…z=26)</td><td><tt><a href="./?q=%7Bsum%3D100%3AA*%7D">{sum=100:A*}</a></tt></td></tr>
 <tr><td><tt>count.scrabble</tt></td><td>Scrabble tile values total a number</td><td><tt><a href="./?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a></tt></td></tr>
-<tr><td><tt>count</tt></td><td>how many letters of a set appear</td><td><tt><a href="./?q=%7Bcount%28e%29%3D2%3AA%2A%7D">{count(e)=2:A*}</a></tt></td></tr>
-<tr><td><tt>count.letters</tt></td><td>how many letters, ignoring spaces</td><td><tt><a href="./?q=%7Bletters%3D11%3AA%2A%7D">{letters=11:A*}</a></tt></td></tr>
-<tr><td><tt>count.words</tt></td><td>how many words</td><td><tt><a href="./?q=%7Bwords%3D3%3AA%2A%7D">{words=3:A*}</a></tt></td></tr>
-<tr><td><tt>count.all</tt></td><td>every letter of a set appears</td><td><tt><a href="./?q=%7Ball%28aeiou%29%3AA%2A%7D">{all(aeiou):A*}</a></tt></td></tr>
+<tr><td><tt>count</tt></td><td>how many letters of a set appear</td><td><tt><a href="./?q=%7Bcount(e)%3D2%3AA*%7D">{count(e)=2:A*}</a></tt></td></tr>
+<tr><td><tt>count.letters</tt></td><td>how many letters, ignoring spaces</td><td><tt><a href="./?q=%7Bletters%3D11%3AA*%7D">{letters=11:A*}</a></tt></td></tr>
+<tr><td><tt>count.words</tt></td><td>how many words</td><td><tt><a href="./?q=%7Bwords%3D3%3AA*%7D">{words=3:A*}</a></tt></td></tr>
+<tr><td><tt>count.all</tt></td><td>every letter of a set appears</td><td><tt><a href="./?q=%7Ball(aeiou)%3AA*%7D">{all(aeiou):A*}</a></tt></td></tr>
 <tr><td><tt>count.distinct</tt></td><td>no letter is repeated</td><td><tt><a href="./?q=%7Bdistinct%3AA%7B6%7D%7D">{distinct:A{6}}</a></tt></td></tr>
-<tr><td><tt>count.maxrep</tt></td><td>no letter repeats more than N times</td><td><tt><a href="./?q=%7Bmaxrep%3D2%3AA%2A%7D">{maxrep=2:A*}</a></tt></td></tr>
+<tr><td><tt>count.maxrep</tt></td><td>no letter repeats more than N times</td><td><tt><a href="./?q=%7Bmaxrep%3D2%3AA*%7D">{maxrep=2:A*}</a></tt></td></tr>
 </table>
 <h3 class="grp">bag<span class="gb"> — restrict which letters are available</span></h3>
 <table class="ref">
@@ -500,7 +500,7 @@ whole query; the rest compose anywhere.
 </table>
 <h3 class="grp">shape<span class="gb"> — restrict letters by how they look or where they are typed</span></h3>
 <table class="ref">
-<tr><td><tt>shape.roman</tt></td><td>only Roman-numeral letters</td><td><tt><a href="./?q=%7Broman%3AA%2A%7D">{roman:A*}</a></tt></td></tr>
+<tr><td><tt>shape.roman</tt></td><td>only Roman-numeral letters</td><td><tt><a href="./?q=%7Broman%3AA*%7D">{roman:A*}</a></tt></td></tr>
 <tr><td><tt>shape.rot180</tt></td><td>only letters that survive a half turn</td><td><tt><a href="./?q=%7Brot180%3AA%7B4%7D%7D">{rot180:A{4}}</a></tt></td></tr>
 <tr><td><tt>shape.mirror</tt></td><td>only letters with a vertical mirror line</td><td><tt><a href="./?q=%7Bmirror%3AA%7B5%7D%7D">{mirror:A{5}}</a></tt></td></tr>
 <tr><td><tt>shape.sevenseg</tt></td><td>only letters a seven-segment display can show</td><td><tt><a href="./?q=%7Bsevenseg%3AA%7B4%7D%7D">{sevenseg:A{4}}</a></tt></td></tr>
