@@ -29,6 +29,8 @@ jobs:
         run: npm run check-links
       - name: Unit tests
         run: npm test
+      - name: Every documented construct still finds something
+        run: npm run check-constructs
       - name: Engine behaviour is unchanged
         run: npm run bench
 

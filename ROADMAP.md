@@ -606,14 +606,24 @@ Goal: mechanical, low-risk changes that everything later depends on.
 - [ ] **T3. Contract suite labeling.** Name and pin the byte-format
   round-trip tests as the compatibility contract (GR1); make CI call out
   any diff touching them.
-- [~] **T4. Registry-driven smoke tests.** *(run manually 2026-08-16; found
-  two broken constructs, see below. Not yet wired into CI.)* Running all 45
-  `docs.example`s against `demo.index` — searching them, not just compiling
-  them — showed 44 producing results and `{words=3:A*}` producing none, and
-  turned up that `{compound}` and `{reversible}` were returning nonsense
-  (fixed; see E9). Worth wiring into CI, but the run takes minutes and the
-  predicate-level constructs need thousands of candidates before a handful
-  survive, so it needs a budget per construct rather than a flat one.
+- [x] **T4. Registry-driven smoke tests.** *(done 2026-08-16.)*
+  `scripts/check-constructs.mjs`, wired into CI as `npm run check-constructs`:
+  every one of the 45 documented examples is *searched* against the committed
+  demo.index with the side datasets loaded, and the build fails if one throws
+  or finds nothing. 3 seconds, because it stops at the first few survivors
+  rather than draining the search. Parsing was never the bar — a unit test
+  already covered that, and both constructs that broke this session
+  (`{compound}`, `{reversible}`, see E9) parsed perfectly while returning
+  nonsense.
+  It checks that a feature runs and is not silently dead, not that its answers
+  are right: no fixture says what `{rot180:A{4}}` ought to return.
+  One construct is listed as unsatisfiable rather than broken, with its reason
+  and the entry checked both ways — if it ever starts working the list is
+  wrong and CI says so. `{words=3:A*}` finds nothing on demo.index because
+  that index is words and bigrams, so no match *has* three words; on the full
+  Wikipedia index it returns "wikipedia articles for", "articles for
+  deletion". (An earlier note here called that an open defect. It was not one:
+  the construct is correct and the fixture cannot exercise it.)
   Original text: Every registered construct's
   `docs.example` (E6) executes against `demo.index` in CI — a feature
   without a working example fails the build.
