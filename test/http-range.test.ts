@@ -125,3 +125,94 @@ describe("HttpRangeSource", () => {
     expect(source.bytesFetched).toBeLessThan(data.length * 1.5);
   }, 60000);
 });
+
+// One query is not a differential.
+//
+// Both source-vs-memory checks above use `n[aeiou]tr[aeiou]m_tic` and nothing
+// else, which pins one traversal shape: a narrow pattern walking a few deep
+// paths. The sources differ in *where they cut the file up* — chunk
+// boundaries, block boundaries, what gets evicted, what a read-ahead brings in
+// speculatively — and which of those bite depends entirely on where the walk
+// goes. A phrase query restarting at word boundaries, an anagram fanning out
+// across the trie, and a counter pruning hard all stress different parts of
+// that, and none of them were covered.
+//
+// Small caches on purpose: the interesting failures are eviction ones, and a
+// cache that holds everything never evicts.
+describe("every source returns the same results", () => {
+  // Enough steps to reach the interesting part of each traversal, not enough
+  // to spend three minutes proving it: every read here is an HTTP round trip
+  // against a deliberately undersized cache.
+  const STEPS = 9000;
+  // One per traversal shape rather than one per construct: what differs
+  // between the sources is where the walk goes, not what the pattern means.
+  // `n[aeiou]tr[aeiou]m_tic` is deliberately absent — the two tests above
+  // already run exactly that.
+  const QUERIES = [
+    "solar s_stem", // restarts at word boundaries
+    "<aaagmnr>", // fans out across the trie
+    "A{5}&C*", // wide, shallow, product filter
+    "nutr*", // one deep path, then restarts off it
+    "A{4} A{5}", // two words, so two restarts deep
+    '"C*aC*eC*i"', // quoted: no restarts at all
+    "{distinct:A{6}}", // 26 conjuncts, heavy lazy-DFA growth
+  ];
+
+  for (const query of QUERIES) {
+    it(`agrees on ${query}`, async () => {
+      const memory = await collect(
+        await IndexReader.open(new MemorySource(data)),
+        query,
+        STEPS,
+      );
+      expect(memory.length, "nothing to compare").toBeGreaterThan(0);
+
+      const ranged = await HttpRangeSource.open(`${baseUrl}/demo.index`, {
+        chunkSize: 1 << 14,
+        maxChunks: 160, // evicts steadily over a 20 MB index without refetching everything
+      });
+      expect(
+        await collect(await IndexReader.open(ranged), query, STEPS, 6),
+        `${query}: range source disagrees with memory`,
+      ).toEqual(memory);
+
+      const compressed = await CompressedRangeSource.open(
+        `${baseUrl}/demo.index`,
+        data.length,
+        { maxBlocks: 320 },
+      );
+      expect(compressed).not.toBeNull();
+      expect(
+        await collect(await IndexReader.open(compressed!), query, STEPS, 6),
+        `${query}: compressed sidecar disagrees with memory`,
+      ).toEqual(memory);
+    }, 60000);
+  }
+});
+
+describe("the block cache floor", () => {
+  it("cannot be configured below what the fetches need", async () => {
+    // A cache of 8 or 16 blocks made `A{5}&C*` die with "byte … not ensured"
+    // on a block the pin names. Nothing real asks for a cache that small —
+    // the default is 4096 — so the floor removes the failure rather than
+    // leaving it configurable while its cause is unexplained.
+    const source = await CompressedRangeSource.open(
+      `${baseUrl}/demo.index`,
+      data.length,
+      { maxBlocks: 8 },
+    );
+    expect(source).not.toBeNull();
+    const results = await collect(
+      await IndexReader.open(source!),
+      "A{5}&C*",
+      200000,
+      6,
+    );
+    const memory = await collect(
+      await IndexReader.open(new MemorySource(data)),
+      "A{5}&C*",
+      200000,
+    );
+    expect(results).toEqual(memory);
+  }, 60000);
+});

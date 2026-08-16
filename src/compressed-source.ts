@@ -109,6 +109,24 @@ export async function fetchIdxzPrefix(
   }
 }
 
+/**
+ * Fewest blocks the cache may hold.
+ *
+ * The cache is a budget, not a correctness mechanism — a block being read is
+ * protected by the pin, and a fetch protects its own span — but below about
+ * two dozen blocks those protections stop being sufficient in practice: with a
+ * cache of 8 or 16, `A{5}&C*` over the demo index dies with "byte … not
+ * ensured" on a block the pin names, while its neighbours are still resident.
+ * 32 is enough for that query and 4096 is the default, so nothing real gets
+ * near this; the floor exists so the failure cannot be configured into being
+ * while the interaction that causes it is unexplained.
+ *
+ * Sized against what one fetch can bring in: MAX_READAHEAD_BLOCKS of
+ * read-ahead, several such fetches in flight at once under a prefetching
+ * driver, and the span being read on top.
+ */
+export const MIN_CACHE_BLOCKS = 64;
+
 export class CompressedRangeSource implements ByteSource {
   private readonly cache = new Map<number, Uint8Array>();
   // Span of the most recent ensure(); empty until the first call.
@@ -172,7 +190,7 @@ export class CompressedRangeSource implements ByteSource {
         url,
         pre.header,
         pre.table,
-        opts.maxBlocks ?? 4096,
+        Math.max(opts.maxBlocks ?? 4096, MIN_CACHE_BLOCKS),
         fetchFn,
         opts.makeStore?.(pre.header.blockSize),
       );
