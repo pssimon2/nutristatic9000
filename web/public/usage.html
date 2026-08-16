@@ -429,6 +429,13 @@ total they computed, and a conjunct the match fails is marked rather than
 hidden. The reconstruction runs once, for one word, when you ask — so it can
 be exhaustive in a way the search cannot.
 
+<li><b>Stacking result filters</b>. The <b>match</b> family wraps the whole
+query, and they nest: <tt><a href="./?q=%7Bpalindrome%3A%7Bsyllables%3D1%3AA%7B3%7D%7D%7D">{palindrome:{syllables=1:A{3}}}</a></tt>
+is "a three-letter palindrome of one syllable" — DID, NON, POP. Every filter
+must be satisfied, and each contributes its own annotation, so
+<tt>{reversible:{syllables=1:A{4}}}</tt> shows both the mirror word and the
+syllable count. Repeating the same filter is an error rather than a no-op.
+
 <li><b>Construct groups and the full reference</b>. Every
 <tt>{name:…}</tt> construct belongs to a family and can be written with it:
 <tt><a href="./?q=%7Bcipher.rot13%3Auryyb%7D">{cipher.rot13:uryyb}</a></tt>.

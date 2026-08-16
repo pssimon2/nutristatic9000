@@ -25,7 +25,7 @@ import {
   parseNeighbours,
 } from "../src/neighbours.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
-import { applyResultFilter, nearOrderKey } from "../src/result-predicate.js";
+import { applyResultFilters, nearOrderKey } from "../src/result-predicate.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { explainMatch } from "../src/explain.js";
 import { formatPlan, planQuery } from "../src/plan.js";
@@ -59,7 +59,7 @@ import {
 import {
   FilterError,
   type FilterSpec,
-  parseFilterWrapper,
+  parseFilterWrappers,
 } from "../src/result-filter.js";
 import { compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
@@ -127,7 +127,7 @@ let searchStepBase = 0;
 // `{compound N:…}`: results must cut into N words the index knows. Verified
 // here rather than in the automaton, because "is this a word" is a question
 // only the index can answer.
-let resultFilter: FilterSpec | null = null;
+let resultFilters: FilterSpec[] = [];
 // When a query asks for words near another, the neighbour list is already in
 // order of closeness — so results should come back that way rather than in
 // corpus-frequency order, which buries the best answer under the commonest.
@@ -760,22 +760,22 @@ async function runSession(
   const emit = (r: { score: number; text: string }) => {
     if (token !== runToken) return; // superseded: stop talking to the UI
     emitted.add(r.text);
-    if (resultFilter || nearOrder) {
+    if (resultFilters.length > 0 || nearOrder) {
       pending.push(r);
       return;
     }
     post({ type: "result", score: r.score, text: r.text });
   };
   const flushPending = async (): Promise<void> => {
-    const filter = resultFilter;
-    if (!filter && !nearOrder) return;
+    const filters = resultFilters;
+    if (filters.length === 0 && !nearOrder) return;
     if (nearOrder) {
       const order = nearOrder;
       pending.sort(
         (a, b) => nearOrderKey(order, a.text) - nearOrderKey(order, b.text),
       );
     }
-    if (!filter) {
+    if (filters.length === 0) {
       for (const r of pending) {
         if (token !== runToken) return;
         post({ type: "result", score: r.score, text: r.text });
@@ -785,14 +785,19 @@ async function runSession(
     for (const r of pending) {
       if (token !== runToken) return;
       if (active instanceof SearchSession) ++active.predicateChecks;
-      const verdict = await applyResultFilter(filter, r.text, ctx, isIndexedWord);
+      const verdict = await applyResultFilters(
+        filters,
+        r.text,
+        ctx,
+        isIndexedWord,
+      );
       if (!verdict.keep) continue;
       if (active instanceof SearchSession) ++active.predicatePassed;
       post({
         type: "result",
         score: r.score,
         text: r.text,
-        ...(verdict.note === null ? {} : { note: verdict.note }),
+        ...(verdict.notes.length === 0 ? {} : { note: verdict.notes.join("  ") }),
       });
     }
   };
@@ -968,13 +973,11 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           const list = nearestTo(ctx.neighbours, nearWord[1].trim(), 64);
           if (list) nearOrder = new Map(list.map((w, i) => [w, i]));
         }
-        resultFilter = null;
+        resultFilters = [];
         try {
-          const wrapper = parseFilterWrapper(currentQuery);
-          if (wrapper) {
-            resultFilter = wrapper.spec;
-            currentQuery = wrapper.inner;
-          }
+          const wrapped = parseFilterWrappers(currentQuery);
+          resultFilters = wrapped.specs;
+          currentQuery = wrapped.inner;
         } catch (e) {
           post({
             type: "error",
@@ -1105,8 +1108,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             if (at) inner = at.inner;
             const ranked = parseRank(inner);
             if (ranked) inner = ranked.inner;
-            const wrapper = parseFilterWrapper(inner);
-            if (wrapper) inner = wrapper.inner;
+            inner = parseFilterWrappers(inner).inner;
             compileQuery(inner, ctx);
           } catch (e) {
             if (e instanceof ParseError && !e.dataMissing) {

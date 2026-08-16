@@ -12,7 +12,7 @@ import {
 } from "../src/extract-spec.js";
 import {
   type FilterSpec,
-  parseFilterWrapper,
+  parseFilterWrappers,
 } from "../src/result-filter.js";
 import fs from "node:fs";
 import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
@@ -22,7 +22,7 @@ import { needsStress, parseStress } from "../src/stress.js";
 import { needsNeighbours, parseNeighbours } from "../src/neighbours.js";
 import { SessionContext } from "../src/session-context.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
-import { applyResultFilter } from "../src/result-predicate.js";
+import { applyResultFilters } from "../src/result-predicate.js";
 import { makeWordChecker } from "../src/index-words.js";
 import {
   SourceStats,
@@ -77,7 +77,7 @@ const [indexPath, expr] = args;
 let pattern = expr;
 let extract: ExtractSpec | null = null;
 let rank: RankSpec | null = null;
-let resultFilter: FilterSpec | null = null;
+let resultFilters: FilterSpec[] = [];
 try {
   const ex = parseExtract(pattern);
   if (ex) {
@@ -89,11 +89,9 @@ try {
     rank = rk.spec;
     pattern = rk.inner;
   }
-  const rf = parseFilterWrapper(pattern);
-  if (rf) {
-    resultFilter = rf.spec;
-    pattern = rf.inner;
-  }
+  const rf = parseFilterWrappers(pattern);
+  resultFilters = rf.specs;
+  pattern = rf.inner;
 } catch (e) {
   console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
   process.exit(2);
@@ -168,14 +166,14 @@ let emitted = 0;
 
 async function present(score: number, text: string): Promise<string | null> {
   let note = "";
-  if (resultFilter) {
+  if (resultFilters.length > 0) {
     ++predicateChecks;
     // Same rule as the browser (src/result-predicate.ts); only the formatting
     // differs — a line suffix here, a `note` field over postMessage there.
-    const verdict = await applyResultFilter(resultFilter, text, ctx, isWord);
+    const verdict = await applyResultFilters(resultFilters, text, ctx, isWord);
     if (!verdict.keep) return null;
     ++predicatePassed;
-    if (verdict.note !== null) note = `  ${verdict.note}`;
+    if (verdict.notes.length > 0) note = `  ${verdict.notes.join("  ")}`;
   }
   ++rawRank;
   if (rank && (rawRank < rank.from || rawRank > rank.to)) return null;

@@ -213,7 +213,26 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase C — Composability core: one language, one plan, one executor
 
-- [ ] **C1. Predicates become a list, not a slot.** Replace
+- [~] **C1. Predicates become a list, not a slot.** *(stacking done
+  2026-08-16)* `parseFilterWrappers` peels every result filter, outermost
+  first, and `applyResultFilters` ANDs them and collects each one's note —
+  `{palindrome:{syllables=1:A{3}}}` gives DID, NON, POP, and
+  `{reversible:{syllables=1:A{4}}}` annotates with both "← taht" and "1 syll".
+  Before, only one wrapper could be peeled, so the inner one reached the
+  pattern parser and was reported as a construct that cannot be nested — a
+  correct message about the wrong problem.
+  Application short-circuits, because the filters differ wildly in cost:
+  `{compound}` probes the index and may fetch bytes where `{palindrome}` is a
+  string comparison, so a cheap rejection must not pay for an expensive one.
+  Repeating the same filter is rejected rather than silently ANDed with
+  itself. Fixed alongside: the wrapper checked only that the query ended in
+  `}`, so `{palindrome:A}{bank:xyz}` parsed as one wrapper with the inner
+  pattern `A}{bank:xyz`; it now requires the *matching* brace.
+  **Not done:** the generalisation to arbitrary `Predicate` functions with a
+  `ctx`. The stacking is what users can see; the function-shaped interface is
+  worth doing when something needs a predicate that is not a `FilterSpec` —
+  C3's shared executor is the natural moment.
+  Original text: Replace
   `resultFilter: FilterSpec | null` (`worker.ts:244`, `cli/find-expr.ts:87`)
   with `predicates: Predicate[]` where
   `Predicate = (text: string, ctx) => boolean | Promise<boolean>` and `ctx`

@@ -90,3 +90,31 @@ export function nearOrderKey(
   }
   return best;
 }
+
+/** Every filter's verdict on one match, ANDed, with the notes collected. */
+export interface FiltersVerdict {
+  keep: boolean;
+  /** In the order the filters were written, outermost first. */
+  notes: string[];
+}
+
+/**
+ * Apply a stack of result filters. Short-circuits: the filters differ wildly
+ * in cost — `{compound}` probes the index and may fetch bytes, `{palindrome}`
+ * is a string comparison — so a cheap rejection should not pay for an
+ * expensive one. Callers order them as the user wrote them.
+ */
+export async function applyResultFilters(
+  filters: FilterSpec[],
+  text: string,
+  ctx: SessionContext,
+  isWord: (word: string) => boolean | Promise<boolean>,
+): Promise<FiltersVerdict> {
+  const notes: string[] = [];
+  for (const filter of filters) {
+    const verdict = await applyResultFilter(filter, text, ctx, isWord);
+    if (!verdict.keep) return { keep: false, notes: [] };
+    if (verdict.note !== null) notes.push(verdict.note);
+  }
+  return { keep: true, notes };
+}

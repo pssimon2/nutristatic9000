@@ -632,6 +632,20 @@ await page.waitForFunction(
   () => document.getElementById("qerr").hidden, null, { timeout: 30000 });
 console.log("inline error cleared on a valid query");
 
+// Stacked result filters mean AND, in the browser as in the CLI.
+await page.goto(
+  base + "?index=./demo.index&q=" +
+    encodeURIComponent("{palindrome:{syllables=1:A{3}}}"),
+);
+await page.waitForFunction(() => document.querySelectorAll("#results span.r").length > 0,
+  null, { timeout: 90000 });
+const stacked = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 3).map((e) => e.textContent));
+console.log("stacked filters:", JSON.stringify(stacked));
+if (!stacked.some((t) => /syll/.test(t))) {
+  throw new Error("stacked filter lost its annotation");
+}
+
 // ?debug=1 shows what the search cost.
 await page.goto(
   base + "?index=./demo.index&debug=1&q=" + encodeURIComponent("A{5}"),

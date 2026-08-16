@@ -4,7 +4,12 @@
 // the annotation it produces.
 
 import { describe, expect, it } from "vitest";
-import { applyResultFilter, nearOrderKey } from "../src/result-predicate.js";
+import {
+  applyResultFilter,
+  applyResultFilters,
+  nearOrderKey,
+} from "../src/result-predicate.js";
+import { FilterError, parseFilterWrappers } from "../src/result-filter.js";
 import { SessionContext } from "../src/session-context.js";
 import { parseStress } from "../src/stress.js";
 
@@ -174,5 +179,82 @@ describe("nearOrderKey", () => {
       (a, b) => nearOrderKey(order, a) - nearOrderKey(order, b),
     );
     expect(sorted).toEqual(["king", "queen", "aardvark"]);
+  });
+});
+
+describe("stacked filters", () => {
+  // `{palindrome:{syllables=3:A{7}}}` used to report that syllables cannot be
+  // nested — a correct message about the wrong problem, since only one
+  // wrapper could ever be peeled.
+  it("peels every wrapper, outermost first", () => {
+    const { specs, inner } = parseFilterWrappers(
+      "{palindrome:{syllables=3:A{7}}}",
+    );
+    expect(specs.map((s) => s.kind)).toEqual(["palindrome", "syllables"]);
+    expect(inner).toBe("A{7}");
+  });
+
+  it("leaves a plain query alone", () => {
+    const { specs, inner } = parseFilterWrappers("A{5}&C*");
+    expect(specs).toEqual([]);
+    expect(inner).toBe("A{5}&C*");
+  });
+
+  it("means AND: a match must satisfy all of them", async () => {
+    const both = [
+      { kind: "palindrome" } as const,
+      { kind: "syllables", lo: 1, hi: 1 } as const,
+    ];
+    // "level" is a palindrome, but two syllables.
+    expect((await applyResultFilters(both, "level", ctx, knowsNothing)).keep).toBe(
+      false,
+    );
+    // "cat" is one syllable, but no palindrome.
+    expect((await applyResultFilters(both, "cat", ctx, knowsNothing)).keep).toBe(
+      false,
+    );
+  });
+
+  it("collects a note from each filter that has one", async () => {
+    const v = await applyResultFilters(
+      [{ kind: "syllables", lo: 3, hi: 3 }, { kind: "reversible" }],
+      "computer",
+      ctx,
+      knows("retupmoc"),
+    );
+    expect(v.keep).toBe(true);
+    expect(v.notes).toEqual(["3 syll", "← retupmoc"]);
+  });
+
+  it("stops at the first rejection rather than paying for the rest", async () => {
+    // {compound} probes the index and may fetch bytes; a cheap rejection in
+    // front of it must not run it.
+    let probed = 0;
+    const counting = (w: string) => {
+      ++probed;
+      return w === "never";
+    };
+    const v = await applyResultFilters(
+      [{ kind: "palindrome" }, { kind: "compound", pieces: 2 }],
+      "cat",
+      ctx,
+      counting,
+    );
+    expect(v.keep).toBe(false);
+    expect(probed).toBe(0);
+  });
+
+  it("rejects the same filter twice as a question nobody means to ask", () => {
+    expect(() => parseFilterWrappers("{palindrome:{palindrome:A{5}}}")).toThrow(
+      FilterError,
+    );
+  });
+
+  it("requires the wrapper to close the whole query", () => {
+    // Only `endsWith("}")` was checked, so this parsed as one wrapper whose
+    // inner pattern was `A}{bank:xyz` and failed pointing at the wrong thing.
+    expect(() => parseFilterWrappers("{palindrome:A}{bank:xyz}")).toThrow(
+      /must wrap the whole pattern/,
+    );
   });
 });

@@ -45,6 +45,42 @@ export function reversed(text: string): string {
  * Split a whole-query `{name spec:PATTERN}` result filter. Returns null when
  * the query isn't one; throws when it is one but malformed.
  */
+/** Index of the `}` matching the `{` at `open`, or -1. */
+function matchingBrace(s: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < s.length; ++i) {
+    if (s[i] === "{") ++depth;
+    else if (s[i] === "}" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Peel every result filter wrapping the query, outermost first.
+ *
+ * They stack and mean AND: `{palindrome:{syllables=3:A{5}}}` is "a five-letter
+ * palindrome of three syllables". Before this only one could be peeled, so the
+ * inner one reached the pattern parser and was reported as a constraint that
+ * cannot be nested — a correct message about the wrong problem.
+ */
+export function parseFilterWrappers(
+  query: string,
+): { specs: FilterSpec[]; inner: string } {
+  const specs: FilterSpec[] = [];
+  let inner = query.trim();
+  for (;;) {
+    const peeled = parseFilterWrapper(inner);
+    if (!peeled) return { specs, inner };
+    // Two of the same filter is a contradiction or a redundancy, never a
+    // question anyone means to ask.
+    if (specs.some((s) => s.kind === peeled.spec.kind)) {
+      throw new FilterError(`{${peeled.spec.kind} …} is applied twice`);
+    }
+    specs.push(peeled.spec);
+    inner = peeled.inner;
+  }
+}
+
 export function parseFilterWrapper(
   query: string,
 ): { spec: FilterSpec; inner: string } | null {
@@ -59,10 +95,15 @@ export function parseFilterWrapper(
   }
   const name = token.slice(token.lastIndexOf(".") + 1);
   if (!NAMES.includes(name)) return null;
-  if (!q.endsWith("}")) {
+  // The closing brace must be *this* wrapper's. Checking only that the query
+  // ends in "}" let `{palindrome:A}{bank:xyz}` through as one wrapper whose
+  // inner pattern was `A}{bank:xyz`, which then failed as a pattern error
+  // pointing at the wrong thing.
+  const close = matchingBrace(q, 0);
+  if (close !== q.length - 1) {
     throw new FilterError(`{${name} …} must wrap the whole pattern`);
   }
-  const inner = q.slice(m[0].length, q.length - 1).trim();
+  const inner = q.slice(m[0].length, close).trim();
   if (inner === "") throw new FilterError(`{${name} …} needs a pattern`);
   const arg = m[2].trim();
 
