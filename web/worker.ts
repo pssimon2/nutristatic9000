@@ -27,6 +27,7 @@ import {
 import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilters, nearOrderKey } from "../src/result-predicate.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
+import { shapeOfQuery } from "../src/query-shape.js";
 import { explainMatch } from "../src/explain.js";
 import { formatPlan, planQuery } from "../src/plan.js";
 import type { InMsg, OpenMsg } from "./worker/protocol.js";
@@ -966,11 +967,11 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           if (token !== runToken) return;
         }
         // Ordering by closeness needs the same list the pattern was built
-        // from, so read it once the data is loaded.
+        // from — including its count, which a second regex here used to drop.
         nearOrder = null;
-        const nearWord = /\{\s*near\s*\d*\s*:\s*([a-z ]+)\}/i.exec(currentQuery);
-        if (nearWord && ctx.neighbours) {
-          const list = nearestTo(ctx.neighbours, nearWord[1].trim(), 64);
+        const near = shapeOfQuery(currentQuery, 1).near;
+        if (near && ctx.neighbours) {
+          const list = nearestTo(ctx.neighbours, near.word, near.limit);
           if (list) nearOrder = new Map(list.map((w, i) => [w, i]));
         }
         resultFilters = [];

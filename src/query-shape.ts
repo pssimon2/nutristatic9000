@@ -31,9 +31,25 @@ export interface QueryShape {
    * single shift to report.
    */
   caesar: string | null;
+  /**
+   * A *lone* `{near:…}`, with the neighbour count it asked for. Results are
+   * ordered by closeness to this word, and that ordering has to use the same
+   * list the pattern was built from — reading the word with a second regex
+   * that dropped the count meant `{near 200:king}` built its pattern from 200
+   * neighbours and then ordered by the first 64, leaving 136 of them tied.
+   *
+   * Only one can order the results, for the same reason only one caesar can
+   * be annotated.
+   */
+  near: { word: string; limit: number } | null;
   /** Maximal literal runs, long enough to be worth folding repeats on. */
   literals: string[];
 }
+
+/** The default neighbour count, matching what the parser builds with. */
+export const NEAR_DEFAULT_LIMIT = 32;
+
+const NEAR = /\{\s*(?:word\.)?near\s*(\d*)\s*:\s*([a-z ]+)\}/gi;
 
 /** Split a multi-slot query on ";" — not a character the pattern language uses. */
 export function splitSlots(query: string): string[] {
@@ -86,11 +102,22 @@ export function shapeOfQuery(query: string, minLiteralChars: number): QueryShape
     caesar = m ? m[1].trim() : null;
   }
 
+  NEAR.lastIndex = 0;
+  const nears = [...pattern.matchAll(NEAR)];
+  const near =
+    nears.length === 1
+      ? {
+          word: nears[0][2].trim(),
+          limit: nears[0][1] === "" ? NEAR_DEFAULT_LIMIT : Number(nears[0][1]),
+        }
+      : null;
+
   return {
     pattern,
     extract,
     rank,
     caesar,
+    near,
     literals: literalsOf(pattern, minLiteralChars),
   };
 }

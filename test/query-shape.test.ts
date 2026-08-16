@@ -84,6 +84,39 @@ describe("the annotatable caesar", () => {
   });
 });
 
+describe("the ordering {near}", () => {
+  it("carries the neighbour count the query asked for", () => {
+    // The worker read this with a second regex whose `\d*` was uncaptured, so
+    // it always ordered by 32 — {near 200:king} built its pattern from 200
+    // neighbours and ordered by a fraction of them, leaving the rest tied.
+    expect(shape("{near 200:king}").near).toEqual({ word: "king", limit: 200 });
+    expect(shape("{near 8:king}").near).toEqual({ word: "king", limit: 8 });
+  });
+
+  it("defaults to the count the parser builds with", () => {
+    expect(shape("{near:king}").near).toEqual({ word: "king", limit: 32 });
+  });
+
+  it("reads the prefixed spelling too", () => {
+    expect(shape("{word.near:king}").near?.word).toBe("king");
+  });
+
+  it("orders by nothing when two could each claim it", () => {
+    expect(shape("{near:king}&{near:queen}").near).toBeNull();
+  });
+
+  it("is null when the query has none", () => {
+    expect(shape("A{4}").near).toBeNull();
+  });
+
+  it("looks past the wrappers", () => {
+    expect(shape("{rank 1-9:{near 12:king}}").near).toEqual({
+      word: "king",
+      limit: 12,
+    });
+  });
+});
+
 describe("literalsOf", () => {
   it("takes the runs of plain text a pattern demands", () => {
     expect(literalsOf("the quick brown fox", 12)).toEqual(["the quick brown fox"]);

@@ -33,6 +33,11 @@ already have, twice: the CLI lacked `{near}` ordering, and the two front ends
 kept separate copies of the result-filter rule that drifted in their
 annotations. When both sides need a rule, the rule goes in `src/`.
 
+One divergence remains on purpose: `{near:…}` orders results by closeness in
+the browser but not in the CLI, because ordering needs a page to be collected
+first and the CLI streams. Adding buffering to it would change what the CLI
+*is*, so the difference is recorded rather than papered over.
+
 Cycles are banned because they are silently survivable. `find-expr.ts` and
 `expr-parse.ts` imported each other for one error class; ESM hoisting forgives
 that right up until a bundler splits the modules differently, and then it is an

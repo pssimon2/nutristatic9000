@@ -239,7 +239,24 @@ Goal: mechanical, low-risk changes that everything later depends on.
   carries `isIndexedWord` etc. Parse nested filter wrappers recursively so
   `{palindrome:{syllables=5:…}}` and `{stress 10:{compound 2:…}}` work
   (AND semantics). Tests for stacked filters in both CLI and worker.
-- [ ] **C2. Unified query AST + Plan.** New `src/engine/language/query.ts`:
+- [~] **C2. Unified query AST + Plan.** *(much of it delivered piecewise;
+  scope was understated)* A review counted **13** distinct sites reading the
+  raw query with a regex, not the 9 the item names, and ~22 call sites.
+  Already gone: the `{at}`/`{rank}` peeling and the twice-written `{caesar}`
+  sniffer (S3, `query-shape.ts`), the duplicate parse in `wasm-session.ts`
+  (S1, `compileConjuncts`), the single-slot filter peel (C1), and now the
+  `{near}` re-regex — whose `\d*` was uncaptured, so `{near 200:king}` built
+  its pattern from 200 neighbours and ordered by 32, leaving the rest tied.
+  `plan.ts` (S8) already produces conjuncts, predicate, transforms and
+  dataNeeds, which is most of the QueryPlan shape.
+  **Still regex-driven:** the five `needsX()` sniffers. They over-fetch rather
+  than under-fetch, so they are safe but imprecise, and they run on *different
+  strings* in the two front ends (the CLI sees the original query, the worker
+  one already stripped of wrappers) — latent rather than active divergence.
+  **Deliberately not done:** making wrapper nesting order significant. That is
+  a silent semantic change to queries already shared as URLs, and it should be
+  a decision rather than a side effect of a refactor.
+  Original text: New `src/engine/language/query.ts`:
   `parseQuery(string, ctx) → QueryAst` covering the *whole* language —
   slots (`;`), output wrappers (`{at}`, `{rank}`), result filters, and the
   pattern grammar. Compile to:
