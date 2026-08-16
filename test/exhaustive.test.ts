@@ -30,16 +30,43 @@ import type { Filter } from "../src/expr-filter.js";
 const ctx = new SessionContext();
 let reader: IndexReader;
 let entries: string[] = [];
+/**
+ * Every prefix of an index entry that ends in a space.
+ *
+ * A walk may restart at any space it *reaches*, and it reaches prefixes, not
+ * only whole stored strings — so a result spanning word boundaries splits into
+ * these, not into entries. Getting that wrong reported "solar s 1st em" as
+ * unreachable when it is perfectly reachable.
+ */
+const spacePrefixes = new Set<string>();
 
 beforeAll(async () => {
   const data = fs.readFileSync("web/public/demo.index");
   reader = await IndexReader.open(new MemorySource(data));
   const walker = await IndexWalker.create(reader, reader.root(), reader.count());
   while (walker.text !== null) {
-    entries.push(walker.text);
+    const t = walker.text;
+    entries.push(t);
+    for (let i = 0; i < t.length; ++i) {
+      if (t[i] === " ") spacePrefixes.add(t.slice(0, i + 1));
+    }
     await walker.next();
   }
 }, 60000);
+
+/** Can the index reach `s` — as one segment, or several joined at restarts? */
+function reachable(s: string): boolean {
+  const ok = new Array(s.length + 1).fill(false);
+  ok[0] = true;
+  for (let i = 0; i < s.length; ++i) {
+    if (!ok[i]) continue;
+    for (let j = i; j < s.length; ++j) {
+      if (s[j] !== " ") continue;
+      if (spacePrefixes.has(s.slice(i, j + 1))) ok[j + 1] = true;
+    }
+  }
+  return ok[s.length];
+}
 
 /** Does the compiled filter accept this exact string? */
 function accepts(filter: Filter, s: string): boolean {
@@ -59,10 +86,14 @@ function bruteForce(query: string): string[] {
   return entries.filter((e) => accepts(filter, e)).map((e) => e.trimEnd());
 }
 
-async function search(query: string): Promise<{ found: string[]; status: string }> {
+async function search(
+  query: string,
+  steps = 5e6,
+  max = 1e6,
+): Promise<{ found: string[]; status: string }> {
   const session = new SearchSession(reader, query, ctx);
   const found: string[] = [];
-  const status = await session.run(5e6, 1e6, (r) => found.push(r.text));
+  const status = await session.run(steps, max, (r) => found.push(r.text));
   return { found, status };
 }
 
@@ -108,4 +139,79 @@ describe("the search finds exactly what is there", () => {
     const { found } = await search('"nutrimatic"');
     expect(found).toEqual(bruteForce('"nutrimatic"'));
   });
+});
+
+// The other half, and the half the file above cannot reach.
+//
+// Everything before this compares against single index entries, which is only
+// sound for patterns that cannot match a space. The restart path — results
+// spanning word boundaries — is exactly where the shared bug lived, so it is
+// worth an oracle of its own.
+describe("results that span word boundaries", () => {
+  const SPANNING = [
+    "nutr*",
+    "e{2}a?",
+    "solar s_stem",
+    "A{4} A{5}",
+    "<aaagmnr>",
+    "{sum=52:A*}",
+  ];
+
+  for (const query of SPANNING) {
+    it(`only returns what ${query} can actually reach`, async () => {
+      const filter = compileQuery(query, ctx);
+      const { found } = await search(query, 300000, 400);
+      expect(found.length, "nothing to check").toBeGreaterThan(0);
+      // Soundness has two parts and both matter: the pattern must accept it,
+      // and the index must be able to produce it.
+      const unaccepted = found.filter((t) => !accepts(filter, `${t} `));
+      const unreachable = found.filter((t) => !reachable(`${t} `));
+      expect(unaccepted, `${query}: returned but not accepted`).toEqual([]);
+      expect(unreachable, `${query}: returned but not in the index`).toEqual([]);
+    }, 60000);
+  }
+});
+
+describe("nothing spanning a word boundary is missed", () => {
+  /**
+   * Every string over `alphabet` up to `maxLen` that the pattern accepts and
+   * the index can reach — the complete answer, worked out without the search
+   * taking any part in it. Small alphabets keep this finite; that is the price
+   * of an exhaustive check over a path where results are unbounded.
+   */
+  function everyReachableMatch(
+    query: string,
+    alphabet: string,
+    maxLen: number,
+  ): string[] {
+    const filter = compileQuery(query, ctx);
+    const out: string[] = [];
+    const walk = (s: string): void => {
+      if (s !== "" && accepts(filter, `${s} `) && reachable(`${s} `)) out.push(s);
+      if (s.length >= maxLen) return;
+      for (const c of alphabet) walk(s + c);
+    };
+    walk("");
+    // The search never reports a leading, trailing or doubled space.
+    return out.filter((t) => !/^ | $|  /.test(t));
+  }
+
+  for (const [query, alphabet] of [
+    ["e{2}a?", "ea "],
+    ["e{2}i?a?", "eia "],
+    ["a{2}b?", "ab "],
+    ["e{1,2}a", "ea "],
+  ] as const) {
+    it(`finds every match of ${query} up to six characters`, async () => {
+      const expected = everyReachableMatch(query, alphabet, 6);
+      expect(expected.length, "oracle found nothing to expect").toBeGreaterThan(1);
+      const { found } = await search(query, 5e6, 1e5);
+      const got = new Set(found);
+      const missing = expected.filter((t) => !got.has(t));
+      // One-directional on purpose: the search may legitimately return longer
+      // matches than the six characters enumerated here.
+      expect(missing, `${query}: reachable and accepted, but not found`)
+        .toEqual([]);
+    }, 60000);
+  }
 });
