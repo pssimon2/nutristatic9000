@@ -113,6 +113,8 @@ npm run build          # static site -> web/dist/
 npm run build-offline  # self-contained single file -> web/dist-offline/
 node scripts/browser-test.mjs   # drives the built site headless (needs
                                 # `npm run build` + `vite preview web --port 4517`)
+node scripts/offline-test.mjs   # drives the self-contained double-click build
+                                # over file:// (needs `npm run build`)
 ```
 
 ### Offline single-file build
