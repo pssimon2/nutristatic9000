@@ -441,6 +441,45 @@ export function product(a: Dfa, b: Dfa): Dfa {
 }
 
 /** Convert a DFA back to an NFA so the parser can keep composing it. */
+/**
+ * The complement of a language: everything over the alphabet that `nfa` does
+ * not accept. Negation is the missing dual of the `&` intersection the
+ * language already has.
+ *
+ * Complementing means determinizing first, so it is capped: beyond
+ * `maxStates` this returns null and the caller reports a parse error rather
+ * than letting a subpattern explode. Short, literal-ish subpatterns — the
+ * ones people actually negate — stay far below it.
+ */
+export function complement(nfa: Nfa, maxStates = 5000): Nfa | null {
+  const dfa = determinize(nfa);
+  if (dfa.start === -1) {
+    // The empty language complements to everything.
+    const all = new Nfa();
+    const s = all.addState();
+    all.setStart(s);
+    all.setFinal(s);
+    for (const ch of ALPHABET) all.addArc(s, ch, s);
+    return all;
+  }
+  const n = dfa.accepting.length;
+  if (n > maxStates) return null;
+  // Complete the DFA with a sink, then flip acceptance: a word the original
+  // rejects by having no transition is one the complement must accept.
+  const sink = n;
+  const accepting = new Uint8Array(n + 1);
+  const trans = new Int32Array((n + 1) * NSYM).fill(sink);
+  for (let st = 0; st < n; ++st) {
+    accepting[st] = dfa.accepting[st] ? 0 : 1;
+    for (let sym = 0; sym < NSYM; ++sym) {
+      const t = dfa.trans[st * NSYM + sym];
+      trans[st * NSYM + sym] = t === -1 ? sink : t;
+    }
+  }
+  accepting[sink] = 1;
+  return dfaToNfa({ start: dfa.start, accepting, trans });
+}
+
 export function dfaToNfa(dfa: Dfa): Nfa {
   const out = new Nfa();
   if (dfa.start === -1) return out;

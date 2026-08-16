@@ -27,6 +27,7 @@
 import {
   EPSILON,
   Nfa,
+  complement,
   equivalent,
   intersectExprs,
   optimize,
@@ -127,6 +128,17 @@ function parseFactor(
   box: Box,
   quoted: boolean,
 ): number | null {
+  if (s[i] === "!") {
+    // Negation applies to the whole factor, so `!.*ee.*` reads as "no double
+    // e" rather than binding to the first piece.
+    const inner = new Box();
+    const p = parseFactor(s, i + 1, inner, quoted);
+    if (p === null || p === i + 1) return null; // nothing to negate
+    const negated = complement(inner.materialize());
+    if (!negated) return null; // too large to determinize
+    box.and = [negated];
+    return p;
+  }
   box.and = [epsilonNfa()];
   let isEpsilon = true; // box is still the empty-string identity
   let p = i;

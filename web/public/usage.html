@@ -238,6 +238,16 @@ The ambiguity is exactly what the corpus is for.
 <tt>A{4} A{3} A{5}</tt>.
 </ul>
 
+<li><b>Negation — <tt>!expr</tt></b>. The language already had intersection
+(<tt>&amp;</tt>); this is its missing dual.
+<tt><a href="/9000/?q=A%7B5%7D%26!.*ee.*">A{5}&amp;!.*ee.*</a></tt> is five
+letters with no double E, and <tt>A{4}&amp;!.*[aeiou].*</tt> finds four-letter
+strings with no vowel at all. <tt>!</tt> applies to the whole factor, so
+<tt>!.*ee.*</tt> reads as "no double E" rather than binding to the first
+piece. Negation has to determinize what it negates, so it is capped: negate
+short, literal-ish subpatterns, and an over-large one is refused rather than
+allowed to explode.
+
 <li><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
 matches that cut into that many words the index actually knows, and
 <b>shows the cut</b>: COPYRIGHT = COPY·RIGHT, KEYBOARD = KEY·BOARD. Charades,

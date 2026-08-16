@@ -306,3 +306,27 @@ describe("structural classes and encodings", () => {
     }
   });
 });
+
+describe("complement", () => {
+  it("negates a whole factor", () => {
+    expect(matches("A{5}&!.*ee.*", "about")).toBe(true);
+    expect(matches("A{5}&!.*ee.*", "green")).toBe(false);
+    expect(matches("!.*e.*&A{4}", "that")).toBe(true);
+    expect(matches("!.*e.*&A{4}", "them")).toBe(false);
+  });
+
+  it("negates character classes", () => {
+    expect(matches("A{4}&!.*[aeiou].*", "html")).toBe(true);
+    expect(matches("A{4}&!.*[aeiou].*", "that")).toBe(false);
+  });
+
+  it("is an involution on simple languages", () => {
+    expect(matches("!!A{3}", "cat")).toBe(true);
+    expect(matches("!!A{3}", "cats")).toBe(false);
+  });
+
+  it("rejects an empty or oversized negation", () => {
+    const nfa = new Nfa();
+    expect(parseExpr("!", 0, nfa, false)).not.toBe(1);
+  });
+});

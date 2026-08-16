@@ -61,6 +61,7 @@ describe("WasmSession parity", () => {
     "{caesar:kdhv}",
     "{t9:2665}",
     "{ascending:A{5}}",
+    "A{5}&!.*ee.*",
   ];
 
   for (const q of QUERIES) {
