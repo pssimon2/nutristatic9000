@@ -160,9 +160,14 @@ a phrase totals by its letters however the words fall.
 words totalling 100;
 <tt><a href="/9000/?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a></tt>
 finds high-scoring five-letter words. It composes with everything —
-<tt>{sum=52:A*}&amp;.*ll</tt> — and unlike most constraints it makes searches
-<em>faster</em>: a total that can no longer reach the target is abandoned, so
-an open-ended <tt>A*</tt> stops wandering.
+<tt>{sum=52:A*}&amp;.*ll</tt> — and unlike most constraints it can <em>bound</em>
+the search rather than only filtering it: a branch whose total can no longer
+reach the ceiling has no transition at all, so
+<tt><a href="/9000/?q=%7Bsum%3C%3D25%3AA*%7D">{sum&lt;=25:A*}</a></tt> runs out
+of matches and stops where a bare <tt>A*</tt> would keep going. That bounds the
+space explored; it does not make a rare total common, so a narrow target like
+<tt>{sum=100:A*}</tt> is still a needle in a haystack and will happily spend
+its whole step budget looking.
 <br>(Note that a space is a literal character, so write
 <tt>expr&amp;expr</tt> without spaces around the <tt>&amp;</tt>.)
 

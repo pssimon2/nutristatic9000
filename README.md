@@ -26,7 +26,7 @@ Deployment notes specific to this fork:
 | Repeated-phrase folding | *(none)* | Collapses overlapping index windows of one phrase; a link restores them |
 | Output extraction | `{at 3:expr}` | Shows the Nth letter of each match (negative counts from the end; lists allowed) |
 | Rank windows | `{rank 200-2000:expr}` | Reaches mid-frequency answers without scrolling |
-| Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`; prunes the search |
+| Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`. A finite ceiling bounds the search (`{sum<=25:A*}` terminates; bare `A*` does not) |
 | Letter banks / sub-anagrams | `<<washington>>`, `{bank:…}`, `{sub:cryptography}` | Per-letter bounds plus an alphabet restriction |
 | Structural / keyboard classes | `{roman:…}`, `{rot180:…}`, `{mirror:…}`, `{sevenseg:…}`, `{row1:…}`, `{holes=0:…}`, `{ascending:…}`, `{descending:…}` | Letter-set restrictions and monotone chains |
 | Encodings | `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`, `{elements:…}` | Keypad digits → every spelling; crossword enumerations |
