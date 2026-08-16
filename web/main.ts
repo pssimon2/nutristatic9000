@@ -299,6 +299,7 @@ let output = new OutputTransform(null, null);
 let pageResults: Array<{ score: number; text: string; note?: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
+const shownLetters = new Set<string>(); // shown texts with the spaces taken out
 
 /** Contiguous word-runs of `text` that are long enough to count as a match. */
 function wordRuns(text: string): string[] {
@@ -321,6 +322,15 @@ function wordRuns(text: string): string[] {
  * `A*`, `A{8}` and anagram queries; 60 -> 24 results on a long-phrase query).
  */
 function isVariantOfShown(text: string): boolean {
+  // Same letters, different word breaks. Word breaks are optional everywhere
+  // in the language, so one answer arrives once per place a space could fall:
+  // `nutr*` offers "nut", "n ut" and "nu t", and `solar s_stem` offers "solar
+  // system", "so lar system" and "sola r system". The letters are the answer;
+  // where the spaces land is a variant of it, and the best-scoring spelling
+  // sorts first, so that is the one kept.
+  if (text.includes(" ") && shownLetters.has(text.replaceAll(" ", ""))) {
+    return true;
+  }
   for (const run of wordRuns(text)) {
     if (queryLiterals.some((lit) => lit.includes(run))) continue;
     if (shownRuns.has(run)) return true;
@@ -374,6 +384,7 @@ function renderResult(score: number, text: string, note?: string): void {
   span.dataset.match = text;
   resultsEl.append(span, document.createElement("br"));
   ++resultCount;
+  shownLetters.add(text.replaceAll(" ", ""));
   for (const run of wordRuns(text)) {
     if (!queryLiterals.some((lit) => lit.includes(run))) shownRuns.add(run);
   }
@@ -399,6 +410,7 @@ function showAllVariants(): void {
   resultCount = 0;
   hiddenVariants = 0;
   shownRuns.clear();
+  shownLetters.clear();
   for (const r of pageResults) renderResult(r.score, r.text, r.note);
   // Rebuild the same action area the search ended with (minus the now-spent
   // reveal button).
@@ -411,6 +423,10 @@ function resetResultCollapsing(): void {
   pageResults = [];
   hiddenVariants = 0;
   shownRuns.clear();
+  // Must be cleared with the rest: letters carried into the next search hide
+  // that search's genuine answers, and the symptom is a later query in the
+  // same session quietly collapsing results a fresh page shows.
+  shownLetters.clear();
 }
 
 // Click a result to copy it (solvers copy answers constantly). Delegated from

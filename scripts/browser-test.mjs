@@ -71,11 +71,36 @@ const first = await page.$eval("#results span", (e) => e.textContent);
 console.log("range search first:", first);
 if (first !== "anagram") throw new Error("wrong first result");
 
-// Variant collapsing: a fixed-length pattern must not collapse anything (no
-// "show N similar" affordance), since its results are short and distinct.
-if (/similar result/.test(await page.textContent("#after"))) {
-  throw new Error("collapsed variants on a query that has none");
+// Variant collapsing on an anagram: same letters, different word breaks.
+// ANAGRAM, AN AGRAM and ANA GRAM are one answer written three ways, and word
+// breaks being optional everywhere means the engine finds every one of them.
+// Different *orderings* — "garman a" against "a garman" — are separate answers
+// and must both survive.
+{
+  const after = await page.textContent("#after");
+  if (!/similar result/.test(after)) {
+    throw new Error("anagram variants were not collapsed");
+  }
+  const shown = await page.$$eval("#results span.r", (es) =>
+    es.map((e) => e.textContent.trim()));
+  const letters = shown.map((t) => t.replaceAll(" ", ""));
+  if (new Set(letters).size !== letters.length) {
+    throw new Error(`two spellings of one letter sequence both shown: ${shown.slice(0, 8)}`);
+  }
+  if (!shown.includes("anagram")) throw new Error("lost the actual answer");
 }
+
+// …and a pattern that cannot contain a space has nothing to collapse. Quoted,
+// so there are no implicit word breaks for a variant to differ in.
+await page.fill("#q", '"A{5}&C*"');
+await page.click("input[type=submit]");
+await waitDone();
+if (/similar result/.test(await page.textContent("#after"))) {
+  throw new Error("collapsed variants on a query that cannot have any");
+}
+await page.fill("#q", "<aaagmnr>");
+await page.click("input[type=submit]");
+await waitDone();
 
 // Click a result to copy it.
 await page.click("#results span");
@@ -451,11 +476,29 @@ await waitDone();
 if ((await page.$eval("#results span", (e) => e.textContent)) !== "anagram") {
   throw new Error("interrupted search returned wrong results");
 }
-await (await page.$("#after button")).click();
+// Counted as shown + collapsed, because the question here is whether
+// continuing *found* more, and how many of those reach the screen depends on
+// how many are variants of what is already there — a separate decision that
+// has changed before and will again. On an anagram the second page is mostly
+// respellings of the first, so the visible count barely moves while the
+// result count doubles.
+const total = async () => {
+  const shown = (await page.$$("#results span")).length;
+  const btn = await page.$("#after button:has-text('similar result')");
+  const hidden = btn ? +/\d+/.exec(await btn.textContent())[0] : 0;
+  return { shown, hidden, all: shown + hidden };
+};
+const before = await total();
+await (await page.$("#after button:has-text('More results')")).click();
 await waitDone(30000);
-const n = (await page.$$("#results span")).length;
-console.log("after interrupt + continue:", n, "results");
-if (n < 1500) throw new Error("continue after interrupt failed");
+const after = await total();
+console.log(
+  `after interrupt + continue: ${before.shown}+${before.hidden} -> ` +
+    `${after.shown}+${after.hidden} (shown+collapsed)`,
+);
+if (after.all < before.all * 2) {
+  throw new Error("continue after interrupt failed");
+}
 
 // Reload: disk copy persists, WASM engages on a fresh worker.
 await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("solar s_stem"));
