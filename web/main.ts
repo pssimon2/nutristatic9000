@@ -3,10 +3,9 @@ import {
   type ExtractSpec,
   type RankSpec,
   applyExtract,
-  parseExtract,
-  parseRank,
 } from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg } from "./worker/protocol.js";
+import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
 import { type Completion, completionsAt } from "../src/complete.js";
 import type { WikiLists } from "../src/word-lists.js";
 
@@ -283,17 +282,6 @@ let pageResults: Array<{ score: number; text: string; note?: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
 
-/**
- * Maximal literal runs in a pattern — plain letters/digits/spaces, ignoring
- * every metacharacter and class (`A`, `C`, `V`, `_`, `#` are uppercase or
- * punctuation and so never appear here).
- */
-function literalsOf(pattern: string): string[] {
-  return (pattern.match(/[a-z0-9 ]+/g) || [])
-    .map((t) => t.trim())
-    .filter((t) => t.length >= MIN_OVERLAP_CHARS);
-}
-
 /** Contiguous word-runs of `text` that are long enough to count as a match. */
 function wordRuns(text: string): string[] {
   const w = text.split(" ");
@@ -475,6 +463,15 @@ function actionButton(label: string, onClick: () => void): HTMLButtonElement {
  * Match the index's text normalization in queries. The German index uses
  * the ae/oe/ue/ss digraph convention; all other corpora fold diacritics to
  * base letters (à→a, ñ→n, ç→c) with the œ→oe/æ→ae digraph exceptions.
+ *
+ * This one stays in the page rather than moving to src/ with the rest of the
+ * query handling, because it is not query-language knowledge: it is a property
+ * of the index being searched, and it has to run *before* parsing. Which rule
+ * applies is currently guessed from the index's file name, which is why it
+ * cannot follow a custom index URL.
+ *
+ * TODO(F1: manifest): read the transliteration rules from the index's manifest
+ * sidecar instead of pattern-matching its name.
  */
 function transliterate(query: string): string {
   // Decide from the file name, not a substring of the whole URL (a custom
@@ -527,14 +524,6 @@ interface Slot {
 let slots: Slot[] | null = null;
 let slotIndex = 0;
 const slotsEl = document.createElement("div");
-
-/** Split on ";" — not a character the pattern language uses. */
-function splitSlots(query: string): string[] {
-  return query
-    .split(";")
-    .map((q) => q.trim())
-    .filter((q) => q !== "");
-}
 
 function slotLetters(slot: Slot): string | null {
   const pick = slot.results[slot.chosen];
@@ -609,13 +598,11 @@ function runNextSlot(): void {
   }
   const slot = slots[slotIndex];
   renderSlots();
-  let pattern = transliterate(slot.query);
+  let pattern: string;
   try {
-    const extract = parseExtract(pattern);
-    if (extract) {
-      slot.extract = extract.spec;
-      pattern = extract.inner;
-    }
+    const shape = shapeOfQuery(transliterate(slot.query), MIN_OVERLAP_CHARS);
+    slot.extract = shape.extract;
+    pattern = shape.pattern;
   } catch (e) {
     slot.done = true;
     ++slotIndex;
@@ -673,31 +660,18 @@ function startSearch(query: string): void {
   resetResultCollapsing();
   // `{at …:…}` is an output wrapper: strip it here so the engine only ever
   // sees the pattern itself.
-  let pattern = transliterate(query);
-  extractSpec = null;
-  rankSpec = null;
+  let pattern: string;
   try {
-    const extract = parseExtract(pattern);
-    if (extract) {
-      extractSpec = extract.spec;
-      pattern = extract.inner;
-    }
-    const rank = parseRank(pattern);
-    if (rank) {
-      rankSpec = rank.spec;
-      pattern = rank.inner;
-    }
+    const shape = shapeOfQuery(transliterate(query), MIN_OVERLAP_CHARS);
+    pattern = shape.pattern;
+    extractSpec = shape.extract;
+    rankSpec = shape.rank;
+    caesarText = shape.caesar;
+    queryLiterals = shape.literals;
   } catch (e) {
     setStatus(e instanceof ExtractError ? e.message : String(e), true);
     return;
   }
-  // Only a lone unknown-shift caesar can be annotated unambiguously.
-  const caesars = pattern.match(/\{\s*caesar\s*:([a-z ]+)\}/gi) ?? [];
-  caesarText =
-    caesars.length === 1
-      ? /\{\s*caesar\s*:([a-z ]+)\}/i.exec(caesars[0])![1].trim()
-      : null;
-  queryLiterals = literalsOf(pattern);
   // Local step budget from the live URL's comp (not the load-time snapshot) so
   // back/forward through raised-budget entries picks up the right value.
   currentComp =

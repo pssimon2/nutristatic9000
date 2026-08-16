@@ -108,12 +108,15 @@ Goal: mechanical, low-risk changes that everything later depends on.
   testability gain. Revisit if S4's directory reshape makes it natural.
   Outbound (worker→page) messages are still untyped; typing them has to
   account for `postReady`'s replay.
-- [ ] **S3. Lift query-language knowledge out of `web/main.ts`.**
-  `splitSlots` (`main.ts:495`), the `{at}`/`{rank}` stripping
-  (`main.ts:642`), and slot orchestration move to `src/` (they will be
-  absorbed by C2/C5). `main.ts` keeps only rendering and candidate-choice
-  state. The German-transliteration filename regex (`main.ts:449`) gets a
-  `// TODO(F1: manifest)` marker.
+- [x] **S3. Lift query-language knowledge out of `web/main.ts`.** *(done
+  2026-08-16)* `src/query-shape.ts` owns `splitSlots`, `literalsOf` and
+  `shapeOfQuery`, which peels `{at}`/`{rank}` in one fixed order and reports
+  the lone-`{caesar}` ciphertext the page annotates with. `main.ts` had that
+  sniffer written out twice four lines apart, and peeled the wrappers in two
+  places that could drift; both now call one function. 15 tests, where the
+  regexes had none. `transliterate` deliberately stays: it is a property of
+  the index rather than of the language, must run before parsing, and now
+  carries the `TODO(F1: manifest)` marker.
 - [ ] **S4. Directory reshape into an enforced onion.**
   ```
   src/engine/{automata,language,plan,exec,index}/   pure; no I/O, no globals
