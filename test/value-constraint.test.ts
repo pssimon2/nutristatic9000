@@ -7,10 +7,12 @@ import {
   A1Z26,
   MAX_COUNTER_STATES,
   SCRABBLE,
+  editNfaOver,
   parseValueRange,
   valueNfa,
 } from "../src/value-constraint.js";
 import { SessionContext } from "../src/session-context.js";
+import { entriesNfa } from "../src/word-lists.js";
 
 const ctx = new SessionContext();
 
@@ -236,6 +238,71 @@ describe("edit-distance operators", () => {
 
   it("rejects unusable words and bounds", () => {
     for (const bad of ["{del1:}", "{del0:cargo}", "{edit<=9:cargo}", "{del1:ab!}"]) rejects(bad);
+  });
+});
+
+describe("edits over an inner pattern", () => {
+  // The Levenshtein construction works over any inner automaton, not just a
+  // literal chain, so an edit can wrap a whole set: "one letter off *some*
+  // Greek letter" rather than one letter off a word you had to name.
+
+  it("deletes a letter from any member of the set", () => {
+    expect(matches("{del1:{list:greek}}", "alpa")).toBe(true); // alpha
+    expect(matches("{del1:{list:greek}}", "delt")).toBe(true); // delta
+    expect(matches("{del1:{list:greek}}", "gama")).toBe(true); // gamma
+  });
+
+  it("still demands exactly the edits asked for", () => {
+    // The unedited member is not an answer to "one letter off".
+    expect(matches("{del1:{list:greek}}", "alpha")).toBe(false);
+    expect(matches("{subst1:{list:greek}}", "alpha")).toBe(false);
+    // …but a <= range includes spending none.
+    expect(matches("{edit<=1:{list:greek}}", "alpha")).toBe(true);
+    expect(matches("{edit<=1:{list:greek}}", "alpa")).toBe(true);
+  });
+
+  it("substitutes and inserts over the set", () => {
+    expect(matches("{subst1:{list:greek}}", "alpho")).toBe(true);
+    expect(matches("{add1:{list:greek}}", "alphax")).toBe(true);
+  });
+
+  it("matches nothing outside the set's neighbourhood", () => {
+    expect(matches("{del1:{list:greek}}", "zzzz")).toBe(false);
+    expect(matches("{del1:{list:greek}}", "alp")).toBe(false); // two deletions
+  });
+
+  it("composes with the rest of the language", () => {
+    expect(matches("{del1:{list:greek}}&A{4}", "delt")).toBe(true);
+    expect(matches("{del1:{list:greek}}&A{5}", "delt")).toBe(false);
+  });
+
+  it("reads a bare argument as an exact word, not a space-skipping pattern", () => {
+    // Unquoted patterns allow spaces between letters; the edit argument must
+    // not, or {del1:beast} would quietly also mean {del1:"be ast"}.
+    expect(matches("{del1:beast}", "best")).toBe(true);
+    expect(matches("{del1:beast}", "b est")).toBe(false);
+  });
+
+  it("takes deletion over a big set but refuses substitution over it", () => {
+    // Deletion adds one epsilon per arc; substitution and insertion fan out
+    // across the editable alphabet, so they cost ~36x. A set the size of a
+    // WordNet category is fine for {del…} and far too large for {subst…},
+    // which must be refused with an explanation rather than allocating
+    // millions of arcs. Built directly here so the check does not depend on
+    // the category data being loaded.
+    const words = Array.from({ length: 2000 }, (_, i) =>
+      `w${i.toString(36).padStart(4, "0")}`,
+    );
+    const set = entriesNfa(words)!;
+    expect(set).not.toBeNull();
+    const one = { lo: 1, hi: 1 };
+    expect(editNfaOver(set, { del: true, add: false, subst: false }, one)).not.toBeNull();
+    expect(editNfaOver(set, { del: false, add: false, subst: true }, one)).toBeNull();
+    expect(editNfaOver(set, { del: false, add: true, subst: false }, one)).toBeNull();
+  });
+
+  it("has nothing to edit in an empty argument", () => {
+    expect(editNfaOver(entriesNfa([""])!, { del: true, add: false, subst: false }, { lo: 1, hi: 1 })).toBeNull();
   });
 });
 

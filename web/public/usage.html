@@ -223,6 +223,14 @@ exactly that many edits of its own kind, while <tt>{edit&lt;=2:...}</tt> mixes
 them (and, being "at most", still matches the word itself). Edits insert and
 swap letters and digits only — never spaces, so a word is never split in two.
 Up to 5 edits on words up to 40 characters.
+<br>The argument does not have to be a word you name: an edit can wrap
+<i>any</i> pattern, so
+<tt><a href="/9000/?q=%7Bdel1%3A%7Bkind%3Ainstrument%7D%7D">{del1:{kind:instrument}}</a></tt>
+asks for anything one letter off <i>some</i> instrument, and
+<tt>{subst1:{list:greek}}</tt> for anything one swap off a Greek letter.
+Deleting a letter costs almost nothing over a big set, but substituting or
+inserting one has to try every letter at every position, so those are refused
+over very large sets — narrow the set, or use <tt>{del…}</tt>.
 
 <li><b>Ciphers — <tt>{caesar:kdhv}</tt>, <tt>{rot13:cvmmn}</tt>,
 <tt>{caesar+5:…}</tt>, <tt>{atbash:gsv}</tt></b>. The unknown-shift form is the

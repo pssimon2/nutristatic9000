@@ -544,18 +544,25 @@ function parseNamedConstraint(
     return close + 1;
   }
   if (["del", "add", "subst", "edit"].includes(name)) {
-    // Edits also take a literal word rather than a pattern.
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const edit = editConstraint(name, spec, s.slice(i + head[0].length, close));
+    // Edits wrap whatever is inside, not just a literal: `{del1:beast}` is one
+    // letter off a word, `{del1:{kind:instrument}}` is one letter off *any*
+    // instrument. Parsed in quoted mode, so a bare word is the exact letter
+    // chain it looks like rather than a pattern that may skip spaces.
+    const inner = new Box();
+    const p = parseExprBox(s, i + head[0].length, inner, true, ctx);
+    if (p === null || s[p] !== "}") return null;
+    const edit = editConstraint(name, spec, inner.materialize());
     if (!edit) {
       throw new ParseError(
         constructText(s, i),
-        `{${name}…} takes a literal word, up to 5 edits — e.g. {del1:beast}`,
+        `{${name}…} takes a word or a pattern and up to 5 edits — e.g. ` +
+          `{del1:beast} or {del1:{kind:instrument}}. A big set with ` +
+          `substitutions or insertions is too large to build; try {del…}, or ` +
+          `narrow the set.`,
       );
     }
     box.and = [edit];
-    return close + 1;
+    return p + 1;
   }
   if (name === "sub" || name === "bank") {
     // These take a literal bag of letters, not a pattern: the atom *is* the

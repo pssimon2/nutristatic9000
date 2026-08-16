@@ -267,11 +267,98 @@ export interface EditOps {
  * `range` bounds the edits that may be spent, and which totals are accepted:
  * {del1:cargo} wants exactly one, {edit<=2:cargo} anything up to two.
  */
-export function editNfa(
-  word: string,
+/**
+ * Ceiling on the arcs an edit automaton may generate. Deletion is nearly free
+ * (one epsilon per arc), but substitution and insertion fan out across the
+ * editable alphabet, so the cost is ~36x per error level: `{del1:{kind:…}}`
+ * over a 1,700-word category is ~67k arcs, while `{edit1:…}` over the same
+ * set is ~1.6M. The cap is what separates "works" from "takes the tab down".
+ */
+const MAX_EDIT_ARCS = 300_000;
+
+/** Arcs `editNfaOver` would generate, so the cost is known before paying it. */
+function editArcCost(
+  states: number,
+  arcs: number,
+  ops: EditOps,
+  k: number,
+): number {
+  const perError = k;
+  return (
+    arcs * (k + 1) +
+    (ops.del ? arcs * perError : 0) +
+    (ops.subst ? arcs * perError * (EDITABLE.length - 1) : 0) +
+    (ops.add ? states * perError * EDITABLE.length : 0)
+  );
+}
+
+/**
+ * A Levenshtein automaton over *any* inner language: state (q, e) means "in
+ * state q of the inner automaton, having spent e edits".
+ *
+ * The literal-word case is just the special case where the inner automaton is
+ * a chain, which is why `{del1:beast}` and `{del1:{kind:instrument}}` are the
+ * same construction — "one letter off some instrument" costs no more theory
+ * than "one letter off BEAST".
+ *
+ * Deleting a letter of the word means skipping an inner arc (an epsilon at the
+ * next error level); an extra letter in the match means looping in place; a
+ * swap means taking the arc on a different symbol. Inner epsilons are
+ * structural and cost nothing.
+ */
+export function editNfaOver(
+  inner: Nfa,
   ops: EditOps,
   range: ValueRange,
 ): Nfa | null {
+  if (inner.start === -1) return null;
+  const k = range.hi;
+  if (!Number.isFinite(k) || k < 1 || k > 5) return null;
+
+  const n = inner.arcs.length;
+  let arcCount = 0;
+  for (const list of inner.arcs) arcCount += list.length;
+  // Nothing to edit: `{del1:}` should say so rather than compile to a language
+  // that quietly matches nothing.
+  if (arcCount === 0) return null;
+  if (editArcCost(n, arcCount, ops, k) > MAX_EDIT_ARCS) return null;
+
+  const out = new Nfa();
+  const id: number[][] = [];
+  for (let q = 0; q < n; ++q) {
+    id.push([]);
+    for (let e = 0; e <= k; ++e) id[q].push(out.addState());
+  }
+  out.setStart(id[inner.start][0]);
+  for (let q = 0; q < n; ++q) {
+    for (let e = 0; e <= k; ++e) {
+      const from = id[q][e];
+      if (inner.finals.has(q) && e >= range.lo && e <= range.hi) {
+        out.setFinal(from);
+      }
+      for (const arc of inner.arcs[q]) {
+        if (arc.label === EPSILON) {
+          out.addArc(from, EPSILON, id[arc.to][e]); // structural: not an edit
+          continue;
+        }
+        out.addArc(from, arc.label, id[arc.to][e]); // match
+        if (e < k && ops.del) out.addArc(from, EPSILON, id[arc.to][e + 1]);
+        if (e < k && ops.subst) {
+          for (const c of EDITABLE) {
+            if (c !== arc.label) out.addArc(from, c, id[arc.to][e + 1]);
+          }
+        }
+      }
+      if (e < k && ops.add) {
+        for (const c of EDITABLE) out.addArc(from, c, id[q][e + 1]);
+      }
+    }
+  }
+  return out;
+}
+
+/** An automaton matching exactly `word` (letters, digits and spaces). */
+export function literalWordNfa(word: string): Nfa | null {
   const w = [...word.toLowerCase()].map((c) => c.charCodeAt(0));
   if (w.length === 0 || w.length > 40) return null;
   for (const c of w) {
@@ -279,43 +366,28 @@ export function editNfa(
       return null;
     }
   }
-  const k = range.hi;
-  if (!Number.isFinite(k) || k < 1 || k > 5) return null;
+  return literalNfa(w);
+}
 
-  const nfa = new Nfa();
-  const id: number[][] = [];
-  for (let i = 0; i <= w.length; ++i) {
-    id.push([]);
-    for (let e = 0; e <= k; ++e) id[i].push(nfa.addState());
-  }
-  nfa.setStart(id[0][0]);
-  for (let i = 0; i <= w.length; ++i) {
-    for (let e = 0; e <= k; ++e) {
-      const from = id[i][e];
-      if (i === w.length && e >= range.lo && e <= range.hi) nfa.setFinal(from);
-      if (i < w.length) {
-        nfa.addArc(from, w[i], id[i + 1][e]); // match
-        if (e < k && ops.del) nfa.addArc(from, EPSILON, id[i + 1][e + 1]);
-        if (e < k && ops.subst) {
-          for (const c of EDITABLE) {
-            if (c !== w[i]) nfa.addArc(from, c, id[i + 1][e + 1]);
-          }
-        }
-      }
-      if (e < k && ops.add) {
-        for (const c of EDITABLE) nfa.addArc(from, c, id[i][e + 1]);
-      }
-    }
-  }
-  return nfa;
+export function editNfa(
+  word: string,
+  ops: EditOps,
+  range: ValueRange,
+): Nfa | null {
+  const chain = literalWordNfa(word);
+  return chain ? editNfaOver(chain, ops, range) : null;
 }
 
 /** `{del1:cargo}`, `{add2:…}`, `{subst1:…}`, `{edit<=2:…}` → its automaton. */
-export function editConstraint(name: string, spec: string, word: string): Nfa | null {
+export function editConstraint(
+  name: string,
+  spec: string,
+  inner: Nfa,
+): Nfa | null {
   if (name === "edit") {
     const range = parseValueRange(spec);
     return range
-      ? editNfa(word, { del: true, add: true, subst: true }, range)
+      ? editNfaOver(inner, { del: true, add: true, subst: true }, range)
       : null;
   }
   if (!/^\d+$/.test(spec.trim())) return null;
@@ -326,7 +398,7 @@ export function editConstraint(name: string, spec: string, word: string): Nfa | 
     subst: name === "subst",
   };
   if (!ops.del && !ops.add && !ops.subst) return null;
-  return editNfa(word, ops, { lo: n, hi: n });
+  return editNfaOver(inner, ops, { lo: n, hi: n });
 }
 
 /** Shift a letter by `n` places, leaving anything else alone. */

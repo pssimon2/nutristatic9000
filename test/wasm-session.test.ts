@@ -61,6 +61,10 @@ describe("WasmSession parity", () => {
     "{distinct:A{6}}", // 26 conjuncts, just under the kernel's MAX_CONJ
     "<<washington>>",
     "{edit<=1:cargo}",
+    // An edit over an inner set, not a literal: a much bigger conjunct NFA
+    // than any other case here, so it also exercises the kernel's capacity
+    // handling on a shape the JS engine builds lazily.
+    "{del1:{list:greek}}",
     "{caesar:kdhv}",
     "{t9:2665}",
     "{ascending:A{5}}",
