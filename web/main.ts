@@ -953,6 +953,16 @@ function renderAfterSearch(status: string): void {
       if (status === "exhausted") {
         afterEl.textContent =
           resultCount > 0 ? "No more results found." : "No results found, sorry.";
+      } else if (status === "complex") {
+        // The lazy automaton ran out of states. What was found is correct, so
+        // it stays on screen — but there is no "try harder" here, because
+        // trying harder rebuilds to the same wall. Say what would help
+        // instead: this limit is reached by patterns that track a lot of
+        // independent facts at once, and pinning any of them down shrinks it.
+        afterEl.textContent =
+          resultCount > 0
+            ? "This pattern is too complex to search any further — the results above are complete and correct as far as it got. Adding a length, a letter, or a narrower range would let it go deeper."
+            : "This pattern is too complex to search. Adding a length, a letter, or a narrower range would bring it in reach.";
       } else if (status === "limit") {
         if (indexMode === "range") {
           // Range mode stopped on its bytes/time budget: this query reaches

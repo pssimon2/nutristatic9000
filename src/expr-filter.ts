@@ -13,7 +13,24 @@ import { Conjunct, isNegated } from "./conjunct.js";
 
 const UNCOMPUTED = -2;
 const DEAD = -1;
-const MAX_STATES = 500000;
+export const MAX_STATES = 500000;
+
+/**
+ * The lazy DFA reached the most states it is allowed to build.
+ *
+ * This is a budget, not a mistake in the query. `{distinct:A{6}}` — a
+ * documented example — really does have on the order of 300,000 reachable
+ * states, one per set-of-letters-used-so-far, and a long enough search visits
+ * enough of them to run out. Searching further is impossible, but everything
+ * found up to that point is correct, so this is thrown as its own type: the
+ * session ends the run cleanly on it and keeps the results, rather than
+ * reporting a failed search and discarding them.
+ */
+export class FilterCapacityError extends Error {
+  constructor(readonly limit: number) {
+    super(`pattern too complex (over ${limit} lazy DFA states)`);
+  }
+}
 
 /** What the search driver needs from a compiled expression. */
 export interface Filter {
@@ -123,7 +140,7 @@ export class ExprFilter implements Filter {
     if (existing !== undefined) return existing;
 
     const id = this.members.length;
-    if (id >= MAX_STATES) throw new Error(`pattern too complex (over ${MAX_STATES} lazy DFA states)`);
+    if (id >= MAX_STATES) throw new FilterCapacityError(MAX_STATES);
     this.setIds.set(key, id);
     this.members.push(sorted);
     let acc = 0;
@@ -300,7 +317,7 @@ export class ProductFilter implements Filter {
     }
 
     const id = this.count;
-    if (id >= MAX_STATES) throw new Error(`pattern too complex (over ${MAX_STATES} lazy DFA states)`);
+    if (id >= MAX_STATES) throw new FilterCapacityError(MAX_STATES);
     if ((id + 1) * this.width > this.pool.length) {
       const grown = new Int32Array(
         Math.max(256 * this.width, this.pool.length * 2),

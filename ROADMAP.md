@@ -373,11 +373,39 @@ Goal: mechanical, low-risk changes that everything later depends on.
   22,350 (~57%), and one start branch instead of one per entry. Equivalence
   tests vs the old construction in `test/word-lists.test.ts`. A DAWG sharing
   suffixes is still on the table if sets get bigger.
-- [ ] **E4. Int-pool interning in `ExprFilter`.**
-  `intern()` keys DFA states with `sorted.join(",")` (`expr-filter.ts:113`)
-  — string building + Map hashing per novel subset. Port ProductFilter's
-  open-addressed Int32 pool (`expr-filter.ts:158`, whose comment records
-  that string keys dominated anagram time). Benchmark gate (S7) proves it.
+- [~] **E4. Int-pool interning in `ExprFilter`.** *(measured and declined
+  2026-08-16.)* The premise does not hold. CPU profiles over the demo index,
+  with `ExprFilter.intern` renamed so the two `intern`s could be told apart:
+  `{distinct:A{6}}` 0.0%, `<aciimnrttu>` 0.8%, `!{distinct:A{5}}` 1.2%,
+  `{list:countries}` 0.0%, `A{5}&!.*ee.*` 0.0%. The comment this item cites is
+  about *ProductFilter*, where string keys really did dominate and were really
+  replaced; the cost was generalized to `ExprFilter` without measuring it. The
+  states accumulate in the product, not in the subs — `{distinct:A{6}}` spends
+  21% in `ProductFilter.intern`, which is already an open-addressed int pool
+  and hashes a 26-wide tuple per transition. If this is revisited, that is the
+  place, and narrowing the tuple (most sub-filters do not move on a given
+  letter) is the idea worth trying, not the key encoding.
+  Original text: `intern()` keys DFA states with `sorted.join(",")`
+  (`expr-filter.ts:113`) — string building + Map hashing per novel subset.
+  Port ProductFilter's open-addressed Int32 pool (`expr-filter.ts:158`, whose
+  comment records that string keys dominated anagram time). Benchmark gate
+  (S7) proves it.
+- [x] **E8. Running out of automaton is a status, not an error.**
+  *(done 2026-08-16, not previously on the list.)* The lazy DFA is capped at
+  500,000 states, and `{distinct:A{6}}` — an example the docs offer — reaches
+  it after ~7.8M steps against the demo index, since it has one state per
+  set-of-letters-seen-so-far. It threw a bare `Error`, which the worker turned
+  into `post({type:"error"})`: a search reported as *failed* even though every
+  result already on screen was correct, with a "try harder" button that would
+  rebuild to the same wall and fail again. Now `FilterCapacityError`
+  (`expr-filter.ts`), which `SearchSession.run` ends on with a new `"complex"`
+  status, keeping the results; the page explains that the results are complete
+  as far as the search got and suggests narrowing rather than offering to try
+  harder, and a repeat run says so immediately instead of spending the budget
+  again. The CLI streams results before the wall either way, and now says they
+  stand rather than printing a bare `error:`. `SearchSession` accepts a
+  prebuilt `Filter` so this is testable without an eight-million-step query
+  (and as a step toward A4's filter reuse).
 - [ ] **E5. Frontier memory diet.** `search-driver.ts:25`: `ch` fits
   Uint8Array; evaluate narrowing `state`/`crumb`. Only with S7 numbers
   showing benefit; kernel-tier change (GR3).

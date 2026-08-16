@@ -2,6 +2,7 @@
 // expression against an index, with '# N' progress lines every 100k steps.
 
 import { compileQuery, formatScore, makeDriver, ParseError } from "../src/find-expr.js";
+import { FilterCapacityError } from "../src/expr-filter.js";
 import { cliOpenIndex } from "../src/node-io.js";
 import {
   type ExtractSpec,
@@ -213,9 +214,16 @@ try {
     for (const line of formatStats(s)) console.error(`# ${line}`);
   }
 } catch (e) {
-  // "pattern too complex" (filter state cap) or "index error: ..." — a
-  // one-liner, not a stack trace.
+  // The filter's state cap or "index error: ..." — a one-liner, not a stack
+  // trace. The cap is not a failed search: every result already on stdout was
+  // found before the automaton ran out of room and is correct, so say that
+  // rather than leaving a caller to assume the output is garbage. Exit 2
+  // keeps it distinguishable from a real error for anything scripting this.
+  if (e instanceof FilterCapacityError) {
+    console.error(`# stopped: ${e.message}; results above are complete as far as it got`);
+    process.exit(2);
+  }
   const message = e instanceof Error ? e.message : String(e);
   console.error(`error: ${message}`);
-  process.exit(message.includes("pattern too complex") ? 2 : 1);
+  process.exit(1);
 }

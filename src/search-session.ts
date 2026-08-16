@@ -7,7 +7,7 @@ import { IndexReader } from "./index-reader.js";
 import { compileQuery, DEFAULT_RESTART, makeDriver } from "./find-expr.js";
 import { SessionContext } from "./session-context.js";
 import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
-import { Filter } from "./expr-filter.js";
+import { Filter, FilterCapacityError } from "./expr-filter.js";
 import { SourceStats, Stats, emptyStats } from "./stats.js";
 
 export interface SearchResult {
@@ -15,7 +15,7 @@ export interface SearchResult {
   text: string;
 }
 
-export type SessionStatus = "limit" | "results" | "exhausted";
+export type SessionStatus = "limit" | "results" | "exhausted" | "complex";
 
 export class SearchSession {
   private driver: SearchDriver;
@@ -27,14 +27,21 @@ export class SearchSession {
   predicateChecks = 0;
   predicatePassed = 0;
 
+  /**
+   * `query` may be an already-compiled `Filter` instead of the text to
+   * compile, so a caller that has one need not build it twice — and so the
+   * capacity path can be tested without a query that takes eight million
+   * steps to fill the automaton.
+   */
   constructor(
     reader: IndexReader,
-    query: string,
+    query: string | Filter,
     ctx: SessionContext,
     restart = DEFAULT_RESTART,
     opts: SearchDriverOptions = {},
   ) {
-    this.filter = compileQuery(query, ctx);
+    this.filter =
+      typeof query === "string" ? compileQuery(query, ctx) : query;
     this.source = reader.source as SourceStats;
     this.driver = makeDriver(reader, this.filter, restart, opts);
   }
@@ -74,6 +81,33 @@ export class SearchSession {
     // rather than step count — a cached step is free, a fetched step is a
     // round-trip, so steps are a poor cost proxy). Returns "limit" when it
     // fires, so callers treat it like the step budget being hit.
+    shouldStop?: () => boolean,
+  ): Promise<SessionStatus> {
+    if (this.outOfStates) return "complex";
+    let results = 0;
+    try {
+      return await this.walk(maxSteps, maxResults, onResult, onProgress, shouldYield, shouldStop);
+    } catch (e) {
+      if (!(e instanceof FilterCapacityError)) throw e;
+      // The lazy DFA is full. Every result already handed to `onResult` is
+      // correct — the automaton was right up to the state it could not build
+      // — so the run ends here rather than failing. The flag makes a later
+      // "keep searching" say so immediately instead of rebuilding to the same
+      // wall and throwing again.
+      this.outOfStates = true;
+      return "complex";
+    }
+  }
+
+  /** True once the filter has run out of lazy DFA states. */
+  private outOfStates = false;
+
+  private async walk(
+    maxSteps: number,
+    maxResults: number,
+    onResult: (r: SearchResult) => void,
+    onProgress?: (steps: number) => void,
+    shouldYield?: () => void | Promise<void>,
     shouldStop?: () => boolean,
   ): Promise<SessionStatus> {
     let results = 0;
