@@ -32,7 +32,8 @@ Deployment notes specific to this fork:
 | Encodings | `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`, `{elements:…}` | Keypad digits → every spelling; crossword enumerations |
 | Negation | `!expr` | Complement via determinize + completed DFA; capped at 5000 states |
 | Rhyme / homophones | `{rhyme:tree}`, `{homo:knight}` | CMU pronouncing dictionary, rhyming from the last primary-stressed vowel; lazily fetched (~340 KB gzipped), built by `scripts/build-phonetics.mjs` |
-| Meaning | `{like:reluctant}` | WordNet sense groups (a thesaurus, not a semantic model); lazily fetched, built by `scripts/build-thesaurus.mjs` |
+| Meaning (embedding) | `{near:king}`, `{near 8:word}` | Nearest neighbours from all-MiniLM-L6-v2, precomputed by `scripts/build-neighbours.mjs` (needs `@huggingface/transformers`); ~2 MB table, no model in the browser |
+| Meaning (thesaurus) | `{like:reluctant}` | WordNet sense groups (a thesaurus, not a semantic model); lazily fetched, built by `scripts/build-thesaurus.mjs` |
 | Multi-slot | `pattern ; pattern ; …` | Runs each slot in turn and assembles the `{at …}` letters, with any candidate selectable; batching, not cross-slot constraint solving |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |

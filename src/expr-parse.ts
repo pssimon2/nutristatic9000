@@ -38,6 +38,7 @@ import {
   phoneticsLoaded,
   rhymesOf,
 } from "./phonetics.js";
+import { nearestTo, neighboursLoaded } from "./neighbours.js";
 import { relatedTo, thesaurusLoaded } from "./thesaurus.js";
 import { entriesNfa, listNfa, normalizeEntry } from "./word-lists.js";
 import {
@@ -371,6 +372,32 @@ function parseNamedConstraint(
   } else if (name === "rot" && spec.trim() === "180") {
     name = "rot180"; // the visual class, not a 180-place shift
     spec = "";
+  }
+  if (name === "near") {
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    // An optional count: {near 60:word} widens the net.
+    const limit = /^\s*(\d+)\s*$/.exec(spec);
+    if (spec.trim() !== "" && !limit) return null;
+    const word = normalizeEntry(s.slice(i + head[0].length, close));
+    if (!neighboursLoaded()) {
+      throw new ParseError(
+        constructText(s, i),
+        "{near:…} needs the meaning table, which this build could not load",
+      );
+    }
+    const words = nearestTo(word, limit ? +limit[1] : 32);
+    if (!words) {
+      throw new ParseError(
+        constructText(s, i),
+        `"${word}" is not in the meaning vocabulary (the 20,000 commonest ` +
+          "words); {like:…} covers a much larger dictionary",
+      );
+    }
+    const nfa = entriesNfa(words);
+    if (!nfa) return null;
+    box.and = [nfa];
+    return close + 1;
   }
   if (name === "like") {
     const close = s.indexOf("}", i);

@@ -307,7 +307,21 @@ where either half alone is useless and together they are decisive. That
 intersection is the whole point, and it is one query here:
 <tt><a href="/9000/?q=%7Blike%3Areluctant%7D%26A%7B5%7D%26l....">{like:reluctant}&amp;A{5}&amp;l....</a></tt>
 gives LOATH.
-<br><b>What this is and isn't:</b> a thesaurus, not a semantic model. It
+<br><b>Two kinds of "means something like".</b> <tt>{like:…}</tt> is a
+thesaurus: words that share a dictionary sense, which is precise but narrow —
+it gives LOATH for RELUCTANT and stops there.
+<tt><a href="/9000/?q=%7Bnear%3Aking%7D%26A%7B7%7D">{near:king}&amp;A{7}</a></tt>
+is the other kind: words an embedding model places nearby, which is fuzzier
+and much wider — RELUCTANT reaches WILLING, OPPOSED and REFUSED, and KING
+reaches KINGDOM, ROYALTY, MAJESTY, MONARCH and PRESLEY. Use <tt>{like:…}</tt>
+when you want a synonym and <tt>{near:…}</tt> when you want whatever the clue
+is gesturing at. <tt>{near 8:word}</tt> narrows the net, <tt>{near 40:word}</tt>
+widens it (default 32).
+<br>No model runs in your browser: the embeddings are computed when the site is
+built, and only each word's nearest neighbours are shipped — about 2 MB,
+fetched once, for the 20,000 commonest words. Anything rarer is not in that
+vocabulary and says so; <tt>{like:…}</tt> covers a far larger dictionary.
+<br><b>What {like:…} is and isn't:</b> a thesaurus, not a semantic model. It
 answers "what else means roughly this", from the senses WordNet groups a word
 into — every sense of it, since the pattern is what narrows things down. It
 will not find a word that merely feels related, and it knows only words

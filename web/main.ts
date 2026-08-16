@@ -585,6 +585,7 @@ function runNextSlot(): void {
     // Resolved here: the page knows its own base, the worker script does not.
     phoneticsUrl: OFFLINE ? null : new URL("./phonetics.txt", location.href).href,
     thesaurusUrl: OFFLINE ? null : new URL("./thesaurus.txt", location.href).href,
+    neighboursUrl: OFFLINE ? null : new URL("./neighbours.bin", location.href).href,
     // Only the head of each slot matters; the extraction reads the top answer.
     maxResults: 3,
     ...runBudget(),
@@ -660,6 +661,7 @@ function startSearch(query: string): void {
     // Resolved here: the page knows its own base, the worker script does not.
     phoneticsUrl: OFFLINE ? null : new URL("./phonetics.txt", location.href).href,
     thesaurusUrl: OFFLINE ? null : new URL("./thesaurus.txt", location.href).href,
+    neighboursUrl: OFFLINE ? null : new URL("./neighbours.bin", location.href).href,
     // A rank window has to be reached before it can be shown; ask the engine
     // for enough results to cover it (bounded, so a huge "to" can't run away).
     maxResults: rankSpec

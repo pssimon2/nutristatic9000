@@ -29,6 +29,11 @@ import {
   parseThesaurus,
   setThesaurus,
 } from "../src/thesaurus.js";
+import {
+  needsNeighbours,
+  parseNeighbours,
+  setNeighbours,
+} from "../src/neighbours.js";
 import { makeWordChecker } from "../src/index-words.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
@@ -104,6 +109,17 @@ for (const [needed, file, install] of [
   if (!needed) continue;
   try {
     install(fs.readFileSync(new URL(`../web/public/${file}`, import.meta.url), "utf8"));
+  } catch {
+    // Left unloaded: the parser reports what is missing.
+  }
+}
+
+if (needsNeighbours(pattern)) {
+  try {
+    const buf = fs.readFileSync(new URL("../web/public/neighbours.bin", import.meta.url));
+    setNeighbours(
+      parseNeighbours(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)),
+    );
   } catch {
     // Left unloaded: the parser reports what is missing.
   }

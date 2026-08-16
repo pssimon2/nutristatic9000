@@ -254,21 +254,31 @@ const meant = await page.$$eval("#results span.r", (els) =>
 console.log("like:reluctant &A{5}&l....:", JSON.stringify(meant));
 if (!meant.includes("loath")) throw new Error("thesaurus intersection failed");
 
+// Embedding neighbours: the third lazily-fetched dataset, binary this time.
+await page.fill("#q", "{near:king}&A{7}");
+await page.click("input[type=submit]");
+await waitDone();
+const near = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 8).map((e) => e.textContent),
+);
+console.log("near:king &A{7}:", JSON.stringify(near.slice(0, 5)));
+if (!near.includes("monarch")) throw new Error("semantic neighbours failed");
+
 // The datasets land in their own cache, so a redeploy doesn't re-fetch them.
 const dataCached = await page.evaluate(async () => {
   const c = await caches.open("nutristatic9000-data");
   return (await c.keys()).map((r) => new URL(r.url).pathname.split("/").pop());
 });
 console.log("data cache:", JSON.stringify(dataCached.sort()));
-if (!dataCached.includes("phonetics.txt") || !dataCached.includes("thesaurus.txt")) {
-  throw new Error("side datasets not cached separately");
+for (const f of ["phonetics.txt", "thesaurus.txt", "neighbours.bin"]) {
+  if (!dataCached.includes(f)) throw new Error(`${f} not cached separately`);
 }
 const shellKeys = await page.evaluate(async () => {
   const names = (await caches.keys()).filter((k) => k.startsWith("nutristatic9000-shell-"));
   const c = await caches.open(names[0]);
   return (await c.keys()).map((r) => new URL(r.url).pathname);
 });
-if (shellKeys.some((k) => /phonetics|thesaurus/.test(k))) {
+if (shellKeys.some((k) => /phonetics|thesaurus|neighbours/.test(k))) {
   throw new Error("datasets leaked into the versioned shell cache");
 }
 

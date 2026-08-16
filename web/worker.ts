@@ -28,6 +28,12 @@ import {
   setThesaurus,
   thesaurusLoaded,
 } from "../src/thesaurus.js";
+import {
+  needsNeighbours,
+  neighboursLoaded,
+  parseNeighbours,
+  setNeighbours,
+} from "../src/neighbours.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -137,6 +143,7 @@ interface SearchMsg {
   /** Where to fetch the side datasets; the page resolves these. */
   phoneticsUrl?: string | null;
   thesaurusUrl?: string | null;
+  neighboursUrl?: string | null;
   maxSteps: number;
   maxResults: number;
   // Range mode only: stop after this many bytes fetched or ms elapsed
@@ -232,7 +239,7 @@ async function ensureExtra(
   key: string,
   url: string | null,
   ready: () => boolean,
-  install: (text: string) => void,
+  install: (response: Response) => Promise<void>,
 ): Promise<void> {
   if (ready() || !url) return;
   let load = extraLoads.get(key);
@@ -240,7 +247,7 @@ async function ensureExtra(
     load = (async () => {
       const r = await fetch(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      install(await r.text());
+      await install(r);
     })().catch((e) => {
       extraLoads.delete(key); // let a later query try again
       throw e;
@@ -1601,14 +1608,26 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // pattern: strip it, search the pattern, verify the pieces after.
         // Compilation is synchronous, so anything it needs must be here
         // first.
-        if (needsPhonetics(currentQuery) || needsThesaurus(currentQuery)) {
+        if (
+          needsPhonetics(currentQuery) ||
+          needsThesaurus(currentQuery) ||
+          needsNeighbours(currentQuery)
+        ) {
           try {
             if (needsPhonetics(currentQuery)) {
               await ensureExtra(
                 "phonetics",
                 msg.phoneticsUrl ?? null,
                 phoneticsLoaded,
-                (t) => setPhonetics(parsePhonetics(t)),
+                async (r) => setPhonetics(parsePhonetics(await r.text())),
+              );
+            }
+            if (needsNeighbours(currentQuery)) {
+              await ensureExtra(
+                "neighbours",
+                msg.neighboursUrl ?? null,
+                neighboursLoaded,
+                async (r) => setNeighbours(parseNeighbours(await r.arrayBuffer())),
               );
             }
             if (needsThesaurus(currentQuery)) {
@@ -1616,7 +1635,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
                 "thesaurus",
                 msg.thesaurusUrl ?? null,
                 thesaurusLoaded,
-                (t) => setThesaurus(parseThesaurus(t)),
+                async (r) => setThesaurus(parseThesaurus(await r.text())),
               );
             }
           } catch {
