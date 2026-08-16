@@ -203,8 +203,18 @@ describe("a construct with its argument missing", () => {
   });
 
   it("says nothing special about a name it does not know", () => {
-    // Still the unknown-construct message, which suggests a near match.
     expect(errorOf("{zzz}")).not.toMatch(/takes an argument after a colon/);
+  });
+
+  it("suggests the near name for a typo, colon or no colon", () => {
+    // `{palindrom:A{5}}` already suggested "palindrome"; `{palindrom}` said
+    // "can't parse", which sends the reader to look at their braces.
+    for (const q of ["{palindrom}", "{caesr}", "{sumx}"]) {
+      expect(errorOf(q), q).toMatch(/did you mean/);
+    }
+    expect(errorOf("{palindrom}")).toMatch(/palindrome/);
+    // Nothing close enough: no invented suggestion.
+    expect(errorOf("{zzz}")).not.toMatch(/did you mean/);
   });
 });
 

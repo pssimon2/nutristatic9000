@@ -412,7 +412,21 @@ function bareConstruct(s: string, i: number): void {
   const typed = token.slice(token.lastIndexOf(".") + 1);
   const { name } = foldName(typed, bare[2]);
   const info = findConstruct(name);
-  if (!info) return;
+  if (!info) {
+    // Not a construct, but close to one: `{palindrom}` is a typo, and saying
+    // "can't parse" sends the reader looking at their braces. The colonned
+    // form already suggests a near name; this makes the two agree.
+    const near = suggestConstruct(name);
+    if (near) {
+      const suggested = findConstruct(near);
+      throw new ParseError(
+        constructText(s, i),
+        `no such constraint "${name}" — did you mean "${near}"? ` +
+          `Try ${suggested?.example ?? `{${near}:…}`}`,
+      );
+    }
+    return;
+  }
   // Named as it was typed, not as it folds: someone who wrote `{rot13}` is
   // not helped by a message about `{rot…}`, which is a name they have never
   // seen. `bare[2]` carries the digits back, since the name lexes as letters.
