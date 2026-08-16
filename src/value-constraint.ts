@@ -35,6 +35,13 @@ export const VALUE_TABLES: Record<string, number[]> = {
 /** The largest counter a constraint may build; see valueNfa. */
 export const MAX_COUNTER_STATES = 5000;
 
+/**
+ * Longest literal a construct may expand into, matching the quantifier cap
+ * next door. The index window is about 40 characters, so nothing longer can
+ * match; the cap only stops a careless query from building a big automaton.
+ */
+export const MAX_PATTERN_LENGTH = 255;
+
 /** Inclusive target range; `hi` may be Infinity for an open upper end. */
 export interface ValueRange {
   lo: number;
@@ -468,6 +475,9 @@ function classChainNfa(classes: number[][]): Nfa {
 /** `{enum:4,3,5}` — the crossword enumeration, as words of those lengths. */
 function enumNfa(lengths: number[]): Nfa | null {
   if (lengths.length === 0 || lengths.some((n) => n < 1 || n > 40)) return null;
+  // One state per letter, and the quantifier cap next door is 255. Nothing
+  // longer can match anyway: the index window is about 40 characters.
+  if (lengths.reduce((a, b) => a + b, 0) > MAX_PATTERN_LENGTH) return null;
   const nfa = new Nfa();
   let state = nfa.addState();
   nfa.setStart(state);
@@ -537,7 +547,8 @@ const MORSE: Record<string, string> = {
 /** Every letter-splitting of an unspaced Morse string, as one automaton. */
 export function morseNfa(code: string): Nfa | null {
   const c = code.replace(/\s+/g, "");
-  if (c.length === 0 || !/^[.\-]+$/.test(c)) return null;
+  if (c.length === 0 || c.length > MAX_PATTERN_LENGTH) return null;
+  if (!/^[.\-]+$/.test(c)) return null;
   const nfa = new Nfa();
   const at = Array.from({ length: c.length + 1 }, () => nfa.addState());
   nfa.setStart(at[0]);

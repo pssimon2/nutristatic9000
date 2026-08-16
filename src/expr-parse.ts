@@ -37,6 +37,7 @@ import { listNfa } from "./word-lists.js";
 import {
   CONSTRUCT_NAMES,
   MAX_COUNTER_STATES,
+  MAX_PATTERN_LENGTH,
   bankConstraint,
   cipherNfa,
   classConstraint,
@@ -381,7 +382,10 @@ function parseNamedConstraint(
     if (close < 0) return null;
     const m = morseNfa(s.slice(i + head[0].length, close));
     if (!m || spec.trim() !== "") {
-      throw new ParseError(constructText(s, i), "{morse:…} takes dots and dashes");
+      throw new ParseError(
+        constructText(s, i),
+        `{morse:…} takes dots and dashes (up to ${MAX_PATTERN_LENGTH})`,
+      );
     }
     box.and = [m];
     return close + 1;
@@ -404,8 +408,9 @@ function parseNamedConstraint(
       throw new ParseError(
         constructText(s, i),
         name === "t9"
-          ? "{t9:…} takes keypad digits 2-9"
-          : "{enum:…} takes word lengths, e.g. {enum:4,3,5}",
+          ? `{t9:…} takes keypad digits 2-9 (up to ${MAX_PATTERN_LENGTH})`
+          : "{enum:…} takes word lengths — each 1-40, " +
+            `${MAX_PATTERN_LENGTH} letters in total — e.g. {enum:4,3,5}`,
       );
     }
     box.and = [enc];

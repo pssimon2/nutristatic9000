@@ -405,3 +405,19 @@ describe("resource limits", () => {
     expect(matches("{letters=11:A*}", "information")).toBe(true);
   });
 });
+
+describe("length limits on expanded constructs", () => {
+  it("bounds enumerations and morse the way quantifiers are bounded", () => {
+    const nfa = new Nfa();
+    const many = Array(5000).fill("9").join(",");
+    expect(() => parseExpr(`{enum:${many}}`, 0, nfa, false)).toThrow(
+      /letters in total/,
+    );
+    expect(() => parseExpr(`{morse:${".".repeat(20000)}}`, 0, nfa, false)).toThrow(
+      /up to 255/,
+    );
+    // Ordinary ones are unaffected.
+    expect(matches("{enum:4,3,5}", "that the first")).toBe(true);
+    expect(matches("{morse:...-...}", "vs")).toBe(true);
+  });
+});
