@@ -265,6 +265,8 @@ const MIN_OVERLAP_CHARS = 12;
 
 let collapseVariants = true;
 let lastDoneStatus = "";
+/** For `status: "empty"`: the written parts that cannot both hold. */
+let lastConflict: string[] | null = null;
 // Literal text the query itself demands. Every result contains it, so it is
 // not evidence of repetition: `.*administration.*` must not collapse its own
 // matches into one.
@@ -933,6 +935,7 @@ worker.onmessage = (ev) => {
         break;
       }
       lastDoneStatus = msg.status;
+      lastConflict = (msg.conflict as string[] | null) ?? null;
       renderAfterSearch(msg.status);
       break;
   }
@@ -941,7 +944,28 @@ worker.onmessage = (ev) => {
 /** The action area under the results, rebuilt when collapsed variants are shown. */
 function renderAfterSearch(status: string): void {
   {
-      if (status === "exhausted") {
+      if (status === "empty") {
+        // Not "no results": nothing *could* have been found, and no amount of
+        // searching would change that. Naming the two parts that disagree is
+        // the whole value — "no results found" would send someone looking for
+        // a rarer word instead of at the contradiction they wrote.
+        if (lastConflict && lastConflict.length === 2) {
+          afterEl.textContent = "Nothing can match this: ";
+          const a = document.createElement("tt");
+          a.textContent = lastConflict[0];
+          const b = document.createElement("tt");
+          b.textContent = lastConflict[1];
+          afterEl.append(a, " and ", b, " cannot both be true.");
+        } else if (lastConflict && lastConflict.length === 1) {
+          afterEl.textContent = "Nothing can match this: ";
+          const only = document.createElement("tt");
+          only.textContent = lastConflict[0];
+          afterEl.append(only, " matches nothing on its own.");
+        } else {
+          afterEl.textContent =
+            "Nothing can match this pattern — its parts rule each other out.";
+        }
+      } else if (status === "exhausted") {
         afterEl.textContent =
           resultCount > 0 ? "No more results found." : "No results found, sorry.";
       } else if (status === "complex") {

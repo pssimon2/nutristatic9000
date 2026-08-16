@@ -29,6 +29,7 @@ import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilters, nearOrderKey } from "../src/result-predicate.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { shapeOfQuery } from "../src/query-shape.js";
+import { conflictText } from "../src/emptiness.js";
 import { explainMatch } from "../src/explain.js";
 import { formatPlan, planQuery } from "../src/plan.js";
 import type { InMsg, OpenMsg } from "./worker/protocol.js";
@@ -865,6 +866,15 @@ async function runSession(
     post({
       type: "done",
       status, // "limit" (step budget), "results" (page full), "exhausted"
+      // A pattern that cannot match anything: name the two parts that
+      // disagree, since "no results" and "these two contradict each other"
+      // send the reader to very different places. Only computed on the
+      // status that needs it, and null when the query's written conjuncts do
+      // not line up with the compiled ones.
+      conflict:
+        status === "empty" && currentQuery !== null
+          ? conflictText(currentQuery, ctx)
+          : null,
       steps: searchStepBase + active.steps,
       // Only the JS engine keeps the detailed counters; the kernel reports
       // steps and nothing else, which the panel says rather than showing

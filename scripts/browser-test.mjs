@@ -595,6 +595,24 @@ if (!cuts.some((c) => /copy·right/.test(c))) {
 }
 console.log("compound pieces are words, not corpus debris");
 
+// A pattern that cannot match anything must say so instead of spending the
+// whole step budget discovering it and then offering to spend it again.
+await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("A{5}&A{6}"));
+await page.waitForFunction(
+  () => document.getElementById("after").textContent.trim().length > 0,
+  null, { timeout: 60000 });
+const impossible = (await page.textContent("#after")).replace(/\s+/g, " ").trim();
+console.log("impossible pattern:", impossible);
+if (!/cannot both be true/.test(impossible)) {
+  throw new Error(`no contradiction explanation: ${impossible}`);
+}
+if (!/A\{5\}/.test(impossible) || !/A\{6\}/.test(impossible)) {
+  throw new Error(`the conflicting parts are not named: ${impossible}`);
+}
+if (/Try harder/.test(impossible)) {
+  throw new Error("offered to try harder on a pattern that can never match");
+}
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(

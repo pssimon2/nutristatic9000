@@ -8,6 +8,7 @@ import { compileQuery, DEFAULT_RESTART, makeDriver } from "./find-expr.js";
 import { SessionContext } from "./session-context.js";
 import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
 import { Filter, FilterCapacityError } from "./expr-filter.js";
+import { Emptiness, languageEmptiness } from "./emptiness.js";
 import { SourceStats, Stats, emptyStats } from "./stats.js";
 
 export interface SearchResult {
@@ -15,7 +16,13 @@ export interface SearchResult {
   text: string;
 }
 
-export type SessionStatus = "limit" | "results" | "exhausted" | "complex";
+export type SessionStatus =
+  | "limit"
+  | "results"
+  | "exhausted"
+  | "complex"
+  /** The pattern cannot match anything; no search was run. */
+  | "empty";
 
 export class SearchSession {
   private driver: SearchDriver;
@@ -84,6 +91,14 @@ export class SearchSession {
     shouldStop?: () => boolean,
   ): Promise<SessionStatus> {
     if (this.outOfStates) return "complex";
+    // Before walking the index at all: some patterns cannot match anything,
+    // and the walk has no way to discover that except by exhausting its
+    // budget. `A{5}&A{6}` spent a million steps and ~950ms proving it, then
+    // offered a "try harder" button. The automaton settles it in about forty
+    // states. Bounded, and "unknown" (a genuinely large automaton) falls
+    // through to the search exactly as before.
+    this.canMatch ??= languageEmptiness(this.filter);
+    if (this.canMatch === "empty") return "empty";
     let results = 0;
     try {
       return await this.walk(maxSteps, maxResults, onResult, onProgress, shouldYield, shouldStop);
@@ -101,6 +116,9 @@ export class SearchSession {
 
   /** True once the filter has run out of lazy DFA states. */
   private outOfStates = false;
+
+  /** Cached: asked once per session, not once per "try harder". */
+  private canMatch: Emptiness | null = null;
 
   private async walk(
     maxSteps: number,

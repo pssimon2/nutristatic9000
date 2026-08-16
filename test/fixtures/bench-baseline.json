@@ -14,43 +14,43 @@
   "class-heavy": {
     "steps": 200000,
     "results": 5351,
-    "dfaStates": 23,
+    "dfaStates": 28,
     "frontierPeak": 2150347
   },
   "anagram": {
     "steps": 300000,
     "results": 58,
-    "dfaStates": 5286,
+    "dfaStates": 5296,
     "frontierPeak": 399829
   },
   "big-list": {
     "steps": 1871,
     "results": 195,
-    "dfaStates": 1356,
+    "dfaStates": 1357,
     "frontierPeak": 188
   },
   "negation": {
     "steps": 200000,
     "results": 22839,
-    "dfaStates": 76,
+    "dfaStates": 84,
     "frontierPeak": 128095
   },
   "counter": {
     "steps": 200000,
     "results": 3193,
-    "dfaStates": 214,
+    "dfaStates": 218,
     "frontierPeak": 87792
   },
   "multiset": {
     "steps": 200000,
     "results": 14802,
-    "dfaStates": 79650,
+    "dfaStates": 79680,
     "frontierPeak": 123523
   },
   "phrase": {
     "steps": 200000,
     "results": 5607,
-    "dfaStates": 12,
+    "dfaStates": 13,
     "frontierPeak": 95434
   }
 }

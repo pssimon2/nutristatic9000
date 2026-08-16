@@ -448,6 +448,34 @@ Goal: mechanical, low-risk changes that everything later depends on.
   (P2), best-first on score product using the existing Frontier heap as a
   lazy k-best join. Fall back to the monolithic walk when factoring
   doesn't apply.
+- [x] **E10. Say when a pattern cannot match anything.**
+  *(done 2026-08-16, not previously on the list; overlaps P6.)*
+  `A{5}&A{6}` spent the entire million-step budget — ~950ms locally, and tens
+  of megabytes fetched in range mode — establishing that nothing is both five
+  letters and six, after which the page offered "Try harder". `src/emptiness.ts`
+  answers it from the automaton instead: breadth-first over reachable DFA
+  states, which is ~40 states for that query, since emptiness is a question
+  about states rather than about words. `SearchSession.run` returns a new
+  `"empty"` status without walking the index at all, and the page names the two
+  written parts that disagree — the difference between "no results" and "these
+  two cannot both be true", which point a reader at completely different
+  things.
+  Three-valued on purpose: proving emptiness means visiting every reachable
+  state, so past a budget it reports `"unknown"` and the search proceeds
+  unchanged. A wrong "empty" would hide real results; "unknown" costs only what
+  the search cost already. A test asserts no matching pattern is ever called
+  empty at any budget.
+  The budget is 2,000 because a *contradiction* is cheap to prove (every one
+  found settles under 500) while an expensive proof means a large satisfiable
+  automaton, where the check has nothing to add. At 20,000 the multiset
+  benchmark pre-built 5,946 lazy DFA states it might never visit; at 2,000 it
+  builds 30, and the rest of the grid 45 between them. Steps and results are
+  unchanged everywhere — only the state counter moved, and the baseline is
+  updated for that.
+  Parts are named only when the written conjuncts line up one-to-one with the
+  compiled ones: `{sum=52:A*}` is several conjuncts written as one, so guessing
+  which text belongs to which automaton would mislabel them, and it says the
+  shorter thing instead.
 - [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
   pattern language + only predicate-level narrowing ⇒ warn "unbounded
   search; the {palindrome} filter cannot prune — add a length or a
