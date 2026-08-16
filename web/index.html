@@ -92,6 +92,9 @@
     #status.error { color: #c00000; color: light-dark(#c00000, #ff6a6a); font-weight: bold; }
     #dlmsg { display: block; margin-top: 0.4em; color: #c00000; color: light-dark(#c00000, #ff6a6a); font-weight: bold; }
     #indexline { font-size: 0.8em; color: #767676; margin-top: 2em; }
+    /* Example queries read as code, not as a wall of links. */
+    #extensions a { text-decoration: none; }
+    #extensions li { margin-bottom: 0.25em; }
     #legal { font-size: 0.8em; color: #767676; margin-top: 3em; }
     #legal a { color: inherit; }
     #indexline input { width: 24em; }
@@ -136,34 +139,57 @@
     </ul>
 
     <h3>9000 extensions</h3>
-    <p>All of these wrap a pattern and combine with everything above.
-    <a href="./usage.html#nine">Details and examples »</a></p>
-    <ul>
-      <li><b>Counts and values</b>: <em>{sum=100:expr}</em>,
-        <em>{scrabble&gt;25:expr}</em>, <em>{count(e)=2:expr}</em>,
-        <em>{distinct:expr}</em>, <em>{maxrep=2:expr}</em>,
-        <em>{all(aeiou):expr}</em>, <em>{letters=11:expr}</em>,
-        <em>{words=3:expr}</em></li>
-      <li><b>Banks and edits</b>: <em>&lt;&lt;washington&gt;&gt;</em>,
-        <em>{sub:cryptography}</em>, <em>{del1:beast}</em>,
-        <em>{add1:cargo}</em>, <em>{subst1:cargo}</em>,
-        <em>{edit&lt;=2:cargo}</em></li>
-      <li><b>Ciphers and encodings</b>: <em>{caesar:kdhv}</em> (the matched
-        shift is shown), <em>{rot13:cvmmn}</em>, <em>{atbash:gsv}</em>,
-        <em>{t9:2665}</em>, <em>{enum:4,3,5}</em>,
-        <em>{morse:...-...}</em>, <em>{elements:expr}</em></li>
-      <li><b>Letter shapes and keys</b>: <em>{roman:expr}</em>,
-        <em>{rot180:expr}</em>, <em>{mirror:expr}</em>,
-        <em>{sevenseg:expr}</em>, <em>{holes=0:expr}</em>,
-        <em>{row1:expr}</em>, <em>{ascending:expr}</em>,
-        <em>{descending:expr}</em></li>
-      <li><b>Questions for the corpus</b>: <em>{compound 2:A{9}}</em>,
-        <em>{palindrome:expr}</em>, <em>{reversible:expr}</em>,
-        <em>{list:greek}</em></li>
-      <li><b>What you get back</b>: <em>{at 3:expr}</em> shows one letter of
-        each match, <em>{rank 200-2000:expr}</em> skips to mid-frequency
-        answers. Repeats of one phrase are folded together, with a link under
-        the results to restore them.</li>
+    <p>Each of these is a live example — click to run it. They combine with
+    everything above. <a href="./usage.html#nine">What each one does »</a></p>
+    <ul id="extensions">
+      <li><b>Counts and values</b>:
+        <a href="?q=%7Bsum%3D100%3AA%2A%7D">{sum=100:A*}</a>,
+        <a href="?q=%7Bscrabble%3E25%3AA%7B5%7D%7D">{scrabble&gt;25:A{5}}</a>,
+        <a href="?q=%7Bcount%28e%29%3D2%3AA%7B5%7D%7D">{count(e)=2:A{5}}</a>,
+        <a href="?q=%7Bcount%28vowel%29%3C%3D1%3AA%7B5%7D%7D">{count(vowel)&lt;=1:A{5}}</a>,
+        <a href="?q=%7Bdistinct%3AA%7B6%7D%7D">{distinct:A{6}}</a>,
+        <a href="?q=%7Bmaxrep%3D1%3AA%7B5%7D%7D">{maxrep=1:A{5}}</a>,
+        <a href="?q=%7Ball%28aeiou%29%3AA%2A%7D">{all(aeiou):A*}</a>,
+        <a href="?q=%7Bletters%3D11%3AA%2A%7D">{letters=11:A*}</a>,
+        <a href="?q=%7Bwords%3D3%3AA%2A%7D">{words=3:A*}</a></li>
+      <li><b>Banks and edits</b>:
+        <a href="?q=%3C%3Cwashington%3E%3E">&lt;&lt;washington&gt;&gt;</a>,
+        <a href="?q=%7Bsub%3Acryptography%7D">{sub:cryptography}</a>,
+        <a href="?q=%7Bdel1%3Abeast%7D">{del1:beast}</a>,
+        <a href="?q=%7Badd1%3Acargo%7D">{add1:cargo}</a>,
+        <a href="?q=%7Bsubst1%3Acargo%7D">{subst1:cargo}</a>,
+        <a href="?q=%7Bedit%3C%3D2%3Acargo%7D">{edit&lt;=2:cargo}</a></li>
+      <li><b>Ciphers and encodings</b>:
+        <a href="?q=%7Bcaesar%3Akdhv%7D">{caesar:kdhv}</a>,
+        <a href="?q=%7Brot13%3Acvmmn%7D">{rot13:cvmmn}</a>,
+        <a href="?q=%7Batbash%3Agsv%7D">{atbash:gsv}</a>,
+        <a href="?q=%7Bt9%3A2665%7D">{t9:2665}</a>,
+        <a href="?q=%7Benum%3A4%2C3%2C5%7D">{enum:4,3,5}</a>,
+        <a href="?q=%7Bmorse%3A.....--.-..%7D">{morse:.....--.-..}</a>,
+        <a href="?q=%7Belements%3AA%7B6%7D%7D">{elements:A{6}}</a></li>
+      <li><b>Letter shapes and keys</b>:
+        <a href="?q=%7Broman%3AA%7B5%7D%7D">{roman:A{5}}</a>,
+        <a href="?q=%7Brot180%3AA%7B5%7D%7D">{rot180:A{5}}</a>,
+        <a href="?q=%7Bmirror%3AA%7B5%7D%7D">{mirror:A{5}}</a>,
+        <a href="?q=%7Bsevenseg%3AA%7B6%7D%7D">{sevenseg:A{6}}</a>,
+        <a href="?q=%7Bholes%3D0%3AA%7B6%7D%7D">{holes=0:A{6}}</a>,
+        <a href="?q=%7Brow1%3AA%7B6%7D%7D">{row1:A{6}}</a>,
+        <a href="?q=%7Bascending%3AA%7B5%7D%7D">{ascending:A{5}}</a>,
+        <a href="?q=%7Bdescending%3AA%7B4%7D%7D">{descending:A{4}}</a></li>
+      <li><b>Questions for the corpus</b>:
+        <a href="?q=%7Bcompound%202%3AA%7B9%7D%7D">{compound 2:A{9}}</a>,
+        <a href="?q=%7Bpalindrome%3AA%7B5%7D%7D">{palindrome:A{5}}</a>,
+        <a href="?q=%7Breversible%3AA%7B6%7D%7D">{reversible:A{6}}</a>,
+        <a href="?q=%7Blist%3Agreek%7D">{list:greek}</a></li>
+      <li><b>What you get back</b>:
+        <a href="?q=%7Bat%203%3AA%7B7%7D%7D">{at 3:A{7}}</a>,
+        <a href="?q=%7Brank%20200-2000%3AA%7B5%7D%7D">{rank 200-2000:A{5}}</a>,
+        <a href="?q=%21.%2Aee.%2A%26A%7B5%7D">!.*ee.*&amp;A{5}</a></li>
+      <li><b>Also</b>: the matched shift is shown beside
+        <a href="?q=%7Bcaesar%3Akdhv%7D">{caesar:…}</a> results, the split
+        beside <a href="?q=%7Bcompound%202%3AA%7B9%7D%7D">{compound …}</a>
+        results, and repeats of one phrase are folded together with a link
+        under the results to restore them.</li>
     </ul>
 
     <h3>Examples</h3>

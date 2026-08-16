@@ -150,6 +150,19 @@ for (const [query, text] of EXAMPLES) {
   examplesEl.append(li);
 }
 
+// The extension examples are static links; carry a custom index across them
+// so clicking one doesn't silently switch corpus.
+if (params.get("index")) {
+  const anchors = document.querySelectorAll<HTMLAnchorElement>(
+    '#home a[href^="?q="]',
+  );
+  for (const a of Array.from(anchors)) {
+    const url = new URL(a.getAttribute("href")!, location.href);
+    url.searchParams.set("index", params.get("index")!);
+    a.setAttribute("href", `?${url.searchParams}`);
+  }
+}
+
 // OFFLINE is a build-time constant: false in the served Vite build, true in
 // the self-contained double-click build (scripts/build-offline.mjs). It gates
 // the file-picker path and the inlined-worker creation so the online build is
