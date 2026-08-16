@@ -242,25 +242,13 @@ export class SearchDriver {
       }
     }
 
-    if (this.filter.isAccepting(f.topState) && f.topCrumb !== -1) {
-      let len = 0;
-      for (let i = f.topCrumb; i >= 0; i = this.crumbs.parent[i]) ++len;
-
-      const buffer = new Array<number>(len);
-      buffer[--len] = f.topCh;
-      for (let i = f.topCrumb; i >= 0 && len > 0; i = this.crumbs.parent[i]) {
-        buffer[--len] = this.crumbs.ch[i];
-      }
-
-      const text = String.fromCharCode(...buffer);
-      if (!this.seen.has(text)) {
-        this.seen.add(text);
-        this.text = text;
-        this.score = f.topScale * f.topCount;
-        return true;
-      }
-    }
-
+    // Scheduled BEFORE the accepting check below, which returns as soon as it
+    // has a result to report. When a node was both accepting and a word
+    // boundary, that return skipped this, so the phrase was never continued:
+    // `e{2}a?` emitted "ee" and never looked at "ee a", while `e{2}a` — not
+    // accepting at "ee ", so falling through to here — found it. The bug hid
+    // behind the `seen` check, since a match reachable a second way did reach
+    // this block on the duplicate visit.
     if (
       this.restart > 0.0 &&
       f.topCh === 0x20 &&
@@ -280,6 +268,25 @@ export class SearchDriver {
           this.reader.count(),
           this.reader.root(),
         );
+      }
+    }
+
+    if (this.filter.isAccepting(f.topState) && f.topCrumb !== -1) {
+      let len = 0;
+      for (let i = f.topCrumb; i >= 0; i = this.crumbs.parent[i]) ++len;
+
+      const buffer = new Array<number>(len);
+      buffer[--len] = f.topCh;
+      for (let i = f.topCrumb; i >= 0 && len > 0; i = this.crumbs.parent[i]) {
+        buffer[--len] = this.crumbs.ch[i];
+      }
+
+      const text = String.fromCharCode(...buffer);
+      if (!this.seen.has(text)) {
+        this.seen.add(text);
+        this.text = text;
+        this.score = f.topScale * f.topCount;
+        return true;
       }
     }
 

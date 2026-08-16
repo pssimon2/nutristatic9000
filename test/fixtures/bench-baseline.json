@@ -1,56 +1,56 @@
 {
   "literal": {
-    "steps": 156743,
+    "steps": 168087,
     "results": 11344,
     "dfaStates": 14,
-    "frontierPeak": 14194
+    "frontierPeak": 16822
   },
   "prefix": {
-    "steps": 34,
-    "results": 10,
+    "steps": 200000,
+    "results": 46874,
     "dfaStates": 9,
-    "frontierPeak": 7
+    "frontierPeak": 79039
   },
   "class-heavy": {
     "steps": 200000,
-    "results": 5351,
+    "results": 5309,
     "dfaStates": 28,
-    "frontierPeak": 2150347
+    "frontierPeak": 2147098
   },
   "anagram": {
     "steps": 300000,
     "results": 58,
     "dfaStates": 5296,
-    "frontierPeak": 399829
+    "frontierPeak": 399887
   },
   "big-list": {
-    "steps": 1871,
-    "results": 195,
-    "dfaStates": 1357,
-    "frontierPeak": 188
+    "steps": 2074,
+    "results": 196,
+    "dfaStates": 1363,
+    "frontierPeak": 204
   },
   "negation": {
     "steps": 200000,
     "results": 22839,
     "dfaStates": 84,
-    "frontierPeak": 128095
+    "frontierPeak": 136871
   },
   "counter": {
     "steps": 200000,
     "results": 3193,
     "dfaStates": 218,
-    "frontierPeak": 87792
+    "frontierPeak": 88648
   },
   "multiset": {
     "steps": 200000,
     "results": 14802,
     "dfaStates": 79680,
-    "frontierPeak": 123523
+    "frontierPeak": 130455
   },
   "phrase": {
     "steps": 200000,
     "results": 5607,
     "dfaStates": 13,
-    "frontierPeak": 95434
+    "frontierPeak": 97326
   }
 }

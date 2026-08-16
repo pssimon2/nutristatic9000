@@ -632,6 +632,20 @@ __attribute__((export_name("run"))) i32 run(u32 budget) {
         }
       }
     }
+    /* Scheduled BEFORE the accepting check, which returns as soon as it has a
+       result. A node that is both accepting and a word boundary used to
+       return here and never continue the phrase: `e{2}a?` reported "ee" and
+       never looked at "ee a". The JS engine had the same bug in the same
+       order. */
+    if (restart > 0.0 && topCh == 0x20 && topNext != root) {
+      f64 scale = topScale * topCount / total * restart;
+      if (scale > 0) {
+        if (!heap_push(topCrumb, topState, 0x20, scale, total, root)) {
+          *io_steps = steps;
+          return 3;
+        }
+      }
+    }
     if (p_acc[topState] && topCrumb != -1) {
       u32 len = 0;
       for (i32 i = topCrumb; i >= 0; i = c_parent[i]) ++len;
@@ -645,15 +659,6 @@ __attribute__((export_name("run"))) i32 run(u32 budget) {
       *io_score = topScale * topCount;
       *io_steps = steps;
       return 1;
-    }
-    if (restart > 0.0 && topCh == 0x20 && topNext != root) {
-      f64 scale = topScale * topCount / total * restart;
-      if (scale > 0) {
-        if (!heap_push(topCrumb, topState, 0x20, scale, total, root)) {
-          *io_steps = steps;
-          return 3;
-        }
-      }
     }
   }
   *io_steps = steps;

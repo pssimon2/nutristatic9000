@@ -1,6 +1,6 @@
 {
  "n[aeiou]tr[aeiou]m_tic": {
-  "steps": 27603,
+  "steps": 27660,
   "results": [
    [
     "not romatic",
@@ -805,7 +805,7 @@
   ]
  },
  "<aeglnr>": {
-  "steps": 8295,
+  "steps": 8306,
   "results": [
    [
     "angler",
@@ -1610,7 +1610,7 @@
   ]
  },
  "solar s_stem": {
-  "steps": 6308,
+  "steps": 6393,
   "results": [
    [
     "solar system",
@@ -3220,7 +3220,7 @@
   ]
  },
  "\"C*aC*eC*iC*oC*u\"": {
-  "steps": 63338,
+  "steps": 63341,
   "results": [
    [
     "abcdefghijklmnopqrstu",
