@@ -238,11 +238,20 @@ export class CompressedRangeSource implements ByteSource {
   private async loadOwnBlocks(missing: number[]): Promise<void> {
     let still = missing;
     if (this.chunkStore) {
+      // All at once, not one after another. A fetch covers several blocks
+      // (read-ahead makes it up to MAX_READAHEAD_BLOCKS), and awaiting the
+      // store per block put that many serial Cache round trips in front of
+      // every network request — the store lookups, not the network, were
+      // setting the pace: the browser issued a request every ~19 ms where the
+      // same search with no store ran 2.6x faster.
+      const hits = await Promise.all(
+        missing.map((b) => this.chunkStore!.get(b).catch(() => undefined)),
+      );
       still = [];
-      for (const b of missing) {
-        const hit = await this.chunkStore.get(b);
-        if (hit && hit.length > 0) this.insertBlock(b, hit, false);
-        else still.push(b);
+      for (let i = 0; i < missing.length; ++i) {
+        const hit = hits[i];
+        if (hit && hit.length > 0) this.insertBlock(missing[i], hit, false);
+        else still.push(missing[i]);
       }
     }
     if (still.length === 0) return;

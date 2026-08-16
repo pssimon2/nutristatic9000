@@ -1,0 +1,26 @@
+import { CompressedRangeSource } from "./src/compressed-source.js";
+import { IndexReader } from "./src/index-reader.js";
+import { SearchSession } from "./src/search-session.js";
+import { SessionContext } from "./src/session-context.js";
+const src = await CompressedRangeSource.open("https://nutristatic.org/en-wiki.index", 1393866803);
+if (!src) throw new Error("open failed");
+const any = src as any;
+let hints = 0, blocked = 0, maxInflight = 0, budgets: number[] = [];
+const orig = any.prefetchHint.bind(any);
+any.prefetchHint = (a: number, b: number) => {
+  ++hints;
+  const budget = Math.max(1, Math.floor((any.ewmaBw * any.ewmaRtt) / (any.header.blockSize / 2)));
+  budgets.push(budget);
+  maxInflight = Math.max(maxInflight, any.inflight.size);
+  if (any.inflight.size >= budget) ++blocked;
+  return orig(a, b);
+};
+const reader = await IndexReader.open(src);
+const s = new SearchSession(reader, "<aaagmnr>", new SessionContext(), undefined, { prefetchDepth: 48 });
+const t0 = Date.now();
+let n = 0;
+await s.run(8e6, 20, () => ++n, undefined, undefined, () => src.bytesFetched >= 64e6 || Date.now() - t0 >= 20000);
+const avgBudget = budgets.reduce((a, b) => a + b, 0) / Math.max(1, budgets.length);
+console.log(`${n} results, ${src.requests} requests, ${Date.now()-t0}ms`);
+console.log(`prefetchHint called ${hints}x, refused ${blocked}x (${(100*blocked/Math.max(1,hints)).toFixed(1)}%)`);
+console.log(`avg budget ${avgBudget.toFixed(1)} blocks, peak inflight ${maxInflight} blocks`);

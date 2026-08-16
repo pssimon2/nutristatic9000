@@ -369,11 +369,17 @@ export class HttpRangeSource implements ByteSource {
     // network.
     let still = missing;
     if (this.chunkStore) {
+      // Concurrently: see the note in compressed-source.ts. Awaiting the
+      // store once per chunk serialises that many Cache round trips ahead of
+      // each network request.
+      const hits = await Promise.all(
+        missing.map((c) => this.chunkStore!.get(c).catch(() => undefined)),
+      );
       still = [];
-      for (const c of missing) {
-        const hit = await this.chunkStore.get(c);
-        if (hit && hit.length > 0) this.insertChunk(c, hit, false);
-        else still.push(c);
+      for (let i = 0; i < missing.length; ++i) {
+        const hit = hits[i];
+        if (hit && hit.length > 0) this.insertChunk(missing[i], hit, false);
+        else still.push(missing[i]);
       }
     }
     if (still.length > 0) {
