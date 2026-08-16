@@ -119,8 +119,14 @@ function randomQuery(rand: () => number): string {
         `{distinct:A{${3 + Math.floor(rand() * 2)}}}`,
         `{maxrep=${1 + Math.floor(rand() * 2)}:A{4}}`,
         `{letters=${3 + Math.floor(rand() * 4)}:A*}`,
+        `{all(ae):A*}`,
+        `{scrabble>${10 + Math.floor(rand() * 15)}:A{4}}`,
       ]);
     }
+    // Quoted: no implicit optional spaces between atoms. Worth generating
+    // because the space self-loops are exactly what the restart bug lived in,
+    // so a shape without them exercises the other side of that code.
+    if (rand() < 0.06) return `"${branch(0)}"`;
     return branch(0);
   };
 
@@ -159,11 +165,11 @@ describe("the two engines agree on random queries", () => {
   // One `it` per batch rather than per query: 120 test names of generated
   // gibberish is not a readable report, and the assertion message carries the
   // query that actually failed.
-  for (const seed of [1, 2, 3, 4]) {
-    it(`agrees on 30 queries from seed ${seed}`, async () => {
+  for (const seed of [1, 2, 3, 4, 5, 6]) {
+    it(`agrees on 40 queries from seed ${seed}`, async () => {
       const rand = rng(seed);
       let compared = 0;
-      for (let i = 0; i < 30; ++i) {
+      for (let i = 0; i < 40; ++i) {
         const query = randomQuery(rand);
         let js: Run;
         try {
@@ -186,7 +192,7 @@ describe("the two engines agree on random queries", () => {
       }
       // A generator that mostly produced unparseable junk would pass this
       // whole file while testing nothing.
-      expect(compared, "queries actually compared").toBeGreaterThan(20);
+      expect(compared, "queries actually compared").toBeGreaterThan(28);
     });
   }
 });

@@ -36,6 +36,11 @@ const { SessionContext } = await import("../src/session-context.js");
 /** Query shapes, each stressing a different part of the engine. */
 const CASES = [
   { name: "literal", query: "solar s_stem", steps: 200000 },
+  // Reaches the step cap rather than exhausting, and that is correct: `nutr*`
+  // is `nut` followed by any number of `r`s, and since word breaks are
+  // optional "nut r", "nut r r", "nut r r r" are all matches, so the language
+  // is infinite. It exhausted at 34 steps only while the engine was dropping
+  // matches at word boundaries; fixing that revealed the real size of it.
   { name: "prefix", query: "nutr*", steps: 200000 },
   { name: "class-heavy", query: "A{5}&C*", steps: 200000 },
   { name: "anagram", query: "<aciimnrttu>", steps: 300000 },
