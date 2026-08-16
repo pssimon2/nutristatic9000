@@ -38,7 +38,9 @@ import {
   cipherNfa,
   classConstraint,
   editConstraint,
+  elementsNfa,
   encodingNfa,
+  morseNfa,
   namedConstraint,
 } from "./value-constraint.js";
 
@@ -359,6 +361,23 @@ function parseNamedConstraint(
     if (!list) return null;
     box.and = [list];
     return close + 1;
+  }
+  if (name === "morse") {
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const m = morseNfa(s.slice(i + head[0].length, close));
+    if (!m || spec.trim() !== "") return null;
+    box.and = [m];
+    return close + 1;
+  }
+  if (name === "elements") {
+    // Unlike the other encodings this wraps a pattern: it constrains how the
+    // match is spelled rather than supplying the text.
+    if (spec.trim() !== "") return null;
+    const p = parseExprBox(s, i + head[0].length, box, quoted);
+    if (p === null || s[p] !== "}") return null;
+    box.and.push(elementsNfa());
+    return p + 1;
   }
   if (["t9", "enum"].includes(name)) {
     // Encodings take a literal argument (digits, or a list of word lengths).

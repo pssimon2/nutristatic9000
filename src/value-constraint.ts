@@ -508,3 +508,65 @@ export function encodingNfa(name: string, spec: string, arg: string): Nfa | null
   }
   return null;
 }
+
+// Unspaced Morse is ambiguous, which is exactly what the corpus is for: the
+// same dots and dashes resolve into every letter-splitting, and the index
+// says which ones are words.
+const MORSE: Record<string, string> = {
+  a: ".-", b: "-...", c: "-.-.", d: "-..", e: ".", f: "..-.", g: "--.",
+  h: "....", i: "..", j: ".---", k: "-.-", l: ".-..", m: "--", n: "-.",
+  o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-", u: "..-",
+  v: "...-", w: ".--", x: "-..-", y: "-.--", z: "--..",
+  "0": "-----", "1": ".----", "2": "..---", "3": "...--", "4": "....-",
+  "5": ".....", "6": "-....", "7": "--...", "8": "---..", "9": "----.",
+};
+
+/** Every letter-splitting of an unspaced Morse string, as one automaton. */
+export function morseNfa(code: string): Nfa | null {
+  const c = code.replace(/\s+/g, "");
+  if (c.length === 0 || !/^[.\-]+$/.test(c)) return null;
+  const nfa = new Nfa();
+  const at = Array.from({ length: c.length + 1 }, () => nfa.addState());
+  nfa.setStart(at[0]);
+  nfa.setFinal(at[c.length]);
+  for (let i = 0; i < c.length; ++i) {
+    for (const [ch, pattern] of Object.entries(MORSE)) {
+      if (c.startsWith(pattern, i)) {
+        nfa.addArc(at[i], ch.charCodeAt(0), at[i + pattern.length]);
+      }
+    }
+  }
+  return nfa;
+}
+
+// Chemical symbols, lowercased. Spelling a word in them (BACON = Ba+C+O+N) is
+// a segmentation, which is regular: return to a boundary state after each.
+const ELEMENT_SYMBOLS = (
+  "h he li be b c n o f ne na mg al si p s cl ar k ca sc ti v cr mn fe co ni " +
+  "cu zn ga ge as se br kr rb sr y zr nb mo tc ru rh pd ag cd in sn sb te i " +
+  "xe cs ba la ce pr nd pm sm eu gd tb dy ho er tm yb lu hf ta w re os ir pt " +
+  "au hg tl pb bi po at rn fr ra ac th pa u np pu am cm bk cf es fm md no lr " +
+  "rf db sg bh hs mt ds rg cn nh fl mc lv ts og"
+).split(" ");
+
+export function elementSymbolCount(): number {
+  return ELEMENT_SYMBOLS.length;
+}
+
+/** Text that can be spelled entirely in chemical symbols. */
+export function elementsNfa(): Nfa {
+  const nfa = new Nfa();
+  const boundary = nfa.addState();
+  nfa.setStart(boundary);
+  nfa.setFinal(boundary);
+  nfa.addArc(boundary, SPACE, boundary); // word breaks don't interrupt spelling
+  for (const symbol of ELEMENT_SYMBOLS) {
+    let state = boundary;
+    for (let i = 0; i < symbol.length; ++i) {
+      const next = i === symbol.length - 1 ? boundary : nfa.addState();
+      nfa.addArc(state, symbol.charCodeAt(i), next);
+      state = next;
+    }
+  }
+  return nfa;
+}

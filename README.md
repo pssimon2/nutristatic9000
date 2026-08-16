@@ -29,7 +29,7 @@ Deployment notes specific to this fork:
 | Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`; prunes the search |
 | Letter banks / sub-anagrams | `<<washington>>`, `{bank:…}`, `{sub:cryptography}` | Per-letter bounds plus an alphabet restriction |
 | Structural / keyboard classes | `{roman:…}`, `{rot180:…}`, `{mirror:…}`, `{sevenseg:…}`, `{row1:…}`, `{holes=0:…}`, `{ascending:…}`, `{descending:…}` | Letter-set restrictions and monotone chains |
-| Encodings | `{t9:2665}`, `{enum:4,3,5}` | Keypad digits → every spelling; crossword enumerations |
+| Encodings | `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`, `{elements:…}` | Keypad digits → every spelling; crossword enumerations |
 | Negation | `!expr` | Complement via determinize + completed DFA; capped at 5000 states |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |

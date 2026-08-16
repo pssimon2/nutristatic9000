@@ -330,3 +330,33 @@ describe("complement", () => {
     expect(parseExpr("!", 0, nfa, false)).not.toBe(1);
   });
 });
+
+describe("morse and element spelling", () => {
+  it("resolves unspaced morse into every letter-splitting", () => {
+    // ".." + ".-.." + "." and "...-" + "..." are both "...-..."
+    expect(matches("{morse:...-...}", "ile")).toBe(true);
+    expect(matches("{morse:...-...}", "vs")).toBe(true);
+    expect(matches("{morse:...-...}", "cat")).toBe(false);
+    // "...." ".-" "-." "-.."
+    expect(matches("{morse:.....--.-..}", "hand")).toBe(true);
+  });
+
+  it("rejects morse that isn't dots and dashes", () => {
+    const nfa = new Nfa();
+    for (const bad of ["{morse:abc}", "{morse:}"]) {
+      expect(parseExpr(bad, 0, nfa, false)).not.toBe(bad.length);
+    }
+  });
+
+  it("spells words in chemical symbols", () => {
+    expect(matches("{elements:A*}", "bacon")).toBe(true); // Ba C O N
+    expect(matches("{elements:A*}", "silicon")).toBe(true); // Si Li Co N
+    expect(matches("{elements:A*}", "health")).toBe(true); // He Al Th
+    expect(matches("{elements:A*}", "jazz")).toBe(false); // no J symbol
+  });
+
+  it("knows all 118 symbols", async () => {
+    const { elementSymbolCount } = await import("../src/value-constraint.js");
+    expect(elementSymbolCount()).toBe(118);
+  });
+});
