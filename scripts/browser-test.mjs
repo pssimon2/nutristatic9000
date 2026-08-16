@@ -204,6 +204,45 @@ await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
+// Corpus self-reference: every match must cut into words the index knows.
+await page.fill("#q", "{compound 2:A{9}}");
+await page.click("input[type=submit]");
+await waitDone();
+const compounds = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 8).map((e) => ({
+    word: e.firstChild.textContent,
+    split: e.querySelector(".from")?.textContent?.trim(),
+  })),
+);
+console.log(
+  "compound 2 (9 letters):",
+  JSON.stringify(compounds.slice(0, 4).map((c) => `${c.word} = ${c.split}`)),
+);
+if (compounds.length === 0) throw new Error("no compounds found");
+for (const c of compounds) {
+  if (c.word.length !== 9 || c.word.includes(" ")) {
+    throw new Error(`bad compound: ${c.word}`);
+  }
+  // The reported cut must be real: the pieces must rejoin to the word.
+  if (!c.split || c.split.split("·").join("") !== c.word) {
+    throw new Error(`split ${c.split} does not rejoin to ${c.word}`);
+  }
+}
+// The filter must actually reject: plain A{9} has far more matches.
+await page.fill("#q", "A{9}");
+await page.click("input[type=submit]");
+await waitDone();
+const plain = (await page.$$("#results span.r")).length;
+await page.fill("#q", "{compound 2:A{9}}");
+await page.click("input[type=submit]");
+await waitDone();
+const filtered = (await page.$$("#results span.r")).length;
+console.log(`compound filter: ${plain} -> ${filtered}`);
+if (filtered >= plain) throw new Error("compound filter kept everything");
+await page.fill("#q", "<aaagmnr>");
+await page.click("input[type=submit]");
+await waitDone();
+
 // Full download -> disk mode -> WASM engine.
 await page.click("#dlfull");
 await waitInfo("device storage");

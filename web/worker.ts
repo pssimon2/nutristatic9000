@@ -14,6 +14,11 @@ import { CompressedRangeSource, fetchIdxzPrefix } from "../src/compressed-source
 import { FileRangeSource } from "../src/file-source.js";
 import { inflateRawBlock } from "../src/idxz.js";
 import { IndexReader } from "../src/index-reader.js";
+import {
+  type CompoundSpec,
+  parseCompoundSpec,
+  splitWords,
+} from "../src/compound.js";
 import { ParseError } from "../src/find-expr.js";
 import { SearchSession } from "../src/search-session.js";
 import { WasmCapacityError, WasmEngine, WasmSession } from "../src/wasm-session.js";
@@ -188,6 +193,41 @@ let emitted = new Set<string>(); // texts posted for the current query
 // to the live session's steps so the progress counter never jumps backwards.
 // Reset when a new query starts; carried across "continue" runs of one query.
 let searchStepBase = 0;
+// `{compound N:…}`: results must cut into N words the index knows. Verified
+// here rather than in the automaton, because "is this a word" is a question
+// only the index can answer.
+let compoundSpec: CompoundSpec | null = null;
+let wordCache = new Map<string, boolean>();
+
+/**
+ * Is `word` an indexed word? Walk it from the root and require the following
+ * space — the space is what proves a word boundary rather than a prefix.
+ */
+async function isIndexedWord(word: string): Promise<boolean> {
+  const hit = wordCache.get(word);
+  if (hit !== undefined) return hit;
+  let ok = false;
+  if (reader && word.length > 0) {
+    let node = reader.root();
+    let count = reader.count();
+    ok = true;
+    for (const ch of `${word} `) {
+      const out: Array<{ ch: number; count: number; next: number }> = [];
+      const r = reader.children(node, count, out);
+      if (r instanceof Promise) await r;
+      const code = ch.charCodeAt(0);
+      const child = out.find((c) => c.ch === code);
+      if (!child) {
+        ok = false;
+        break;
+      }
+      node = child.next;
+      count = child.count;
+    }
+  }
+  wordCache.set(word, ok);
+  return ok;
+}
 
 function getWasmModule(): Promise<WebAssembly.Module> {
   // fetch + compile (not instantiateStreaming): no reliance on the server
@@ -1408,10 +1448,29 @@ async function runSession(
     // Yield so incoming messages (stop / continue) are processed.
     return macroYield();
   };
+  // With a compound filter the index has to be consulted per candidate, which
+  // may fetch bytes, so results are collected and verified after the run
+  // rather than streamed.
+  const pending: Array<{ score: number; text: string }> = [];
   const emit = (r: { score: number; text: string }) => {
     if (token !== runToken) return; // superseded: stop talking to the UI
     emitted.add(r.text);
+    if (compoundSpec) {
+      pending.push(r);
+      return;
+    }
     post({ type: "result", score: r.score, text: r.text });
+  };
+  const flushPending = async (): Promise<void> => {
+    if (!compoundSpec) return;
+    for (const r of pending) {
+      if (token !== runToken) return;
+      const parts = await splitWords(r.text, compoundSpec.pieces, isIndexedWord);
+      if (parts) {
+        // Show the cut, so a weak reading (FOLLOW+ING) is visible as one.
+        post({ type: "result", score: r.score, text: r.text, note: parts.join("·") });
+      }
+    }
   };
   activeRunSession = active;
   try {
@@ -1455,6 +1514,8 @@ async function runSession(
       );
     }
     if (token !== runToken) return;
+    await flushPending();
+    if (token !== runToken) return;
     post({
       type: "done",
       status, // "limit" (step budget), "results" (page full), "exhausted"
@@ -1496,6 +1557,21 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         if (!reader) throw new Error("no index loaded");
         const token = ++runToken;
         currentQuery = msg.query;
+        // `{compound N:PATTERN}` is a corpus filter around an ordinary
+        // pattern: strip it, search the pattern, verify the pieces after.
+        compoundSpec = null;
+        const wrapper = /^\s*\{\s*compound\s*([^:}]*):/i.exec(currentQuery);
+        if (wrapper && currentQuery.trim().endsWith("}")) {
+          const spec = parseCompoundSpec(wrapper[1]);
+          if (!spec) {
+            post({ type: "parse-error", rest: currentQuery });
+            return;
+          }
+          compoundSpec = spec;
+          const t = currentQuery.trim();
+          currentQuery = t.slice(wrapper[0].length, t.length - 1).trim();
+        }
+        wordCache = new Map();
         emitted = new Set();
         searchStepBase = 0; // fresh query: no discarded-engine steps yet
         session = null;
@@ -1507,7 +1583,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           try {
             const engine = await getWasmEngine();
             if (token !== runToken) return; // superseded while instantiating
-            session = new WasmSession(engine, msg.query);
+            session = new WasmSession(engine, currentQuery);
           } catch (e) {
             if (e instanceof ParseError) {
               post({ type: "parse-error", rest: e.rest });
@@ -1526,7 +1602,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         }
         if (!session) {
           try {
-            session = new SearchSession(reader, msg.query, undefined, {
+            session = new SearchSession(reader, currentQuery, undefined, {
               prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
             });
           } catch (e) {

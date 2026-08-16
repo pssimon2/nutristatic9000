@@ -238,6 +238,18 @@ The ambiguity is exactly what the corpus is for.
 <tt>A{4} A{3} A{5}</tt>.
 </ul>
 
+<li><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
+matches that cut into that many words the index actually knows, and
+<b>shows the cut</b>: COPYRIGHT = COPY·RIGHT, KEYBOARD = KEY·BOARD. Charades,
+compounds and "which nine-letter words are two words joined" fall straight
+out. Two to five pieces; the match must be a single token (no spaces), and
+where several cuts work the most balanced one is shown — a web corpus knows
+fragments like "ing", so seeing FOLLOW·ING lets you judge a weak reading
+rather than having a frequency threshold guess for you.
+<br>This is the one thing no other tool can copy, because no other tool has
+the index: the pattern does the shape and prunes the search, then the index is
+asked, per candidate, whether the pieces are words.
+
 <li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing
 and composes with everything:

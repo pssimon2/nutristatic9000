@@ -248,7 +248,7 @@ let caesarText: string | null = null;
 // stream, so mid-frequency answers are reachable without scrolling.
 let rankSpec: RankSpec | null = null;
 let rawRank = 0; // engine results seen this search, before any filtering
-let pageResults: Array<{ score: number; text: string }> = [];
+let pageResults: Array<{ score: number; text: string; note?: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
 
@@ -309,7 +309,7 @@ function shiftNote(text: string): string | null {
   return shift === null ? null : `caesar +${shift}`;
 }
 
-function renderResult(score: number, text: string): void {
+function renderResult(score: number, text: string, note?: string): void {
   const span = document.createElement("span");
   span.className = "r";
   span.style.fontSize = `${fontSize(score)}em`;
@@ -325,12 +325,12 @@ function renderResult(score: number, text: string): void {
   } else {
     span.textContent = text;
   }
-  const note = shiftNote(text);
-  if (note) {
+  const tagText = note ?? shiftNote(text);
+  if (tagText) {
     span.dataset.copy ??= text; // the note is annotation, not part of the answer
     const tag = document.createElement("span");
     tag.className = "from";
-    tag.textContent = ` ${note}`;
+    tag.textContent = ` ${tagText}`;
     span.append(tag);
   }
   span.title = `score ${score.toPrecision(4)} · click to copy`;
@@ -341,15 +341,15 @@ function renderResult(score: number, text: string): void {
   }
 }
 
-function addResult(score: number, text: string): void {
+function addResult(score: number, text: string, note?: string): void {
   ++rawRank;
   if (rankSpec && (rawRank < rankSpec.from || rawRank > rankSpec.to)) return;
-  pageResults.push({ score, text });
+  pageResults.push({ score, text, note });
   if (collapseVariants && isVariantOfShown(text)) {
     ++hiddenVariants;
     return;
   }
-  renderResult(score, text);
+  renderResult(score, text, note);
 }
 
 /** Re-render the current results with every collapsed variant restored. */
@@ -359,7 +359,7 @@ function showAllVariants(): void {
   resultCount = 0;
   hiddenVariants = 0;
   shownRuns.clear();
-  for (const r of pageResults) renderResult(r.score, r.text);
+  for (const r of pageResults) renderResult(r.score, r.text, r.note);
   // Rebuild the same action area the search ended with (minus the now-spent
   // reveal button).
   afterEl.textContent = "";
@@ -597,7 +597,7 @@ worker.onmessage = (ev) => {
       annotateOfflineCopies(new Set(msg.urls));
       break;
     case "result":
-      addResult(msg.score, msg.text);
+      addResult(msg.score, msg.text, msg.note);
       break;
     case "progress":
       setStatus(`searching… (${(msg.steps / 1e6).toFixed(1)}M steps)`);
