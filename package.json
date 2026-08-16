@@ -11,7 +11,7 @@
     "check-docs": "tsx scripts/build-docs.mjs --check",
     "check-layers": "node scripts/check-layers.mjs",
     "check-links": "node scripts/check-links.mjs",
-    "check-constructs": "tsx scripts/check-constructs.mjs",
+    "check-examples": "tsx scripts/check-examples.mjs",
     "bench": "tsx scripts/bench.mjs",
     "bench:update": "tsx scripts/bench.mjs --update",
     "dev": "vite web --port 5174",

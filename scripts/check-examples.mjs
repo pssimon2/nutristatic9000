@@ -1,6 +1,6 @@
-// Every documented construct must actually find something.
+// Every documented example must actually find something.
 //
-//   node scripts/check-constructs.mjs
+//   node scripts/check-examples.mjs
 //
 // The catalogue gives all 45 constructs a runnable example, and a unit test
 // already checks that each one *parses*. Parsing is not the bar. Two of them
@@ -14,6 +14,12 @@
 // side datasets loaded, and fails if one finds nothing or throws. It is the
 // standing answer to "does every feature still work", which is otherwise a
 // question nobody asks until a user does.
+//
+// Two sources of examples, because both are promises to a reader. The 45
+// constructs in the catalogue carry one each. The pages carry another 97
+// between them — every `?q=` link on the front page, the usage guide and the
+// recipes page — and `check-links` only proves those *say* what they search,
+// not that searching them finds anything.
 //
 // It cannot check that the results are *right* — no fixture says what
 // {rot180:A{4}} ought to return — so it checks the two things it can: the
@@ -29,7 +35,7 @@ import { IndexReader } from "../src/index-reader.js";
 import { SearchSession } from "../src/search-session.js";
 import { SessionContext } from "../src/session-context.js";
 import { makeWordChecker } from "../src/index-words.js";
-import { shapeOfQuery } from "../src/query-shape.js";
+import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
 import { parseFilterWrappers } from "../src/result-filter.js";
 import { applyResultFilters } from "../src/result-predicate.js";
 import { OutputTransform } from "../src/output.js";
@@ -53,6 +59,20 @@ const UNSATISFIABLE = {
   words: "demo.index holds words and bigrams only, so no match has three words",
 };
 
+/** Page examples the demo index cannot satisfy, with the reason. */
+const UNSATISFIABLE_QUERIES = new Map([
+  [
+    "{words=3:A*}",
+    "demo.index holds words and bigrams only, so no match has three words",
+  ],
+  [
+    "<het><ral><seg><tan><rut><bla><oody><afl><ndi><cin><awe><ter>",
+    "the usage guide gives this hunt's answer as \"the largest natural body " +
+      "of land in ice water\" — nine words, and demo.index holds words and " +
+      "bigrams",
+  ],
+]);
+
 const ctx = new SessionContext();
 ctx.phonetics = parsePhonetics(fs.readFileSync(pub("phonetics.txt"), "utf8"));
 ctx.thesaurus = parseThesaurus(fs.readFileSync(pub("thesaurus.txt"), "utf8"));
@@ -70,9 +90,40 @@ const data = fs.readFileSync(pub("demo.index"));
 // the search itself and needs almost none.
 const STEPS = 400000;
 
+/** The `?q=` example links on the pages, as the queries they claim to run. */
+function pageExamples() {
+  const unescape = (t) =>
+    t
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#0?39;/g, "'");
+  const found = new Map(); // query -> the file it was first seen in
+  for (const file of ["web/index.html", "web/public/usage.html", "web/public/recipes.html"]) {
+    const full = path.join(root, file);
+    if (!fs.existsSync(full)) continue;
+    const html = fs.readFileSync(full, "utf8");
+    // Markup inside the anchor is the house style on the recipes page; the
+    // label, not the href, is the query, exactly as check-links pins it.
+    for (const m of html.matchAll(/<a href="[^"?]*\?q=([^"]*)"[^>]*>(.*?)<\/a>/gs)) {
+      const label = unescape(m[2].replace(/<[^>]*>/g, "")).split(/\s+/).join(" ").trim();
+      if (label.includes("…")) continue; // prose, not a runnable query
+      if (!found.has(label)) found.set(label, file);
+    }
+  }
+  return found;
+}
+
 /** Run one example the way the page does, and return its first few answers. */
 async function answersFor(query) {
-  const shaped = shapeOfQuery(query, 12);
+  // A multi-slot query is several searches; it works if every slot does.
+  const slots = splitSlots(query);
+  if (slots.length > 1) {
+    const per = await Promise.all(slots.map((s) => answersFor(s)));
+    return per.every((a) => a.length > 0) ? per.flat() : [];
+  }
+  const shaped = shapeOfQuery(slots[0] ?? query, 12);
   const { specs, inner } = parseFilterWrappers(shaped.pattern);
   const reader = await IndexReader.open(new MemorySource(data));
   const isWord = makeWordChecker(reader);
@@ -137,14 +188,53 @@ for (const c of CONSTRUCTS) {
   ++checked;
 }
 
+// The same question of the pages: every runnable `?q=` link must find
+// something. `check-links` proves a link searches what its label says; this
+// proves the label is worth searching.
+let pagesChecked = 0;
+let pagesSkipped = 0;
+for (const [query, file] of pageExamples()) {
+  let answers = null;
+  let failure = null;
+  try {
+    answers = await answersFor(query);
+  } catch (e) {
+    failure = e instanceof Error ? e.message : String(e);
+  }
+  const where = `${file}: ${query}`;
+  if (failure !== null) {
+    problems.push(`${where} threw — ${failure}`);
+    continue;
+  }
+  if (answers.length === 0) {
+    const why = UNSATISFIABLE_QUERIES.get(query);
+    if (why) {
+      ++pagesSkipped;
+      console.error(`  ${where}: no results — expected, ${why}`);
+      continue;
+    }
+    problems.push(`${where} found nothing`);
+    continue;
+  }
+  if (UNSATISFIABLE_QUERIES.has(query)) {
+    problems.push(
+      `${where} is listed as unsatisfiable on demo.index but returned ` +
+        `${answers.join(", ")} — remove it from UNSATISFIABLE_QUERIES`,
+    );
+    continue;
+  }
+  ++pagesChecked;
+}
+
 if (problems.length > 0) {
-  console.error("\nconstructs whose documented example does not work:\n");
+  console.error("\ndocumented examples that do not work:\n");
   for (const p of problems) console.error(`  ${p}`);
-  console.error(`\n${problems.length} of ${CONSTRUCTS.length} are broken.`);
+  console.error(`\n${problems.length} broken.`);
   process.exit(1);
 }
 
 console.error(
-  `constructs OK: ${checked} examples found results, ` +
-    `${skipped} skipped as unsatisfiable on this index`,
+  `examples OK: ${checked} construct examples and ${pagesChecked} page links ` +
+    `found results; ${skipped + pagesSkipped} skipped as unsatisfiable on ` +
+    `this index`,
 );

@@ -673,10 +673,13 @@ Goal: mechanical, low-risk changes that everything later depends on.
   round-trip tests as the compatibility contract (GR1); make CI call out
   any diff touching them.
 - [x] **T4. Registry-driven smoke tests.** *(done 2026-08-16.)*
-  `scripts/check-constructs.mjs`, wired into CI as `npm run check-constructs`:
-  every one of the 45 documented examples is *searched* against the committed
-  demo.index with the side datasets loaded, and the build fails if one throws
-  or finds nothing. 3 seconds, because it stops at the first few survivors
+  `scripts/check-examples.mjs`, wired into CI as `npm run check-examples`:
+  every one of the 45 documented construct examples — and, since 2026-08-17,
+  every runnable `?q=` link on the front page, the usage guide and the recipes
+  page, 95 more — is *searched* against the committed demo.index with the side
+  datasets loaded, and the build fails if one throws or finds nothing.
+  `check-links` proves a link searches what its label says; this proves the
+  label is worth searching. 3 seconds, because it stops at the first few survivors
   rather than draining the search. Parsing was never the bar — a unit test
   already covered that, and both constructs that broke this session
   (`{compound}`, `{reversible}`, see E9) parsed perfectly while returning
@@ -685,7 +688,9 @@ Goal: mechanical, low-risk changes that everything later depends on.
   are right: no fixture says what `{rot180:A{4}}` ought to return.
   One construct is listed as unsatisfiable rather than broken, with its reason
   and the entry checked both ways — if it ever starts working the list is
-  wrong and CI says so. `{words=3:A*}` finds nothing on demo.index because
+  wrong and CI says so. Three entries now: `{words=3:A*}` twice (the construct
+  and the front-page link), and the usage guide's Mortal Jeopardy anagram,
+  whose documented answer is a nine-word phrase. `{words=3:A*}` finds nothing on demo.index because
   that index is words and bigrams, so no match *has* three words; on the full
   Wikipedia index it returns "wikipedia articles for", "articles for
   deletion". (An earlier note here called that an open defect. It was not one:
