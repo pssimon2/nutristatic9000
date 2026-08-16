@@ -217,6 +217,33 @@ await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
+// Phonetics: the dictionary is fetched only when a query needs it.
+const beforePhon = await page.evaluate(() =>
+  performance.getEntriesByType("resource").some((r) => r.name.includes("phonetics")),
+);
+if (beforePhon) throw new Error("dictionary fetched before it was needed");
+await page.fill("#q", "{rhyme:night}&A{5}");
+await page.click("input[type=submit]");
+await waitDone();
+const rhymed = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 6).map((e) => e.textContent),
+);
+console.log("rhyme:night &A{5}:", JSON.stringify(rhymed));
+if (!rhymed.includes("light") || !rhymed.includes("right")) {
+  throw new Error("rhymes missing");
+}
+// (The fetch happens in the worker, which the page's resource timing cannot
+// see; the rhymes above are the proof that it loaded.)
+// A word the dictionary doesn't know says so.
+await page.fill("#q", "{rhyme:zzzqq}");
+await page.click("input[type=submit]");
+await page.waitForFunction(
+  () => document.getElementById("status").className === "error",
+  null,
+  { timeout: 30000 },
+);
+console.log("unknown word:", await page.textContent("#status"));
+
 // Multi-slot: several patterns at once, with their picked letters assembled.
 await page.fill("#q", "{at 1:<aaagmnr>} ; {at 2:solar s_stem} ; {at 1:A{5}&.*zz.*}");
 await page.click("input[type=submit]");

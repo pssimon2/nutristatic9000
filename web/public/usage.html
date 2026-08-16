@@ -283,6 +283,23 @@ part-solved grid is one link.
 half: the tool runs your slots and reads the extraction, it does not search for
 an assignment that satisfies a cross-slot constraint.
 
+<li><b>Rhyme and homophones — <tt>{rhyme:tree}</tt>, <tt>{homo:knight}</tt></b>.
+<tt><a href="/9000/?q=%7Brhyme%3Anight%7D%26A%7B5%7D">{rhyme:night}&amp;A{5}</a></tt>
+gives RIGHT, WHITE, LIGHT, WRITE; <tt>{homo:knight}</tt> gives NIGHT and NITE.
+A rhyme runs from the last <em>primary</em>-stressed vowel, which is the
+convention English rhyme follows — ANTI carries its stress on the first
+syllable, so it rhymes with AUNTIE rather than with TREE, despite ending in
+the same sound.
+<br><b>The limit worth knowing:</b> these come from the CMU pronouncing
+dictionary, about 135,000 English words. The index is Wikipedia n-grams —
+proper nouns, phrases, and enormous numbers of tokens no pronouncing
+dictionary has seen. So a rhyme query can only reach the dictionary's half of
+the corpus, and a word it doesn't know says so rather than guessing:
+<tt>{rhyme:orange}</tt> reports that there is no rhyme, which for ORANGE
+happens to be true. The dictionary also carries surnames and variant
+spellings, so homophone groups are wider than you might expect. It is fetched
+only when a query needs it (about 340 KB, once per visit).
+
 <li><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
 matches that cut into that many words the index actually knows, and
 <b>shows the cut</b>: COPYRIGHT = COPY·RIGHT, KEYBOARD = KEY·BOARD. Charades,

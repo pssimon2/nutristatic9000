@@ -16,6 +16,12 @@ import { inflateRawBlock } from "../src/idxz.js";
 import { IndexReader } from "../src/index-reader.js";
 import { splitWords } from "../src/compound.js";
 import { makeWordChecker } from "../src/index-words.js";
+import {
+  needsPhonetics,
+  parsePhonetics,
+  phoneticsLoaded,
+  setPhonetics,
+} from "../src/phonetics.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -122,6 +128,8 @@ interface OpenMsg {
 interface SearchMsg {
   type: "search";
   query: string;
+  /** Where to fetch the pronouncing dictionary; the page resolves it. */
+  phoneticsUrl?: string | null;
   maxSteps: number;
   maxResults: number;
   // Range mode only: stop after this many bytes fetched or ms elapsed
@@ -204,6 +212,22 @@ let searchStepBase = 0;
 // only the index can answer.
 let resultFilter: FilterSpec | null = null;
 let wordChecker: ((w: string) => boolean | Promise<boolean>) | null = null;
+// The pronouncing dictionary is ~400 KB over the wire and only some queries
+// need it, so it is fetched the first time one does and kept thereafter.
+let phoneticsLoad: Promise<void> | null = null;
+
+async function ensurePhonetics(url: string | null): Promise<void> {
+  if (phoneticsLoaded() || !url) return;
+  phoneticsLoad ??= (async () => {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setPhonetics(parsePhonetics(await r.text()));
+  })().catch((e) => {
+    phoneticsLoad = null; // let a later query try again
+    throw e;
+  });
+  await phoneticsLoad;
+}
 
 /** The index-backed word predicate, rebuilt whenever the index changes. */
 function isIndexedWord(word: string): boolean | Promise<boolean> {
@@ -1554,6 +1578,16 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         currentQuery = msg.query;
         // `{compound N:PATTERN}` is a corpus filter around an ordinary
         // pattern: strip it, search the pattern, verify the pieces after.
+        // Compilation is synchronous, so anything it needs must be here
+        // first.
+        if (needsPhonetics(currentQuery)) {
+          try {
+            await ensurePhonetics(msg.phoneticsUrl ?? null);
+          } catch {
+            // Fall through: the parser reports that the dictionary is missing.
+          }
+          if (token !== runToken) return;
+        }
         resultFilter = null;
         try {
           const wrapper = parseFilterWrapper(currentQuery);

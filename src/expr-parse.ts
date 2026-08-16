@@ -33,7 +33,12 @@ import {
   optimize,
 } from "./automata.js";
 import { ParseError } from "./find-expr.js";
-import { listNfa } from "./word-lists.js";
+import {
+  homophonesOf,
+  phoneticsLoaded,
+  rhymesOf,
+} from "./phonetics.js";
+import { entriesNfa, listNfa, normalizeEntry } from "./word-lists.js";
 import {
   CONSTRUCT_NAMES,
   MAX_COUNTER_STATES,
@@ -194,7 +199,10 @@ function parsePiece(
     min = 0;
     max = 1;
     ++p;
-  } else if (s[p] === "{") {
+  } else if (s[p] === "{" && /^\{\d*(,\d*)?\}/.test(s.slice(p))) {
+    // Only a `{m,n}` shape is a quantifier. Anything else starting with `{`
+    // is a named construct and belongs to the *next* piece, so `A* {rhyme:day}`
+    // and `x{sum=1:A*}` read the way they look.
     const m = /^(\d*)(?:(,)(\d*))?/.exec(s.slice(p + 1))!;
     min = m[1] === "" ? 0 : parseInt(m[1], 10);
     if (m[2] === ",") {
@@ -362,6 +370,30 @@ function parseNamedConstraint(
   } else if (name === "rot" && spec.trim() === "180") {
     name = "rot180"; // the visual class, not a 180-place shift
     spec = "";
+  }
+  if (name === "rhyme" || name === "homo") {
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const word = normalizeEntry(s.slice(i + head[0].length, close));
+    if (!phoneticsLoaded()) {
+      throw new ParseError(
+        constructText(s, i),
+        `{${name}:…} needs the pronunciation dictionary, which this build ` +
+          "could not load",
+      );
+    }
+    const words = name === "rhyme" ? rhymesOf(word) : homophonesOf(word);
+    if (!words) {
+      throw new ParseError(
+        constructText(s, i),
+        `the pronouncing dictionary doesn't know "${word}"` +
+          (name === "rhyme" ? "" : ", or it has no homophone"),
+      );
+    }
+    const nfa = entriesNfa(words);
+    if (!nfa) return null;
+    box.and = [nfa];
+    return close + 1;
   }
   if (name === "list") {
     const close = s.indexOf("}", i);

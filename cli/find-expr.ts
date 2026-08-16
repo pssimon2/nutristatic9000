@@ -17,7 +17,13 @@ import {
   parseFilterWrapper,
   reversed,
 } from "../src/result-filter.js";
+import fs from "node:fs";
 import { splitWords } from "../src/compound.js";
+import {
+  needsPhonetics,
+  parsePhonetics,
+  setPhonetics,
+} from "../src/phonetics.js";
 import { makeWordChecker } from "../src/index-words.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
@@ -82,6 +88,17 @@ try {
 } catch (e) {
   console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
   process.exit(2);
+}
+
+// Compilation is synchronous, so load the pronouncing dictionary first when
+// the query needs it. Ships next to the web assets.
+if (needsPhonetics(pattern)) {
+  const dict = new URL("../web/public/phonetics.txt", import.meta.url);
+  try {
+    setPhonetics(parsePhonetics(fs.readFileSync(dict, "utf8")));
+  } catch {
+    // Left unloaded: the parser reports that the dictionary is missing.
+  }
 }
 
 let filter;

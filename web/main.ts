@@ -582,6 +582,8 @@ function runNextSlot(): void {
   worker.postMessage({
     type: "search",
     query: pattern,
+    // Resolved here: the page knows its own base, the worker script does not.
+    phoneticsUrl: OFFLINE ? null : new URL("./phonetics.txt", location.href).href,
     // Only the head of each slot matters; the extraction reads the top answer.
     maxResults: 3,
     ...runBudget(),
@@ -654,6 +656,8 @@ function startSearch(query: string): void {
   worker.postMessage({
     type: "search",
     query: pattern,
+    // Resolved here: the page knows its own base, the worker script does not.
+    phoneticsUrl: OFFLINE ? null : new URL("./phonetics.txt", location.href).href,
     // A rank window has to be reached before it can be shown; ask the engine
     // for enough results to cover it (bounded, so a huge "to" can't run away).
     maxResults: rankSpec
