@@ -42,8 +42,10 @@ export function parseWrapper(
   name: string,
 ): { spec: string; inner: string } | null {
   const q = query.trim();
-  const head = new RegExp(`^\\{\\s*${name}\\s*([^:}]*):`, "i");
-  const anywhere = new RegExp(`\\{\\s*${name}\\s*[^:}]*:`, "i");
+  // \b after the name so a longer identifier starting with it is not
+  // mistaken for it: {atbash:gsv} is a cipher, not `{at bash:…}`.
+  const head = new RegExp(`^\\{\\s*${name}\\b\\s*([^:}]*):`, "i");
+  const anywhere = new RegExp(`\\{\\s*${name}\\b\\s*[^:}]*:`, "i");
   const m = head.exec(q);
   if (!m) {
     // Nested use is the likely mistake; name it rather than letting the

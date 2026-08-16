@@ -7,6 +7,13 @@ import {
 } from "../src/extract-spec.js";
 
 describe("parseExtract", () => {
+  it("does not claim longer names that merely start with it", () => {
+    // {atbash:…} is a cipher; {at …} must not swallow it.
+    expect(parseExtract("{atbash:gsv}")).toBeNull();
+    expect(parseExtract("{atomic:A*}")).toBeNull();
+    expect(parseRank("{rankle:A*}")).toBeNull();
+  });
+
   it("returns null for ordinary patterns", () => {
     expect(parseExtract("A{4,8}")).toBeNull();
     expect(parseExtract("<aaagmnr>")).toBeNull();
