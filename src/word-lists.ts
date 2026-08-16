@@ -65,24 +65,43 @@ export function listNames(): string[] {
   return Object.keys(RAW).sort();
 }
 
-/** An automaton accepting any of the given entries. */
+/**
+ * An automaton accepting any of the given entries, shaped as a prefix trie.
+ *
+ * The obvious construction — one chain per entry, unioned — gives the same
+ * language but one start-state branch per entry, so a 1,700-word category
+ * starts every subset closure with 1,700 live NFA states. Sharing prefixes
+ * roughly halves the automaton on real category data (bird: 26,276 arcs to
+ * 14,905) and, more importantly, collapses that fan-out: the closure after
+ * reading "co" is whatever "co…" leads to, not a thousand dead branches the
+ * lazy DFA has to carry.
+ *
+ * Duplicate entries collapse for free, and an entry that is a prefix of
+ * another is simply an accepting node on the way through.
+ */
 export function entriesNfa(entries: string[]): Nfa | null {
   if (entries.length === 0) return null;
-  let out: Nfa | null = null;
+  const nfa = new Nfa();
+  const root = nfa.addState();
+  nfa.setStart(root);
+  // Child lookup per node, since Nfa keeps arcs as a list.
+  const children: Array<Map<number, number>> = [new Map()];
   for (const entry of entries) {
-    const nfa = new Nfa();
-    let state = nfa.addState();
-    nfa.setStart(state);
+    let state = root;
     for (const ch of entry) {
-      const next = nfa.addState();
-      nfa.addArc(state, ch.charCodeAt(0), next);
+      const c = ch.charCodeAt(0);
+      let next = children[state].get(c);
+      if (next === undefined) {
+        next = nfa.addState();
+        children.push(new Map());
+        nfa.addArc(state, c, next);
+        children[state].set(c, next);
+      }
       state = next;
     }
     nfa.setFinal(state);
-    if (out === null) out = nfa;
-    else out.union(nfa);
   }
-  return out;
+  return nfa;
 }
 
 /**

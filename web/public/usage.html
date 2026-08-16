@@ -229,8 +229,18 @@ Up to 5 edits on words up to 40 characters.
 asks for anything one letter off <i>some</i> instrument, and
 <tt>{subst1:{list:greek}}</tt> for anything one swap off a Greek letter.
 Deleting a letter costs almost nothing over a big set, but substituting or
-inserting one has to try every letter at every position, so those are refused
-over very large sets — narrow the set, or use <tt>{del…}</tt>.
+inserting one has to try every letter at every position, so a very large set
+is refused — narrow it, or name the letter.
+<br>Naming the letter is the other half:
+<tt>{del1(a)&#58;beast}</tt> removes an A specifically (giving BEST, not
+BEAS), <tt>{add1(vowel)&#58;…}</tt> inserts a vowel. Because that replaces a
+thirty-six-way branch with a one-way one, it is also what makes an edit over a
+large set affordable.
+<br>The two together answer questions that used to need two passes by hand.
+<tt><a href="/9000/?q=%7Bkind%3Ainstrument%7D%26%7Badd1%3A%7Bkind%3Abird%7D%7D">{kind:instrument}&amp;{add1:{kind:bird}}</a></tt>
+is "an instrument that becomes a bird when you drop a letter" — CLOCK, because
+COCK is a bird — and adding <tt>(a)</tt> to the <tt>{add1…}</tt> restricts it
+to instruments that gained an A.
 
 <li><b>Ciphers — <tt>{caesar:kdhv}</tt>, <tt>{rot13:cvmmn}</tt>,
 <tt>{caesar+5:…}</tt>, <tt>{atbash:gsv}</tt></b>. The unknown-shift form is the

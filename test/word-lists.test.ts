@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { Nfa } from "../src/automata.js";
 import { parseExpr } from "../src/expr-parse.js";
 import { compileQuery } from "../src/find-expr.js";
-import { listNames, normalizeEntry, wordList } from "../src/word-lists.js";
+import { entriesNfa, listNames, normalizeEntry, wordList } from "../src/word-lists.js";
+import { equivalent } from "../src/automata.js";
 import { SessionContext } from "../src/session-context.js";
 
 const ctx = new SessionContext();
@@ -100,5 +101,57 @@ describe("inline lists", () => {
 
   it("still resolves named lists", () => {
     expect(matches("{list:greek}", "sigma")).toBe(true);
+  });
+});
+
+describe("entriesNfa is a prefix trie", () => {
+  /** The previous construction: one chain per entry, unioned. */
+  function chainsNfa(entries: string[]): Nfa | null {
+    if (entries.length === 0) return null;
+    let out: Nfa | null = null;
+    for (const entry of entries) {
+      const nfa = new Nfa();
+      let state = nfa.addState();
+      nfa.setStart(state);
+      for (const ch of entry) {
+        const next = nfa.addState();
+        nfa.addArc(state, ch.charCodeAt(0), next);
+        state = next;
+      }
+      nfa.setFinal(state);
+      if (out === null) out = nfa;
+      else out.union(nfa);
+    }
+    return out;
+  }
+
+  const samples: Array<[string, string[]]> = [
+    ["shared prefixes", ["cart", "carton", "car", "cat", "dog"]],
+    ["one entry a prefix of another", ["dove", "doves", "dov"]],
+    ["duplicates", ["owl", "owl", "owl"]],
+    ["multiword entries", ["bald eagle", "bald ibis", "barn owl"]],
+    ["nothing shared", ["alpha", "beta", "gamma"]],
+    ["single entry", ["x"]],
+    ["a real list", wordList("greek")!],
+  ];
+
+  for (const [name, entries] of samples) {
+    it(`accepts the same language as union-of-chains: ${name}`, () => {
+      const trie = entriesNfa(entries)!;
+      const chains = chainsNfa(entries)!;
+      expect(equivalent(trie, chains)).toBe(true);
+    });
+  }
+
+  it("shares prefixes rather than repeating them", () => {
+    const entries = ["carton", "cartoon", "cartel"];
+    const trie = entriesNfa(entries)!;
+    const chains = chainsNfa(entries)!;
+    const count = (n: Nfa) => n.arcs.reduce((t, l) => t + l.length, 0);
+    expect(count(trie)).toBeLessThan(count(chains));
+    // "cart" is written once, not three times.
+    expect(count(trie)).toBe(new Set(
+      entries.flatMap((e) => [...e].map((_, i) => e.slice(0, i + 1))),
+    ).size);
   });
 });

@@ -41,7 +41,7 @@ Deployment notes specific to this fork:
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |
 | Named + inline lists | `{list:greek}`, `{list:red,green,blue}` | Curated categories, or your own written in the query and shared in the URL |
 | Ciphers | `{caesar:kdhv}`, `{rot13:…}`, `{caesar+5:…}`, `{atbash:…}` | Desugars to an alternation of literals; the UI reports the matched shift |
-| Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}` | Levenshtein automaton over a word **or any inner pattern** — `{del1:{kind:instrument}}` is "one letter off some instrument". Edits are letters/digits only, never spaces. Deletion is cheap over big sets; substitution/insertion fan out 36x and are capped |
+| Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}`, `{del1(a):…}` | Levenshtein automaton over a word **or any inner pattern** — `{del1:{kind:instrument}}` is "one letter off some instrument", and `{kind:instrument}&{add1:{kind:bird}}` is "an instrument that becomes a bird when you drop a letter". A parenthesised set names the letter involved (`{del1(a):…}`, `{add1(vowel):…}`), which also shrinks the automaton. Edits are letters/digits only, never spaces |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
 
 The rhyme/homophone data comes from the CMU Pronouncing Dictionary and the

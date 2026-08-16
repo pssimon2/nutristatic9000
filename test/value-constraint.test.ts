@@ -7,6 +7,7 @@ import {
   A1Z26,
   MAX_COUNTER_STATES,
   SCRABBLE,
+  MAX_EDIT_ARCS,
   editNfaOver,
   parseValueRange,
   valueNfa,
@@ -52,6 +53,25 @@ function rejects(pattern: string): void {
     return;
   }
   expect(end).not.toBe(pattern.length);
+}
+
+
+/**
+ * A set of distinct words whose trie is guaranteed larger than `states`
+ * nodes — every distinct word contributes at least a leaf. Derived from the
+ * cap rather than hardcoded, so raising the cap does not silently make these
+ * tests vacuous.
+ */
+function bigWordSet(states: number): string[] {
+  const alpha = "abcdefghijklmnopqrstuvwxyz";
+  const out: string[] = [];
+  for (let i = 0; out.length < states; ++i) {
+    let n = i;
+    let w = "";
+    for (let d = 0; d < 4; ++d) { w = alpha[n % 26] + w; n = Math.floor(n / 26); }
+    out.push(w);
+  }
+  return out;
 }
 
 const a1z26 = (s: string) =>
@@ -290,15 +310,54 @@ describe("edits over an inner pattern", () => {
     // which must be refused with an explanation rather than allocating
     // millions of arcs. Built directly here so the check does not depend on
     // the category data being loaded.
-    const words = Array.from({ length: 2000 }, (_, i) =>
-      `w${i.toString(36).padStart(4, "0")}`,
-    );
-    const set = entriesNfa(words)!;
+    const set = entriesNfa(bigWordSet(Math.ceil(MAX_EDIT_ARCS / 36) + 2000))!;
     expect(set).not.toBeNull();
     const one = { lo: 1, hi: 1 };
     expect(editNfaOver(set, { del: true, add: false, subst: false }, one)).not.toBeNull();
     expect(editNfaOver(set, { del: false, add: false, subst: true }, one)).toBeNull();
     expect(editNfaOver(set, { del: false, add: true, subst: false }, one)).toBeNull();
+  });
+
+  it("restricts which letter the edit involves", () => {
+    // {del1(a):…} removes an A and nothing else.
+    expect(matches("{del1(a):beast}", "best")).toBe(true); // the a went
+    expect(matches("{del1(a):beast}", "beas")).toBe(false); // the t went
+    expect(matches("{del1(t):beast}", "beas")).toBe(true);
+    // For add and subst it is the letter written into the match.
+    expect(matches("{add1(a):{list:greek}}", "alphaa")).toBe(true);
+    expect(matches("{add1(a):{list:greek}}", "alphax")).toBe(false);
+    expect(matches("{subst1(x):{list:greek}}", "xlpha")).toBe(true);
+    expect(matches("{subst1(x):{list:greek}}", "olpha")).toBe(false);
+  });
+
+  it("takes a named class as well as literal letters", () => {
+    expect(matches("{del1(vowel):beast}", "bast")).toBe(true); // e
+    expect(matches("{del1(vowel):beast}", "best")).toBe(true); // a
+    expect(matches("{del1(vowel):beast}", "beas")).toBe(false); // t is not
+    expect(matches("{del1(consonant):beast}", "beas")).toBe(true);
+  });
+
+  it("applies the restriction to every edit of a range", () => {
+    expect(matches("{edit<=1(a):{list:greek}}", "alpha")).toBe(true); // no edit
+    expect(matches("{edit<=1(a):{list:greek}}", "alphaa")).toBe(true); // added a
+    expect(matches("{edit<=1(a):{list:greek}}", "alphax")).toBe(false);
+  });
+
+  it("lets a restriction pay for a set too big to expand otherwise", () => {
+    // The narrowing is not just expressive — it is what keeps the automaton
+    // affordable, since the fan-out is one letter instead of thirty-six.
+    const set = entriesNfa(bigWordSet(Math.ceil(MAX_EDIT_ARCS / 36) + 2000))!;
+    const one = { lo: 1, hi: 1 };
+    expect(editNfaOver(set, { del: false, add: true, subst: false }, one)).toBeNull();
+    expect(
+      editNfaOver(set, { del: false, add: true, subst: false, letters: [97] }, one),
+    ).not.toBeNull();
+  });
+
+  it("rejects a malformed letter restriction", () => {
+    for (const bad of ["{del1():cargo}", "{del1(a:cargo}", "{del(a)1:cargo}"]) {
+      rejects(bad);
+    }
   });
 
   it("has nothing to edit in an empty argument", () => {

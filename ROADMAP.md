@@ -229,7 +229,12 @@ Goal: mechanical, low-risk changes that everything later depends on.
   products of products, products containing complements — all lazy, none
   materialized. `makeFilter` composes at the Filter level whenever the NFA
   level would have to materialize for boolean reasons.
-- [ ] **E3. Trie-shaped `entriesNfa`.** `word-lists.ts:69` builds
+- [x] **E3. Trie-shaped `entriesNfa`.** *(done 2026-08-16)* Prefix trie
+  instead of union-of-chains: bird 26,276 arcs → 14,905, tree 43,543 →
+  22,350 (~57%), and one start branch instead of one per entry. Equivalence
+  tests vs the old construction in `test/word-lists.test.ts`. A DAWG sharing
+  suffixes is still on the table if sets get bigger.
+- [ ] ~~**E3. Trie-shaped `entriesNfa`.**~~ `word-lists.ts:69` builds
   union-of-chains — for a 10k-entry `{kind:…}` that means thousands of
   parallel start states and fat subset closures. Build a prefix trie
   directly (share prefixes; optionally a DAWG sharing suffixes). Same

@@ -255,6 +255,14 @@ export interface EditOps {
   del: boolean; // the match omits a letter of the word
   add: boolean; // the match has an extra letter
   subst: boolean; // the match swaps a letter for another
+  /**
+   * Which letter the edit may involve — `{del1(a):…}` removes an A and
+   * nothing else. Undefined means "any". On whichever side the letter exists:
+   * the one removed for `del`, the one written into the match for `add` and
+   * `subst`. Narrowing it also makes the automaton far smaller, since `add`
+   * and `subst` otherwise branch across the whole editable alphabet.
+   */
+  letters?: number[];
 }
 
 /**
@@ -274,7 +282,7 @@ export interface EditOps {
  * over a 1,700-word category is ~67k arcs, while `{edit1:…}` over the same
  * set is ~1.6M. The cap is what separates "works" from "takes the tab down".
  */
-const MAX_EDIT_ARCS = 300_000;
+export const MAX_EDIT_ARCS = 800_000;
 
 /** Arcs `editNfaOver` would generate, so the cost is known before paying it. */
 function editArcCost(
@@ -283,12 +291,12 @@ function editArcCost(
   ops: EditOps,
   k: number,
 ): number {
-  const perError = k;
+  const written = ops.letters ?? EDITABLE;
   return (
     arcs * (k + 1) +
-    (ops.del ? arcs * perError : 0) +
-    (ops.subst ? arcs * perError * (EDITABLE.length - 1) : 0) +
-    (ops.add ? states * perError * EDITABLE.length : 0)
+    (ops.del ? arcs * k : 0) +
+    (ops.subst ? arcs * k * written.length : 0) +
+    (ops.add ? states * k * written.length : 0)
   );
 }
 
@@ -323,6 +331,11 @@ export function editNfaOver(
   if (arcCount === 0) return null;
   if (editArcCost(n, arcCount, ops, k) > MAX_EDIT_ARCS) return null;
 
+  // Letters this edit may write into the match, and (as a lookup table) the
+  // ones it may remove from the inner word.
+  const written = ops.letters ?? EDITABLE;
+  const removable = ops.letters ? markTable(ops.letters) : null;
+
   const out = new Nfa();
   const id: number[][] = [];
   for (let q = 0; q < n; ++q) {
@@ -342,15 +355,19 @@ export function editNfaOver(
           continue;
         }
         out.addArc(from, arc.label, id[arc.to][e]); // match
-        if (e < k && ops.del) out.addArc(from, EPSILON, id[arc.to][e + 1]);
+        // Deletion is about the letter that vanishes, so it is the *inner*
+        // arc's label that must be the one asked for.
+        if (e < k && ops.del && (!removable || removable[arc.label] === 1)) {
+          out.addArc(from, EPSILON, id[arc.to][e + 1]);
+        }
         if (e < k && ops.subst) {
-          for (const c of EDITABLE) {
+          for (const c of written) {
             if (c !== arc.label) out.addArc(from, c, id[arc.to][e + 1]);
           }
         }
       }
       if (e < k && ops.add) {
-        for (const c of EDITABLE) out.addArc(from, c, id[q][e + 1]);
+        for (const c of written) out.addArc(from, c, id[q][e + 1]);
       }
     }
   }
@@ -379,23 +396,44 @@ export function editNfa(
 }
 
 /** `{del1:cargo}`, `{add2:…}`, `{subst1:…}`, `{edit<=2:…}` → its automaton. */
+/**
+ * Split a trailing `(letters)` off an edit spec: `1(a)` → count `1` restricted
+ * to A, `<=2(vowel)` → up to two edits, each involving a vowel.
+ */
+function splitEditSpec(
+  spec: string,
+): { count: string; letters?: number[] } | null {
+  const m = /^(.*?)(\([a-z0-9]+\))\s*$/i.exec(spec.trim());
+  if (!m) return { count: spec };
+  const parsed = parseSet(m[2]);
+  if (!parsed || parsed.rest.trim() !== "") return null;
+  return { count: m[1], letters: parsed.set };
+}
+
 export function editConstraint(
   name: string,
   spec: string,
   inner: Nfa,
 ): Nfa | null {
+  const split = splitEditSpec(spec);
+  if (!split) return null;
   if (name === "edit") {
-    const range = parseValueRange(spec);
+    const range = parseValueRange(split.count);
     return range
-      ? editNfaOver(inner, { del: true, add: true, subst: true }, range)
+      ? editNfaOver(
+          inner,
+          { del: true, add: true, subst: true, letters: split.letters },
+          range,
+        )
       : null;
   }
-  if (!/^\d+$/.test(spec.trim())) return null;
-  const n = parseInt(spec, 10);
+  if (!/^\d+$/.test(split.count.trim())) return null;
+  const n = parseInt(split.count, 10);
   const ops: EditOps = {
     del: name === "del",
     add: name === "add",
     subst: name === "subst",
+    letters: split.letters,
   };
   if (!ops.del && !ops.add && !ops.subst) return null;
   return editNfaOver(inner, ops, { lo: n, hi: n });
