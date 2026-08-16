@@ -21,6 +21,7 @@ import { needsCategories, parseCategories } from "../src/categories.js";
 import { needsStress, parseStress } from "../src/stress.js";
 import { needsNeighbours, parseNeighbours } from "../src/neighbours.js";
 import { SessionContext } from "../src/session-context.js";
+import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { applyResultFilter } from "../src/result-predicate.js";
 import { makeWordChecker } from "../src/index-words.js";
 
@@ -99,6 +100,7 @@ for (const [needed, file, install] of [
   [needsThesaurus(expr), "thesaurus.txt", (t: string) => (ctx.thesaurus = parseThesaurus(t))],
   [needsCategories(expr), "categories.txt", (t: string) => (ctx.categories = parseCategories(t))],
   [needsStress(expr), "stress.txt", (t: string) => (ctx.stress = parseStress(t))],
+  [needsWikiLists(expr), "lists.txt", (t: string) => (ctx.lists = parseWikiLists(t))],
 ] as Array<[boolean, string, (t: string) => void]>) {
   if (!needed) continue;
   try {

@@ -45,7 +45,12 @@ import { homophonesOf, rhymesOf } from "./phonetics.js";
 import { MAX_CATEGORY, kindsOf } from "./categories.js";
 import { nearestTo } from "./neighbours.js";
 import { relatedTo } from "./thesaurus.js";
-import { entriesNfa, listNfa, normalizeEntry } from "./word-lists.js";
+import {
+  entriesNfa,
+  listNfa,
+  normalizeEntry,
+  suggestList,
+} from "./word-lists.js";
 import {
   MAX_COUNTER_STATES,
   MAX_PATTERN_LENGTH,
@@ -489,12 +494,15 @@ function parseNamedConstraint(
   if (name === "list") {
     const close = s.indexOf("}", i);
     if (close < 0) return null;
-    const list = listNfa(s.slice(i + head[0].length, close));
+    const list = listNfa(s.slice(i + head[0].length, close), ctx.lists);
     if (!list) {
+      const asked = s.slice(i + head[0].length, close).trim();
+      const near = suggestList(asked, ctx.lists);
       throw new ParseError(
         constructText(s, i),
-        `no such list "${s.slice(i + head[0].length, close).trim()}" — ` +
-          "write entries with commas to give your own",
+        `no such list "${asked}"` +
+          (near ? ` — did you mean "${near}"?` : "") +
+          " — or write entries with commas to give your own",
       );
     }
     box.and = [list];

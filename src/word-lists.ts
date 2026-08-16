@@ -199,20 +199,117 @@ export function entriesNfa(entries: string[]): Nfa | null {
   return nfa;
 }
 
+/** A fetched catalogue: slug -> entries, plus the subject it was named after. */
+export interface WikiLists {
+  entries: Map<string, string[]>;
+  subjects: Map<string, string>;
+}
+
+/**
+ * Parse the harvested catalogue: one list per line, as
+ * `slug<TAB>subject<TAB>entry,entry,…`. Entries are already in corpus form,
+ * so this is a split and nothing more.
+ */
+export function parseWikiLists(text: string): WikiLists {
+  const entries = new Map<string, string[]>();
+  const subjects = new Map<string, string>();
+  for (const line of text.split("\n")) {
+    if (!line) continue;
+    const [slug, subject, body] = line.split("\t");
+    if (!slug || !body) continue;
+    entries.set(slug, body.split(",").filter((e) => e !== ""));
+    subjects.set(slug, subject ?? slug);
+  }
+  return { entries, subjects };
+}
+
+/** Normalise a written list name to a lookup key. */
+export function listKey(name: string): string {
+  return name.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Does this query name a list the bundle does not carry? Then the catalogue
+ * has to be fetched before compiling, which is synchronous.
+ */
+export function needsWikiLists(query: string): boolean {
+  const re = /\{\s*(?:word\.)?list\s*:\s*([^}]*)\}/gi;
+  let m;
+  while ((m = re.exec(query)) !== null) {
+    const arg = m[1];
+    if (arg.includes(",")) continue; // an inline list needs nothing
+    if (wordList(listKey(arg)) === null) return true;
+  }
+  return false;
+}
+
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 0; i < a.length; ++i) {
+    const row = [i + 1];
+    for (let j = 0; j < b.length; ++j) {
+      row.push(
+        Math.min(prev[j + 1] + 1, row[j] + 1, prev[j] + (a[i] === b[j] ? 0 : 1)),
+      );
+    }
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/** The closest catalogue slug to `name`, for "did you mean". */
+export function suggestList(
+  name: string,
+  lists: WikiLists | null,
+): string | null {
+  const key = listKey(name);
+  let best: string | null = null;
+  let bestScore = 0;
+  const names = [
+    ...Object.keys(RAW),
+    ...(lists ? [...lists.entries.keys()] : []),
+  ];
+  for (const candidate of names) {
+    if (candidate === key) return candidate;
+    // Two ways to be close, because guesses miss in two ways: a shortening
+    // ("dishes" for "frenchdishes") and a near-spelling ("romandeity" for
+    // "romandeities"). Containment catches the first, edit distance the second.
+    const long = candidate.length >= key.length ? candidate : key;
+    const short = candidate.length >= key.length ? key : candidate;
+    let score = 0;
+    if (short.length >= 4 && long.includes(short)) {
+      // Containment is strong evidence on its own — "dishes" really does mean
+      // "frenchdishes" — so it starts at half and the ratio only sharpens it.
+      score = 0.5 + 0.5 * (short.length / long.length);
+    }
+    if (Math.abs(candidate.length - key.length) <= 4) {
+      const near = 1 - editDistance(key, candidate) / Math.max(1, long.length);
+      if (near > score) score = near;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = candidate;
+    }
+  }
+  return bestScore >= 0.6 ? best : null;
+}
+
 /**
  * An automaton accepting any entry of a named list, or — when the argument
  * carries commas — of a list written inline: `{list:red,green,blue}`. Hunts
  * run on categories nobody could ship in advance, and an inline list needs no
  * settings screen and travels in the URL like the rest of the query.
  */
-export function listNfa(nameOrEntries: string): Nfa | null {
+export function listNfa(
+  nameOrEntries: string,
+  lists: WikiLists | null = null,
+): Nfa | null {
   if (nameOrEntries.includes(",")) {
     return entriesNfa(
       nameOrEntries.split(",").map(normalizeEntry).filter((e) => e !== ""),
     );
   }
-  const entries = wordList(
-    nameOrEntries.trim().toLowerCase().replace(/[^a-z0-9]/g, ""),
-  );
+  const key = listKey(nameOrEntries);
+  const entries = wordList(key) ?? lists?.entries.get(key) ?? null;
   return entries ? entriesNfa(entries) : null;
 }

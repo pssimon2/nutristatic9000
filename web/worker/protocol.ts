@@ -40,6 +40,7 @@ export interface SearchMsg {
   neighboursUrl?: string | null;
   categoriesUrl?: string | null;
   stressUrl?: string | null;
+  listsUrl?: string | null;
   maxSteps: number;
   maxResults: number;
   // Range mode only: stop after this many bytes fetched or ms elapsed

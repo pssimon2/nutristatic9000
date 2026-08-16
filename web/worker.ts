@@ -26,6 +26,7 @@ import {
 } from "../src/neighbours.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilter, nearOrderKey } from "../src/result-predicate.js";
+import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { explainMatch } from "../src/explain.js";
 import type { InMsg, OpenMsg } from "./worker/protocol.js";
 import {
@@ -879,7 +880,8 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           needsThesaurus(currentQuery) ||
           needsNeighbours(currentQuery) ||
           needsCategories(currentQuery) ||
-          needsStress(currentQuery)
+          needsStress(currentQuery) ||
+          needsWikiLists(currentQuery)
         ) {
           try {
             if (needsPhonetics(currentQuery)) {
@@ -888,6 +890,15 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
                 msg.phoneticsUrl ?? null,
                 async (r) => {
                   ctx.phonetics = parsePhonetics(await r.text());
+                },
+              );
+            }
+            if (needsWikiLists(currentQuery)) {
+              await ensureExtra(
+                "lists",
+                msg.listsUrl ?? null,
+                async (r) => {
+                  ctx.lists = parseWikiLists(await r.text());
                 },
               );
             }

@@ -2,7 +2,16 @@ import { describe, expect, it } from "vitest";
 import { Nfa } from "../src/automata.js";
 import { parseExpr } from "../src/expr-parse.js";
 import { compileQuery } from "../src/find-expr.js";
-import { entriesNfa, listNames, normalizeEntry, wordList } from "../src/word-lists.js";
+import {
+  entriesNfa,
+  listKey,
+  listNames,
+  needsWikiLists,
+  normalizeEntry,
+  parseWikiLists,
+  suggestList,
+  wordList,
+} from "../src/word-lists.js";
 import { equivalent } from "../src/automata.js";
 import { SessionContext } from "../src/session-context.js";
 
@@ -210,5 +219,54 @@ describe("the shipped list catalogue", () => {
     ]) {
       expect(listNames(), name).toContain(name);
     }
+  });
+});
+
+describe("the fetched catalogue", () => {
+  const cat = parseWikiLists(
+    [
+      "romandeities\tRoman deities\tjuno,mars,venus,vesta",
+      "frenchdishes\tFrench dishes\tcassoulet,ratatouille",
+      "\tbroken line with no body",
+    ].join("\n") + "\n",
+  );
+
+  it("parses slug, subject and entries", () => {
+    expect(cat.entries.get("romandeities")).toEqual([
+      "juno",
+      "mars",
+      "venus",
+      "vesta",
+    ]);
+    expect(cat.subjects.get("frenchdishes")).toBe("French dishes");
+  });
+
+  it("skips malformed lines rather than inventing empty lists", () => {
+    expect(cat.entries.size).toBe(2);
+  });
+
+  it("asks for the catalogue only when the bundle cannot answer", () => {
+    // Built in, so no fetch.
+    expect(needsWikiLists("{list:greek}")).toBe(false);
+    expect(needsWikiLists("{list:countries}&A{6}")).toBe(false);
+    // An inline list is self-contained.
+    expect(needsWikiLists("{list:red,green,blue}")).toBe(false);
+    // Not built in: the catalogue is required before compiling.
+    expect(needsWikiLists("{list:romandeities}")).toBe(true);
+    expect(needsWikiLists("{word.list:frenchdishes}")).toBe(true);
+    // No list at all.
+    expect(needsWikiLists("A{5}&C*")).toBe(false);
+  });
+
+  it("normalises a written name to its slug", () => {
+    expect(listKey(" Roman Deities ")).toBe("romandeities");
+    expect(listKey("french-dishes")).toBe("frenchdishes");
+  });
+
+  it("suggests a near miss from the built-ins or the catalogue", () => {
+    expect(suggestList("countrie", null)).toBe("countries");
+    expect(suggestList("romandeity", cat)).toBe("romandeities");
+    expect(suggestList("dishes", cat)).toBe("frenchdishes");
+    expect(suggestList("zzzzzz", cat)).toBeNull();
   });
 });

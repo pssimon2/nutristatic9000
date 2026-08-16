@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nutristatic 9000 — list catalogue</title>
+<link rel="icon" href="favicon.ico">
+<style>
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    max-width: 52em; margin: 2em auto; padding: 0 1em; line-height: 1.5;
+    color: #222;
+  }
+  h1 { font-size: 1.4em; }
+  a { color: #06c; }
+  #filter {
+    font: inherit; width: 100%; box-sizing: border-box; padding: .5em;
+    border: 1px solid #bbb; border-radius: 4px; margin: 1em 0 .5em;
+  }
+  #count { color: #767676; font-size: .9em; }
+  ul { list-style: none; padding: 0; }
+  li { padding: .35em 0; border-bottom: 1px solid #eee; }
+  tt { background: #f4f4f4; padding: 0 .25em; }
+  .subject { color: #767676; font-size: .9em; }
+  .n { color: #999; font-size: .85em; }
+  .note { background: #f8f8f8; border-left: 3px solid #ddd; padding: .6em .8em; }
+</style>
+</head>
+<body>
+<p><a href="./">&larr; back to the search</a> &middot; <a href="usage.html">usage guide</a></p>
+<h1>List catalogue</h1>
+
+<p>Every name here works as <tt>{list:<i>name</i>}</tt> in a query — so
+<tt>{list:romandeities}&amp;A{4}</tt> is a four-letter Roman deity. Lists
+compose with everything else: intersect them, put them inside
+<tt>{del1:…}</tt>, or hide one inside a phrase with <tt>.*{list:…}.*</tt>.</p>
+
+<p class="note">The small built-in lists ship with the app. The rest are
+harvested from Wikipedia and fetched the first time a query asks for one, so
+they need a network connection — the built-ins keep working offline.</p>
+
+<input id="filter" type="search" placeholder="filter by name or subject…" autofocus>
+<p id="count">loading…</p>
+<ul id="lists"></ul>
+
+<script type="module">
+const listsEl = document.getElementById("lists");
+const countEl = document.getElementById("count");
+const filterEl = document.getElementById("filter");
+
+let all = [];
+
+function render() {
+  const q = filterEl.value.trim().toLowerCase();
+  const shown = q
+    ? all.filter((l) => l.slug.includes(q) || l.subject.toLowerCase().includes(q))
+    : all;
+  listsEl.textContent = "";
+  countEl.textContent = `${shown.length} of ${all.length} lists`;
+  // Rendering thousands of rows on every keystroke is needless work; the
+  // filter is there precisely so you do not need to see them all.
+  for (const l of shown.slice(0, 400)) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = `./?q=${encodeURIComponent("{list:" + l.slug + "}")}`;
+    const code = document.createElement("tt");
+    code.textContent = l.slug;
+    a.append(code);
+    const subject = document.createElement("span");
+    subject.className = "subject";
+    subject.textContent = ` — ${l.subject}`;
+    const n = document.createElement("span");
+    n.className = "n";
+    n.textContent = ` (${l.n})`;
+    li.append(a, subject, n);
+    listsEl.append(li);
+  }
+  if (shown.length > 400) {
+    const li = document.createElement("li");
+    li.className = "subject";
+    li.textContent = `…and ${shown.length - 400} more — narrow the filter`;
+    listsEl.append(li);
+  }
+}
+
+filterEl.addEventListener("input", render);
+
+try {
+  const r = await fetch("lists.txt");
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const text = await r.text();
+  all = text
+    .split("\n")
+    .filter((line) => line.includes("\t"))
+    .map((line) => {
+      const [slug, subject, body] = line.split("\t");
+      return { slug, subject: subject || slug, n: (body || "").split(",").length };
+    })
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+  render();
+} catch (e) {
+  countEl.textContent =
+    "could not load the catalogue — the built-in lists still work in a query.";
+}
+</script>
+</body>
+</html>

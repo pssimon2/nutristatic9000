@@ -16,7 +16,7 @@ const SHELL = BASE + "index.html";
 // wanted offline once fetched — so they live in their own cache, which
 // survives deploys instead of being thrown away with each new shell.
 const DATA_CACHE = "nutristatic9000-data";
-const DATA_FILES = /\/(phonetics|thesaurus|categories|stress)\.txt$|\/neighbours\.bin$/;
+const DATA_FILES = /\/(phonetics|thesaurus|categories|stress|lists)\.txt$|\/neighbours\.bin$/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -570,5 +570,32 @@ await page.click("#results button.why");
 if (await page.$("#results .why-box")) throw new Error("why-box did not toggle shut");
 console.log("why toggles shut");
 
+// A harvested list: not in the bundle, so the worker has to fetch the
+// catalogue before it can compile the query at all.
+await page.goto(
+  base + "?index=./demo.index&q=" + encodeURIComponent("{list:romandeities}&A{4}"),
+);
+await page.waitForFunction(() => document.querySelectorAll("#results span.r").length > 0,
+  null, { timeout: 60000 });
+const deities = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 3).map((e) => e.dataset.match));
+console.log("harvested list:", JSON.stringify(deities));
+if (!deities.includes("mars")) throw new Error("catalogue list did not resolve");
+
+// An unknown name names the closest real one rather than shrugging.
+await page.goto(base + "?index=./demo.index&q=" + encodeURIComponent("{list:romandeity}"));
+await page.waitForFunction(
+  () => document.getElementById("status").className === "error", null, { timeout: 60000 });
+const listErr = await page.textContent("#status");
+console.log("list suggestion:", listErr.trim());
+if (!/did you mean "romandeities"/.test(listErr)) throw new Error("no list suggestion");
+
+// The catalogue page lists them.
+await page.goto(base + "lists.html");
+await page.waitForFunction(
+  () => /\d+ of \d+ lists/.test(document.getElementById("count").textContent),
+  null, { timeout: 30000 });
+console.log("catalogue page:", (await page.textContent("#count")).trim());
+
 await browser.close();
 console.log("BROWSER TEST OK");

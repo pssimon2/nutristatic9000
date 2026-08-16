@@ -16,6 +16,7 @@ import { Neighbours } from "./neighbours.js";
 import { Phonetics } from "./phonetics.js";
 import { Stress } from "./stress.js";
 import { Thesaurus } from "./thesaurus.js";
+import { WikiLists } from "./word-lists.js";
 
 /**
  * The side data a compilation may consult. Construct one per session; share it
@@ -28,6 +29,12 @@ import { Thesaurus } from "./thesaurus.js";
  */
 export class SessionContext {
   phonetics: Phonetics | null = null;
+  /**
+   * The harvested `{list:…}` catalogue, fetched on demand. Far too large to
+   * ship in the bundle, so unlike the built-in lists it is a side dataset —
+   * which means an offline single-file build has the built-ins only.
+   */
+  lists: WikiLists | null = null;
   stress: Stress | null = null;
   categories: Categories | null = null;
   neighbours: Neighbours | null = null;
