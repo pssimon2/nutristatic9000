@@ -4,7 +4,12 @@
 // dedupe, persistent chunk store, bandwidth/RTT estimation with post-order
 // backward read-ahead, and budgeted speculative prefetch.
 
-import { ByteSource, ChunkStore, ViewHolder } from "./byte-source.js";
+import {
+  ByteSource,
+  ChunkStore,
+  MAX_READAHEAD_BLOCKS,
+  ViewHolder,
+} from "./byte-source.js";
 import {
   IDXZ_HEADER_SIZE,
   IdxzHeader,
@@ -244,14 +249,14 @@ export class CompressedRangeSource implements ByteSource {
 
     // Backward read-ahead by bandwidth-delay product, in compressed bytes
     // (descendants precede a node in the post-order index layout), capped at
-    // 32 blocks like the uncompressed source — an uncapped BDP on a fast
-    // link would balloon into fetching large fractions of the index.
+    // MAX_READAHEAD_BLOCKS — an uncapped BDP on a fast link would balloon
+    // into fetching large fractions of the index.
     const budget = this.ewmaBw * this.ewmaRtt;
     let first = still[0];
     let extra = 0;
     while (
       first > 0 &&
-      still[0] - first < 32 &&
+      still[0] - first < MAX_READAHEAD_BLOCKS &&
       extra + (this.table[first] - this.table[first - 1]) <= budget &&
       !this.cache.has(first - 1) &&
       !this.inflight.has(first - 1)

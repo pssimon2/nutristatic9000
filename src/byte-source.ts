@@ -176,6 +176,27 @@ export class SyncFileSource implements ByteSource {
 }
 
 /** Optional persistent store for fetched chunks (e.g. browser Cache API). */
+/**
+ * How far a miss-fetch may reach backwards, in chunks.
+ *
+ * The index is written post-order, so a node's descendants lie contiguously
+ * *before* it, and extending a fetch backwards preloads the subtree the walk
+ * is about to enter. The size comes from the bandwidth-delay product — on a
+ * slow link it is naturally tiny — and this caps it, because on a fast link
+ * the product alone would fetch large fractions of the index.
+ *
+ * It was 32, which measured badly against the deployed 1.3 GB index: the
+ * read-ahead was fetching far more subtree than the walk went on to use, and
+ * because a run is capped on *bytes*, the waste came directly out of how deep
+ * the search could go. At 8, over the compressed sidecar, `<aaagmnr>` fell
+ * from 44.0 MB to 21.1 MB and from 1286 ms to 957 ms, `"_ ___ ___ _*burger"`
+ * from 10953 ms to 8641 ms, and `{distinct:A{6}}` went from finding nothing
+ * within budget to finding results. Uncompressed, the same query went from
+ * 0 results at 84.6 MB to 20 results at 52.6 MB. Both paths were measured;
+ * 4 was better still on bytes but lost more to round-trips.
+ */
+export const MAX_READAHEAD_BLOCKS = 8;
+
 export interface ChunkStore {
   get(chunk: number): Promise<Uint8Array | undefined>;
   /** Fire-and-forget; failures must be swallowed by the store. */
@@ -359,7 +380,7 @@ export class HttpRangeSource implements ByteSource {
       // Read-ahead: extend the fetch backwards over uncached chunks, up to
       // the current bandwidth-delay product.
       const maxExtra = Math.min(
-        32,
+        MAX_READAHEAD_BLOCKS,
         Math.floor((this.ewmaBw * this.ewmaRtt) / this.chunkSize),
       );
       let first = still[0];

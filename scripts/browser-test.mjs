@@ -737,6 +737,13 @@ const whyColor = await dpage.$eval("#results .why-box", (e) => getComputedStyle(
 console.log("dark why-box text:", whyColor);
 if (lum(whyColor) < 0.5) throw new Error(`why-box text is dark on dark: ${whyColor}`);
 
+// From a fresh page, not from the results view: opening the explanation above
+// inserts a box into #results and moves everything below it, and doing the
+// menu check on top of that made this flaky — it passed about one run in
+// three. The menu's colours are what is under test, and they do not depend on
+// what happened before.
+await dpage.goto(base + "?index=./demo.index");
+await dpage.waitForSelector("#q", { timeout: 30000 });
 await dpage.click("#q");
 await dpage.fill("#q", "");
 await dpage.type("#q", "{ci", { delay: 20 });

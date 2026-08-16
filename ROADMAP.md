@@ -499,6 +499,21 @@ Goal: mechanical, low-risk changes that everything later depends on.
   785 MB whole-index download that then makes *every* query instant, which is
   what the page recommends there. Actual transfers land ~10% over the cap,
   since fetches already in flight still complete.
+- [x] **E12. Read-ahead was fetching four times more than the walk used.**
+  *(done 2026-08-16, not previously on the list — found by measuring against
+  the deployed 1.3 GB index.)* Both range sources extend a miss-fetch
+  *backwards* by the bandwidth-delay product, which is right — the index is
+  post-order, so a node's descendants lie contiguously before it — and cap it
+  at 32 chunks so a fast link cannot balloon. 32 was too many: the extra
+  subtree was largely unused, and since a run is capped on *bytes*, the waste
+  came straight out of how deep the search could go. Now
+  `MAX_READAHEAD_BLOCKS = 8`, shared by both sources.
+  Measured over the compressed sidecar at the real prefetch depth:
+  `<aaagmnr>` 44.0 MB / 1286 ms → 20.9 MB / 957 ms; `"_ ___ ___ _*burger"`
+  10953 ms → 8641 ms; `{distinct:A{6}}` found nothing within budget → found
+  results. Uncompressed: `<aaagmnr>` 0 results at 84.6 MB → 20 results at
+  52.6 MB. 4 was better again on bytes but lost more to round-trips.
+  Measured on both paths rather than changing one by analogy with the other.
 - [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
   pattern language + only predicate-level narrowing ⇒ warn "unbounded
   search; the {palindrome} filter cannot prune — add a length or a
