@@ -130,6 +130,16 @@ npm run find-expr -- web/public/demo.index '<aaagmnr>'
 npm run find-expr -- --max-steps 10000000 my.index '"C*aC*eC*iC*oC*uC*yC*"'
 ```
 
+The CLI accepts the same queries as the site, including the wrappers that are
+not part of the automaton — `{at 3:…}` and `{rank …}` shape the output,
+`{compound …}`, `{palindrome:…}` and `{reversible:…}` ask the index about
+finished matches:
+
+```sh
+npm run find-expr -- web/public/demo.index '{at 1:<aaagmnr>}'   # a  (anagram)
+npm run find-expr -- web/public/demo.index '{compound 2:A{9}}'  # copyright  copy·right
+```
+
 ## Building an index
 
 The demo index bundled at `web/public/demo.index` (~20 MB) is built from

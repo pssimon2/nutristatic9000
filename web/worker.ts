@@ -15,6 +15,7 @@ import { FileRangeSource } from "../src/file-source.js";
 import { inflateRawBlock } from "../src/idxz.js";
 import { IndexReader } from "../src/index-reader.js";
 import { splitWords } from "../src/compound.js";
+import { makeWordChecker } from "../src/index-words.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -202,36 +203,13 @@ let searchStepBase = 0;
 // here rather than in the automaton, because "is this a word" is a question
 // only the index can answer.
 let resultFilter: FilterSpec | null = null;
-let wordCache = new Map<string, boolean>();
+let wordChecker: ((w: string) => boolean | Promise<boolean>) | null = null;
 
-/**
- * Is `word` an indexed word? Walk it from the root and require the following
- * space — the space is what proves a word boundary rather than a prefix.
- */
-async function isIndexedWord(word: string): Promise<boolean> {
-  const hit = wordCache.get(word);
-  if (hit !== undefined) return hit;
-  let ok = false;
-  if (reader && word.length > 0) {
-    let node = reader.root();
-    let count = reader.count();
-    ok = true;
-    for (const ch of `${word} `) {
-      const out: Array<{ ch: number; count: number; next: number }> = [];
-      const r = reader.children(node, count, out);
-      if (r instanceof Promise) await r;
-      const code = ch.charCodeAt(0);
-      const child = out.find((c) => c.ch === code);
-      if (!child) {
-        ok = false;
-        break;
-      }
-      node = child.next;
-      count = child.count;
-    }
-  }
-  wordCache.set(word, ok);
-  return ok;
+/** The index-backed word predicate, rebuilt whenever the index changes. */
+function isIndexedWord(word: string): boolean | Promise<boolean> {
+  if (!reader) return false;
+  wordChecker ??= makeWordChecker(reader);
+  return wordChecker(word);
 }
 
 function getWasmModule(): Promise<WebAssembly.Module> {
@@ -1077,6 +1055,7 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
   const gen = ++openGen;
   const stale = () => gen !== openGen;
   reader = null;
+  wordChecker = null; // bound to the old index
   rangeSource = null;
   diskSource?.close(); // release the OPFS lock before (re)opening anything
   diskSource = null;
@@ -1589,7 +1568,6 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           });
           return;
         }
-        wordCache = new Map();
         emitted = new Set();
         searchStepBase = 0; // fresh query: no discarded-engine steps yet
         session = null;

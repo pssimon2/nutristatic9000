@@ -3,6 +3,22 @@
 
 import { compileQuery, formatScore, makeDriver, ParseError } from "../src/find-expr.js";
 import { cliOpenIndex } from "../src/node-io.js";
+import {
+  type ExtractSpec,
+  type RankSpec,
+  applyExtract,
+  parseExtract,
+  parseRank,
+} from "../src/extract-spec.js";
+import {
+  type FilterSpec,
+  isPalindrome,
+  letters,
+  parseFilterWrapper,
+  reversed,
+} from "../src/result-filter.js";
+import { splitWords } from "../src/compound.js";
+import { makeWordChecker } from "../src/index-words.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
   if (e.code === "EPIPE") process.exit(0);
@@ -39,9 +55,38 @@ if (stray !== undefined || args.length !== 2) {
 }
 const [indexPath, expr] = args;
 
+// The browser understands wrappers the engine doesn't: {at …} and {rank …}
+// shape the output, {compound …}/{palindrome:…}/{reversible:…} ask the index
+// about finished matches. Handle them here too, so the CLI and the site accept
+// the same queries.
+let pattern = expr;
+let extract: ExtractSpec | null = null;
+let rank: RankSpec | null = null;
+let resultFilter: FilterSpec | null = null;
+try {
+  const ex = parseExtract(pattern);
+  if (ex) {
+    extract = ex.spec;
+    pattern = ex.inner;
+  }
+  const rk = parseRank(pattern);
+  if (rk) {
+    rank = rk.spec;
+    pattern = rk.inner;
+  }
+  const rf = parseFilterWrapper(pattern);
+  if (rf) {
+    resultFilter = rf.spec;
+    pattern = rf.inner;
+  }
+} catch (e) {
+  console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
+  process.exit(2);
+}
+
 let filter;
 try {
-  filter = compileQuery(expr);
+  filter = compileQuery(pattern);
 } catch (e) {
   if (e instanceof ParseError) {
     console.error(`error: ${e.message}`);
@@ -52,6 +97,38 @@ try {
 
 const reader = await cliOpenIndex(indexPath);
 const driver = makeDriver(reader, filter);
+const isWord = makeWordChecker(reader);
+let rawRank = 0;
+
+/**
+ * Apply the output wrappers to one match: null drops it, otherwise the line
+ * to print. Order matches the browser — corpus filter, then rank window, then
+ * extraction.
+ */
+async function present(score: number, text: string): Promise<string | null> {
+  let note = "";
+  if (resultFilter) {
+    if (resultFilter.kind === "compound") {
+      const parts = await splitWords(text, resultFilter.pieces, isWord);
+      if (!parts) return null;
+      note = `  ${parts.join("·")}`;
+    } else if (resultFilter.kind === "palindrome") {
+      if (!isPalindrome(text)) return null;
+    } else {
+      const back = reversed(text);
+      if (back === letters(text) || !(await isWord(back))) return null;
+      note = `  ← ${back}`;
+    }
+  }
+  ++rawRank;
+  if (rank && (rawRank < rank.from || rawRank > rank.to)) return null;
+  if (extract) {
+    const picked = applyExtract(extract, text);
+    if (picked === null) return null;
+    return `${formatScore(score)} ${picked}  (${text})${note}`;
+  }
+  return `${formatScore(score)} ${text}${note}`;
+}
 
 try {
   let count = 0;
@@ -66,7 +143,8 @@ try {
     if (r) {
       if (driver.text === null) break;
       const text = driver.text.replace(/ +$/, "");
-      process.stdout.write(`${formatScore(driver.score)} ${text}\n`);
+      const line = await present(driver.score, text);
+      if (line !== null) process.stdout.write(`${line}\n`);
     }
   }
 } catch (e) {
