@@ -56,14 +56,18 @@ Goal: mechanical, low-risk changes that everything later depends on.
   No logic changes; pure extraction.
   *Partly done (2026-08-16):* `worker/protocol.ts` (inbound messages; `main.ts`
   now posts through a typed `postToWorker`, so the wire is compiler-checked),
-  `worker/storage.ts` (OPFS + marker/progress parsing + range arithmetic, now
-  covered by 27 unit tests in `test/worker-storage.test.ts` — it had none),
-  and `worker/net.ts` (retry/watchdog/`fetchPieces`, progress via callback so
-  it no longer knows the page protocol). worker.ts 1,849 → 1,497 lines.
-  **Still to extract:** source selection and the download paths
-  (`downloadWhole`, `downloadViaSidecar`, `CacheChunkStore`, `parseEarlyProbe`,
-  `openIndex`) into `worker/sources.ts`, and the run lifecycle into
-  `worker/orchestrator.ts` — the latter is the one that has to move ~20
+  `worker/storage.ts` (OPFS + marker/progress parsing + range arithmetic),
+  `worker/net.ts` (retry/watchdog/`fetchPieces`, progress via callback so it no
+  longer knows the page protocol), and `worker/sources.ts` (probe parsing,
+  cache validators, `CacheChunkStore`). The validator string was spelled twice
+  — once in `byte-source.ts`, once inline in the worker — and a divergence
+  would have made every cached copy compare stale against itself; both now go
+  through `validatorFrom`. worker.ts 1,849 → 1,437 lines, and 36 unit tests
+  (`test/worker-storage.test.ts`, `test/worker-sources.test.ts`) now cover
+  logic that no test could reach before.
+  **Still to extract:** the download paths themselves (`downloadWhole`,
+  `downloadViaSidecar`, `downloadToOpfs`, `openOpfsIndex`) and the run
+  lifecycle into `worker/orchestrator.ts` — the latter has to move ~20
   module-level mutable bindings, so it wants its own commit.
   Outbound (worker→page) messages are still untyped; typing them has to
   account for `postReady`'s replay.

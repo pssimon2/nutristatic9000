@@ -38,8 +38,19 @@ export interface ByteSource {
  * size-only checks). Used to catch same-size index rebuilds.
  */
 export function validatorOf(headers: Headers): string | null {
-  const etag = headers.get("etag");
-  const modified = headers.get("last-modified");
+  return validatorFrom(headers.get("etag"), headers.get("last-modified"));
+}
+
+/**
+ * The same combination from parts, for callers who carry the two header
+ * values rather than a Headers (the page's early probe). Both spellings must
+ * produce byte-identical strings or a cached copy compares unequal to itself
+ * and is thrown away — hence one function.
+ */
+export function validatorFrom(
+  etag: string | null | undefined,
+  modified: string | null | undefined,
+): string | null {
   return etag || modified ? `${etag ?? ""}|${modified ?? ""}` : null;
 }
 

@@ -33,6 +33,15 @@ import {
 import { DataKey, SessionContext } from "../src/session-context.js";
 import type { EarlyProbe, InMsg, OpenMsg } from "./worker/protocol.js";
 import {
+  CACHE_NAME,
+  CHUNK_CACHE_NAME,
+  CacheChunkStore,
+  RANGE_CHUNK_SIZE,
+  VALIDATOR_HEADER,
+  cachedCopyStale,
+  parseEarlyProbe,
+} from "./worker/sources.js";
+import {
   DOWNLOAD_CONCURRENCY,
   DOWNLOAD_PIECE,
   FETCH_TIMEOUT,
@@ -83,11 +92,6 @@ const TINY_LIMIT = 4 * 1024 * 1024;
 // searches, so a heavy anagram that is slow to stream returns in well under
 // a second.
 const FULL_DOWNLOAD_LIMIT = 2 * 1024 * 1024 * 1024;
-const CACHE_NAME = "nutrimatic-index-v1";
-// Chunk keys include the chunk size, so entries cached under a different
-// chunking are never reinterpreted.
-const CHUNK_CACHE_NAME = "nutrimatic-chunks-v2";
-const RANGE_CHUNK_SIZE = 1 << 15;
 // Range mode: prewarm this much of the file tail (trie root region), and
 // keep this many parallel prefetches going during a search. The prewarm is
 // deliberately small and non-blocking: on slow links upfront bytes delay the
@@ -418,35 +422,6 @@ async function downloadToOpfs(
   }
 }
 
-/** Persists range chunks so repeat queries and visits reuse them. */
-class CacheChunkStore implements ChunkStore {
-  private readonly cachePromise = openCacheNamed(CHUNK_CACHE_NAME);
-  constructor(
-    private readonly url: string,
-    private readonly chunkSize: number,
-  ) {}
-
-  private key(chunk: number): string {
-    return `${this.url}?nutrimatic-chunk=${this.chunkSize}-${chunk}`;
-  }
-
-  async get(chunk: number): Promise<Uint8Array | undefined> {
-    try {
-      const cache = await this.cachePromise;
-      const hit = cache && (await cache.match(this.key(chunk)));
-      return hit ? new Uint8Array(await hit.arrayBuffer()) : undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
-  put(chunk: number, data: Uint8Array): void {
-    void this.cachePromise
-      .then((cache) => cache?.put(this.key(chunk), new Response(data.slice())))
-      .catch(() => {});
-  }
-}
-
 /**
  * Whole-index download via the .idxz sidecar (~half the transfer), writing
  * decompressed blocks through `write`. Returns false if there is no valid
@@ -554,7 +529,7 @@ async function downloadWhole(
   const cache = await openCacheNamed();
   if (cache) {
     const hit = await cache.match(url);
-    if (hit && cachedCopyStale(hit)) {
+    if (hit && cachedCopyStale(hit, currentValidator)) {
       await cache.delete(url); // same-size rebuild caught by the validator
     } else if (hit) {
       const buf = new Uint8Array(await hit.arrayBuffer());
@@ -637,7 +612,7 @@ async function downloadWhole(
         url,
         new Response(data, {
           headers: currentValidator
-            ? { "x-nutrimatic-validator": currentValidator }
+            ? { [VALIDATOR_HEADER]: currentValidator }
             : {},
         }),
       );
@@ -646,12 +621,6 @@ async function downloadWhole(
     }
   }
   return data;
-}
-
-/** True when a cached full copy's validator contradicts the live probe's. */
-function cachedCopyStale(hit: Response): boolean {
-  const stored = hit.headers.get("x-nutrimatic-validator");
-  return stored !== null && currentValidator !== null && stored !== currentValidator;
 }
 
 const retryFetch = ((input: RequestInfo | URL, init?: RequestInit) =>
@@ -676,35 +645,6 @@ async function useMemory(
     cached,
     total: reader.count(),
   });
-}
-
-/** Interpret an early page-side probe response (same logic as the source). */
-function parseEarlyProbe(probe: EarlyProbe): {
-  length: number;
-  supportsRanges: boolean;
-  validator: string | null;
-} | null {
-  if (!probe.ok) return null;
-  const validator =
-    probe.etag || probe.lastModified
-      ? `${probe.etag ?? ""}|${probe.lastModified ?? ""}`
-      : null;
-  if (probe.status === 206) {
-    const m = probe.contentRange && /\/(\d+)\s*$/.exec(probe.contentRange);
-    if (m) return { length: parseInt(m[1], 10), supportsRanges: true, validator };
-    // A 206 whose total we can't parse (e.g. "bytes 0-0/*") must NOT fall
-    // through to Content-Length — that's the 1-byte range's length, and the
-    // index would open as a 1-byte file. Force a real probe instead.
-    return null;
-  }
-  if (probe.contentLength) {
-    return {
-      length: parseInt(probe.contentLength, 10),
-      supportsRanges: false,
-      validator,
-    };
-  }
-  return null;
 }
 
 // Generation counter: overlapping open/download-full operations (double
@@ -880,7 +820,7 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
   // A previously downloaded full copy means zero network traffic.
   const cache = await openCacheNamed();
   const hit = cache && (await cache.match(url));
-  if (hit && cachedCopyStale(hit)) {
+  if (hit && cachedCopyStale(hit, currentValidator)) {
     await cache!.delete(url); // same-size rebuild caught by the validator
     if (stale()) return;
   } else if (hit) {
