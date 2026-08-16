@@ -12,6 +12,11 @@ const CACHE = "nutristatic9000-shell-__VERSION__";
 const PRECACHE = [/*__PRECACHE__*/];
 const BASE = new URL("./", location.href).pathname;
 const SHELL = BASE + "index.html";
+// The pronunciation and meaning datasets are large, rarely change, and are
+// wanted offline once fetched — so they live in their own cache, which
+// survives deploys instead of being thrown away with each new shell.
+const DATA_CACHE = "nutristatic9000-data";
+const DATA_FILES = /\/(phonetics|thesaurus)\.txt$/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -46,6 +51,22 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/stats")) return; // private dashboard
   if (req.headers.has("range")) return; // range reads for the index stream
   if (url.pathname.endsWith(".index") || url.pathname.endsWith(".idxz")) return;
+
+  // Side datasets: cache-first and kept across deploys. Re-fetching a
+  // megabyte-and-a-half every time the app is rebuilt would be pure waste.
+  if (DATA_FILES.test(url.pathname)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(DATA_CACHE);
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        const net = await fetch(req);
+        if (net && net.ok) cache.put(req, net.clone());
+        return net;
+      })(),
+    );
+    return;
+  }
 
   // Page navigations: network-first (so redeploys show up immediately), then
   // fall back to the cached page — or the app shell — when offline.

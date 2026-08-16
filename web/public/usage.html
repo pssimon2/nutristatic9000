@@ -298,7 +298,8 @@ the corpus, and a word it doesn't know says so rather than guessing:
 <tt>{rhyme:orange}</tt> reports that there is no rhyme, which for ORANGE
 happens to be true. The dictionary also carries surnames and variant
 spellings, so homophone groups are wider than you might expect. It is fetched
-only when a query needs it (about 340 KB, once per visit).
+only when a query needs it (about 340 KB), and kept in a cache of its own — so
+it is not re-fetched when the site updates, and rhymes keep working offline.
 
 <li><b>Meaning — <tt>{like:reluctant}</tt></b>. Half of hunt work is "seven
 letters, matches <tt>.a..e..</tt>, and clues something like <em>reluctant</em>",
@@ -310,7 +311,8 @@ gives LOATH.
 answers "what else means roughly this", from the senses WordNet groups a word
 into — every sense of it, since the pattern is what narrows things down. It
 will not find a word that merely feels related, and it knows only words
-WordNet knows. Fetched only when a query needs it (about 590 KB, once).
+WordNet knows. Fetched only when a query needs it (about 590 KB), kept across updates, and
+usable offline once fetched.
 
 <li><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
 matches that cut into that many words the index actually knows, and

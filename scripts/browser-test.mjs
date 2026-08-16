@@ -254,6 +254,24 @@ const meant = await page.$$eval("#results span.r", (els) =>
 console.log("like:reluctant &A{5}&l....:", JSON.stringify(meant));
 if (!meant.includes("loath")) throw new Error("thesaurus intersection failed");
 
+// The datasets land in their own cache, so a redeploy doesn't re-fetch them.
+const dataCached = await page.evaluate(async () => {
+  const c = await caches.open("nutristatic9000-data");
+  return (await c.keys()).map((r) => new URL(r.url).pathname.split("/").pop());
+});
+console.log("data cache:", JSON.stringify(dataCached.sort()));
+if (!dataCached.includes("phonetics.txt") || !dataCached.includes("thesaurus.txt")) {
+  throw new Error("side datasets not cached separately");
+}
+const shellKeys = await page.evaluate(async () => {
+  const names = (await caches.keys()).filter((k) => k.startsWith("nutristatic9000-shell-"));
+  const c = await caches.open(names[0]);
+  return (await c.keys()).map((r) => new URL(r.url).pathname);
+});
+if (shellKeys.some((k) => /phonetics|thesaurus/.test(k))) {
+  throw new Error("datasets leaked into the versioned shell cache");
+}
+
 // Multi-slot: several patterns at once, with their picked letters assembled.
 await page.fill("#q", "{at 1:<aaagmnr>} ; {at 2:solar s_stem} ; {at 1:A{5}&.*zz.*}");
 await page.click("input[type=submit]");
@@ -413,6 +431,15 @@ await waitDone(30000);
 const offlineFirst = await page.$eval("#results span", (e) => e.textContent);
 console.log("offline reload first:", offlineFirst);
 if (offlineFirst !== "solar system") throw new Error("offline search failed");
+// The side datasets were cached earlier, so meaning and rhyme work offline too.
+await page.fill("#q", "{like:reluctant}&A{5}&l....");
+await page.click("input[type=submit]");
+await waitDone(30000);
+const offlineMeaning = await page.$$eval("#results span.r", (els) =>
+  els.map((e) => e.textContent),
+);
+console.log("offline {like:…}:", JSON.stringify(offlineMeaning));
+if (!offlineMeaning.includes("loath")) throw new Error("offline thesaurus failed");
 await page.context().setOffline(false);
 
 // Remove the device copy: back to range mode, query re-runs.
