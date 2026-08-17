@@ -126,7 +126,7 @@ describe("predicates on head results", () => {
 
   async function page(query: string, limit: number) {
     const { specs, inner } = parseFilterWrappers(query);
-    return headPage(
+    const out = await headPage(
       head,
       compileQuery(inner, ctx),
       specs,
@@ -134,6 +134,7 @@ describe("predicates on head results", () => {
       isWord as never,
       limit,
     );
+    return out.results;
   }
 
   it("applies the predicate rather than serving candidates", async () => {
@@ -158,8 +159,8 @@ describe("predicates on head results", () => {
     const filter = compileQuery(inner, ctx);
     const narrow = await headPage(head, filter, specs, ctx, isWord as never, 3, 1);
     const wide = await headPage(head, filter, specs, ctx, isWord as never, 3, 40);
-    expect(narrow.length).toBe(0);
-    expect(wide.length).toBeGreaterThan(narrow.length);
+    expect(narrow.results.length).toBe(0);
+    expect(wide.results.length).toBeGreaterThan(narrow.results.length);
   });
 
   it("returns what it found when the predicate rejects the rest", async () => {
@@ -177,5 +178,33 @@ describe("predicates on head results", () => {
     const out = await page("A{5}", 4);
     expect(out.length).toBe(4);
     for (const r of out) expect(r.note).toBeUndefined();
+  });
+});
+
+// Paging: the second page must continue where the first stopped, not repeat it.
+describe("paging through the head", () => {
+  it("resumes after the last entry it served", async () => {
+    const filter = compileQuery("A{5}", ctx);
+    const first = await headPage(head, filter, [], ctx, (() => false) as never, 5);
+    const second = await headPage(
+      head, filter, [], ctx, (() => false) as never, 5, 40, first.next,
+    );
+    expect(first.results.length).toBe(5);
+    expect(second.results.length).toBe(5);
+    const firstTexts = new Set(first.results.map((r) => r.text));
+    for (const r of second.results) expect(firstTexts.has(r.text)).toBe(false);
+    // And still in order: page two scores no higher than page one's last.
+    expect(second.results[0].score).toBeLessThanOrEqual(
+      first.results[first.results.length - 1].score,
+    );
+  });
+
+  it("reports the end when the head is spent", async () => {
+    const filter = compileQuery("A{5}", ctx);
+    const out = await headPage(
+      head, filter, [], ctx, (() => false) as never, 5, 40, head.text.length,
+    );
+    expect(out.results).toEqual([]);
+    expect(out.next).toBe(head.text.length);
   });
 });

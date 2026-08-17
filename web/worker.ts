@@ -145,6 +145,8 @@ let emitted = new Set<string>(); // texts posted for the current query
  */
 let head: HeadIndex | null = null;
 let headTried = false;
+/** How far into the head this query has been served: where a page resumes. */
+let headOffset = 0;
 // Steps already executed on an engine that was discarded mid-search (the WASM
 // kernel overflowing its frontier cap and replaying on the JS engine). Added
 // to the live session's steps so the progress counter never jumps backwards.
@@ -211,12 +213,12 @@ function indexIsRemote(): boolean {
  * the search will not repeat them.
  */
 async function serveFromHead(
-  url: string,
+  url: string | null,
   query: string,
   maxResults: number,
   token: number,
 ): Promise<"complete" | "partial" | "superseded"> {
-  if (!headTried) {
+  if (!headTried && url) {
     headTried = true;
     try {
       const resp = await fetch(url);
@@ -246,9 +248,12 @@ async function serveFromHead(
     ctx,
     isIndexedWord,
     maxResults,
+    40,
+    headOffset,
   );
   if (token !== runToken) return "superseded";
-  for (const hit of page) {
+  headOffset = page.next;
+  for (const hit of page.results) {
     emitted.add(hit.text);
     post({
       type: "result",
@@ -257,7 +262,7 @@ async function serveFromHead(
       ...(hit.note === undefined ? {} : { note: hit.note }),
     });
   }
-  const posted = page.length;
+  const posted = page.results.length;
   // Short of a full page only means the head ran out; the index may have more.
   if (posted < maxResults) return "partial";
   // A full page from the head, and the next page can come from it too: report
@@ -1118,6 +1123,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           return;
         }
         emitted = new Set();
+        headOffset = 0;
         searchStepBase = 0; // fresh query: no discarded-engine steps yet
         session = null;
 
@@ -1184,11 +1190,32 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         await runSession(msg.maxSteps, msg.maxResults, msg.byteBudget ?? 0, msg.timeMs ?? 0, token);
         break;
       }
-      case "continue":
+      case "continue": {
+        // A page served from the head leaves no session behind it, so "more
+        // results" would have had nothing to continue — it reported "no
+        // search to continue" over a screen full of answers. The head has
+        // half a million entries and a page is a thousand, so the next page
+        // usually comes from it too, instantly and without touching the index.
+        if (!session && head && currentQuery !== null && headOffset < head.text.length) {
+          const more = await serveFromHead(
+            null,
+            currentQuery,
+            msg.maxResults,
+            ++runToken,
+          );
+          if (more !== "partial") break;
+          // The head is spent: fall through and let the index take over from
+          // where it left off, with everything already shown suppressed.
+        }
         if (!session) {
-          // e.g. a continue racing an index switch: never leave the UI
-          // waiting on a done that will not come.
-          throw new Error("no search to continue");
+          if (!reader || currentQuery === null) {
+            // e.g. a continue racing an index switch: never leave the UI
+            // waiting on a done that will not come.
+            throw new Error("no search to continue");
+          }
+          session = new SearchSession(reader, currentQuery, ctx, undefined, {
+            prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
+          });
         }
         // Duplicate continue for the session that's already running: that
         // run will answer. (A stale run of a REPLACED session doesn't match
@@ -1196,6 +1223,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         if (activeRunSession === session) break;
         await runSession(msg.maxSteps, msg.maxResults, msg.byteBudget ?? 0, msg.timeMs ?? 0);
         break;
+      }
       case "download-full": {
         ++runToken; // cancel any in-flight search run
         const gen = openGen;

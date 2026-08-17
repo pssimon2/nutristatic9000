@@ -66,9 +66,10 @@ export function searchHeadIndex(
   head: HeadIndex,
   filter: Filter,
   limit: number,
-): Array<{ text: string; score: number }> {
-  const out: Array<{ text: string; score: number }> = [];
-  for (let i = 0; i < head.text.length && out.length < limit; ++i) {
+  from = 0,
+): Array<{ text: string; score: number; at: number }> {
+  const out: Array<{ text: string; score: number; at: number }> = [];
+  for (let i = from; i < head.text.length && out.length < limit; ++i) {
     const t = head.text[i];
     let state = filter.startState;
     let ok = true;
@@ -81,7 +82,9 @@ export function searchHeadIndex(
       }
     }
     if (ok && filter.isAccepting(state)) {
-      out.push({ text: t, score: head.score[i] });
+      // `at` is where this entry sits in the head, so a caller paging through
+      // can resume after it rather than re-scanning from the top.
+      out.push({ text: t, score: head.score[i], at: i });
     }
   }
   return out;
@@ -108,21 +111,36 @@ export async function headPage(
   isWord: WordCheck,
   limit: number,
   candidateFactor = 40,
-): Promise<Array<{ text: string; score: number; note?: string }>> {
+  from = 0,
+): Promise<{
+  results: Array<{ text: string; score: number; note?: string }>;
+  /** Where to resume: one past the last entry looked at. */
+  next: number;
+}> {
   const wanted = filters.length > 0 ? limit * candidateFactor : limit;
-  const hits = searchHeadIndex(head, filter, wanted);
-  if (filters.length === 0) return hits.slice(0, limit);
+  const hits = searchHeadIndex(head, filter, wanted, from);
+  const end = (i: number) =>
+    hits.length === 0 ? head.text.length : hits[i].at + 1;
+  if (filters.length === 0) {
+    const taken = hits.slice(0, limit);
+    return {
+      results: taken.map(({ text, score }) => ({ text, score })),
+      next: taken.length === 0 ? head.text.length : end(taken.length - 1),
+    };
+  }
 
   const out: Array<{ text: string; score: number; note?: string }> = [];
+  let last = head.text.length;
   for (const hit of hits) {
     if (out.length >= limit) break;
     const verdict = await applyResultFilters(filters, hit.text, ctx, isWord);
     if (!verdict.keep) continue;
+    last = hit.at + 1;
     out.push({
       text: hit.text,
       score: hit.score,
       ...(verdict.notes.length === 0 ? {} : { note: verdict.notes.join("  ") }),
     });
   }
-  return out;
+  return { results: out, next: out.length === 0 ? head.text.length : last };
 }
