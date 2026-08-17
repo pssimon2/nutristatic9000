@@ -52,6 +52,41 @@ export function unreverseText(text: string): string {
  * reverse. The reverse index then holds exactly the mirrored window set, and
  * reverse prefix counts equal forward ones.
  */
+/**
+ * A string→count map that scales past V8's ~16.7M-entries-per-Map limit by
+ * sharding on the first two characters. A large index has tens of millions
+ * of word-aligned strings, which is exactly where the single Map died.
+ */
+class BigCounter {
+  private readonly shards = new Map<string, Map<string, number>>();
+  size = 0;
+
+  private shard(key: string): Map<string, number> {
+    const k = key.slice(0, 2);
+    let m = this.shards.get(k);
+    if (m === undefined) {
+      m = new Map();
+      this.shards.set(k, m);
+    }
+    return m;
+  }
+
+  get(key: string): number | undefined {
+    return this.shard(key).get(key);
+  }
+
+  add(key: string, by: number): void {
+    const m = this.shard(key);
+    const had = m.get(key);
+    if (had === undefined) ++this.size;
+    m.set(key, (had ?? 0) + by);
+  }
+
+  *entries(): IterableIterator<[string, number]> {
+    for (const m of this.shards.values()) yield* m.entries();
+  }
+}
+
 export async function buildReverseIndex(
   reader: IndexReader,
   sink: ByteSink,
@@ -61,7 +96,7 @@ export async function buildReverseIndex(
   // entry list alone cannot reproduce it: the corpus was windowed to ~40
   // chars per *position*, so a string's left context can overflow one
   // window and arrive as a prefix of the next position's entry instead.
-  const c = new Map<string, number>();
+  const c = new BigCounter();
   const walker = await IndexWalker.create(reader, reader.root(), reader.count());
   while (walker.text !== null) {
     const count = walker.count;
@@ -76,11 +111,10 @@ export async function buildReverseIndex(
     for (;;) {
       const cut = bare.indexOf(" ", from);
       if (cut === -1) break;
-      const aligned = bare.slice(0, cut);
-      c.set(aligned, (c.get(aligned) ?? 0) + count);
+      c.add(bare.slice(0, cut), count);
       from = cut + 1;
     }
-    if (wordFinal) c.set(bare, (c.get(bare) ?? 0) + count);
+    if (wordFinal) c.add(bare, count);
     await walker.next();
   }
   // Multiplicity of t as a *maximal* occurrence: its count minus its
@@ -88,19 +122,17 @@ export async function buildReverseIndex(
   // counted by exactly one such extension, so m ≥ 0). Emitting rev(t) with
   // m makes reverse prefix counts telescope back to c exactly:
   //   Σ_{t ⊇suffix s} m(t) = Σ c(t) − Σ_{u ⊋ s} c(u) = c(s).
-  const leftExt = new Map<string, number>();
-  for (const [text, count] of c) {
+  const leftExt = new BigCounter();
+  for (const [text, count] of c.entries()) {
     const cut = text.indexOf(" ");
     if (cut === -1) continue;
-    const shorter = text.slice(cut + 1);
-    leftExt.set(shorter, (leftExt.get(shorter) ?? 0) + count);
+    leftExt.add(text.slice(cut + 1), count);
   }
-  const reversed = new Map<string, number>();
-  for (const [text, count] of c) {
+  const reversed = new BigCounter();
+  for (const [text, count] of c.entries()) {
     const m = count - (leftExt.get(text) ?? 0);
     if (m <= 0) continue;
-    const entry = `${[...text].reverse().join("")} `;
-    reversed.set(entry, (reversed.get(entry) ?? 0) + m);
+    reversed.add(`${[...text].reverse().join("")} `, m);
   }
   writeEntries(new IndexWriter(sink), [...reversed.entries()]);
   return reversed.size;
