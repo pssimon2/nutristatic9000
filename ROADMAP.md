@@ -374,10 +374,52 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Not done: `dataNeeds` on the construct rows (C4's sketch). The mapping lives
   on the provider instead, checked against the catalogue so a renamed
   construct cannot leave a dataset pointing at a name nothing can write.
-- [ ] **C7. WASM eligibility from the plan.** `wasm-session.ts:251`
-  ("parse exactly like compileQuery") re-parses the query — decide kernel
-  eligibility from the AST/Plan instead (automaton-only slots → kernel;
-  predicates/transforms handled around it). Delete the duplicate parse.
+- [x] **C7. WASM eligibility from the plan.** *(delivered by C1 and the
+  single parser; verified 2026-08-17 rather than assumed.)* The duplicate
+  parse this item was written against is gone: `parseExprBox` now has exactly
+  one caller, `compileConjuncts`, and `compileQuery`, `planQuery`,
+  `WasmSession` and `languageEmptiness` all go through it. The kernel does not
+  re-parse; it stops before `makeFilter` because it wants the conjuncts
+  unmaterialized, which is the same parse, not another one.
+  "Automaton-only slots → kernel, predicates and transforms handled around it"
+  is also how it already works: the page peels the output wrappers and the
+  worker peels the predicates before a session is built, so what the kernel is
+  handed is automaton-only. Checked: `{palindrome:A{5}}`, `{compound 2:A{9}}`
+  and `{syllables=3:A{7}}` all reach it as a bare `A{n}`.
+  Eligibility itself stays a try-and-fall-back rather than a prediction, which
+  is GR5's rule — the kernel is an acceleration that must degrade gracefully,
+  and an attempt that throws `WasmCapacityError` is a more honest test than a
+  static guess at what the kernel can hold.
+
+- [x] **C8. Stop a streamed run that has stopped producing.** *(Added
+  2026-08-17, not in the original plan.)* Over a streamed index the head
+  sidecar answers in well under a second, and what the index adds afterwards
+  varies enormously. Measured on the deployed English index: `A{5}&C*` went
+  from 77 results to 1,027 over the next seventeen seconds, while
+  `{palindrome:A{5}}` and `A{7}&.*zz.*` spent the whole twenty-second budget
+  adding nothing — the walk paying a round trip per region and finding none of
+  them relevant. The page said "searching…" for twenty seconds and then showed
+  exactly what it had shown at 0.8 s.
+  `src/run-limiter.ts` adds a stall cap beside the byte and time caps: stop
+  when nothing has reached the reader for six seconds. Six comes from the
+  productive case, not the wasteful one — `A{5}&C*`'s longest gap before the
+  flood was 3.9 s. It is counted on results *posted*, not matches made, because
+  a `{palindrome:…}` run matches candidates the whole time and shows none.
+  A "continue" carries no stall cap at all: a reader who asked to keep
+  searching has said the wait is worth it.
+  Extracting it found the real bug. The clock was read every 1,024 steps, on
+  the reasoning that this is far finer than the seconds it measures — true of a
+  memory walk, false of a step that is a round trip. `{palindrome:A{5}}`
+  stopped at exactly 1,024 steps having spent 15 s and 49.8 MB reaching the
+  first check. It is 64 now, which costs nothing: the limiter is only built
+  when the index is remote.
+  Measured on the deployed site, before and after:
+
+  | query | settled | fetched | results |
+  |---|---|---|---|
+  | `{palindrome:A{5}}` | 20.2 s → **7.4 s** | 49.8 → **21.1 MB** | 60 → 60 |
+  | `A{7}&.*zz.*` | 20.6 s → **7.0 s** | 48.2 → **20.8 MB** | 21 → 21 |
+  | `A{5}&C*` | 17.4 s → 16.6 s | — | 1,027 → 1,027 |
 
 ## Phase E — Engine algebra & clarity dividends
 

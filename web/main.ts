@@ -30,6 +30,26 @@ const MAX_COMPUTATION = 1000000; // local step budget (same default as upstream)
 // answers people were getting.
 const RANGE_BYTE_BUDGET = 64 * 1024 * 1024; // ~64 MB fetched per run…
 const RANGE_TIME_MS = 20000; //               …or ~20 s, whichever comes first
+/**
+ * Give up on a first run that has stopped producing.
+ *
+ * Over a streamed index the top of the answer arrives from the head sidecar in
+ * well under a second, and what the index adds after that varies enormously.
+ * Measured on the deployed English index: `A{5}&C*` went from 77 results to
+ * 1,027 over the following seventeen seconds, while `{palindrome:A{5}}` and
+ * `A{7}&.*zz.*` spent the whole twenty-second budget adding nothing at all —
+ * the walk was paying a round trip per region and finding none of them
+ * relevant. A page that says "searching…" for twenty seconds and then shows
+ * exactly what it showed at 0.8 s is worse than one that settles.
+ *
+ * So: stop when nothing has arrived for a while, rather than when the clock
+ * runs out. The threshold is set from the productive case — `A{5}&C*`'s
+ * longest gap between results before the flood was 3.9 s — with half again on
+ * top, so the searches worth continuing are not cut off. "Keep searching" is
+ * still there, and a reader who clicks it gets the full budget with no stall
+ * cap at all.
+ */
+const RANGE_STALL_MS = 6000;
 const RANGE_STEP_CEILING = 8000000;
 const PER_RUN_RESULTS = 1000;
 
@@ -547,6 +567,14 @@ function runBudget(): { maxSteps: number; byteBudget: number; timeMs: number } {
   return { maxSteps: currentComp, byteBudget: 0, timeMs: 0 };
 }
 
+/**
+ * A first run's budget: the same, plus the stall cap. "Continue" deliberately
+ * uses `runBudget` without it — see RANGE_STALL_MS.
+ */
+function firstRunBudget(): ReturnType<typeof runBudget> & { stallMs: number } {
+  return { ...runBudget(), stallMs: indexMode === "range" ? RANGE_STALL_MS : 0 };
+}
+
 // Multi-slot: several patterns in one query, separated by ";". A hunt rarely
 // has one slot — it has twelve answers and an extraction that reads a letter
 // from each — and that is work solvers currently do by hand *between*
@@ -731,8 +759,8 @@ function runNextSlot(): void {
  * the right way round: the early slots are the ones whose answers the reader
  * is most likely to be choosing between.
  */
-function slotBudget(): { maxSteps: number; byteBudget: number; timeMs: number } {
-  const budget = runBudget();
+function slotBudget(): ReturnType<typeof firstRunBudget> {
+  const budget = firstRunBudget();
   if (budget.byteBudget === 0) return budget; // local index: no byte cost
   if (slotRetry) return budget; // asked for: a full budget for each slot
   const left = RANGE_BYTE_BUDGET - slotBytesSpent;
@@ -861,7 +889,7 @@ function startSearch(query: string): void {
     maxResults: rankSpec
       ? Math.min(Math.max(rankSpec.to, rankSpec.from + PER_RUN_RESULTS), 20000)
       : PER_RUN_RESULTS,
-    ...runBudget(),
+    ...firstRunBudget(),
   });
 }
 

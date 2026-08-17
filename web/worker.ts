@@ -16,6 +16,7 @@ import type { WordCheck } from "../src/compound.js";
 import { suggestKinds } from "../src/categories.js";
 import { nearestTo } from "../src/neighbours.js";
 import { DATA_PROVIDERS, providersFor } from "../src/data-providers.js";
+import { makeRunLimiter } from "../src/run-limiter.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilters, nearOrderKey } from "../src/result-predicate.js";
 import { shapeOfQuery } from "../src/query-shape.js";
@@ -855,6 +856,8 @@ async function runSession(
   maxResults: number,
   byteBudget: number,
   timeMs: number,
+  /** Stop when nothing has been produced for this long. 0 on a continue. */
+  stallMs: number,
   // The search handler captures its token at message receipt, so a slow
   // engine-creation await can't let an older query outrank a newer one.
   givenToken?: number,
@@ -862,25 +865,14 @@ async function runSession(
   if (!session) return;
   const token = givenToken ?? ++runToken;
   let active = session;
-  // Range-mode cost cap: stop after byteBudget bytes fetched or timeMs elapsed
-  // since this run began (steps are only the safety ceiling remotely). Not
-  // applied in memory/disk mode, where there is no fetch cost.
+  // Range-mode cost cap: bytes, time, and a stall cap on results reaching the
+  // reader. Not applied in memory/disk mode, where there is no fetch cost —
+  // see src/run-limiter.ts for what each one is for and why.
   const rs = rangeSource;
-  const startBytes = rs?.bytesFetched ?? 0;
-  const startTime = Date.now();
-  // Consulted once per step, so the common answer has to be cheap: the byte
-  // test is two field reads, and the clock — the expensive half — is only
-  // read every 1,024 calls, which at any plausible step rate is far finer
-  // than the 20 s it is measuring.
-  let ticks = 0;
-  const shouldStop =
-    rs && (byteBudget > 0 || timeMs > 0)
-      ? () =>
-          (byteBudget > 0 && rs.bytesFetched - startBytes >= byteBudget) ||
-          (timeMs > 0 &&
-            (++ticks & 1023) === 0 &&
-            Date.now() - startTime >= timeMs)
-      : undefined;
+  const limiter = rs
+    ? makeRunLimiter(() => rs.bytesFetched, { byteBudget, timeMs, stallMs })
+    : null;
+  const shouldStop = limiter ? () => limiter.shouldStop() : undefined;
   const engineOf = (s: typeof active) => (s instanceof WasmSession ? "wasm" : "js");
   const onProgress = (steps: number) => {
     if (token !== runToken) return; // superseded: stop talking to the UI
@@ -908,6 +900,11 @@ async function runSession(
       pending.push(r);
       return;
     }
+    // Deliberately here and not above: the stall cap measures what has
+    // reached the reader, not what the automaton matched. A `{palindrome:…}`
+    // run matches candidates the whole time and shows none of them, and from
+    // the reader's side that is a search that has stopped producing.
+    limiter?.noteResult();
     post({ type: "result", score: r.score, text: r.text });
   };
   const flushPending = async (): Promise<void> => {
@@ -1158,7 +1155,14 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           }
         }
         if (token !== runToken) return; // superseded during setup
-        await runSession(msg.maxSteps, msg.maxResults, msg.byteBudget ?? 0, msg.timeMs ?? 0, token);
+        await runSession(
+          msg.maxSteps,
+          msg.maxResults,
+          msg.byteBudget ?? 0,
+          msg.timeMs ?? 0,
+          msg.stallMs ?? 0,
+          token,
+        );
         break;
       }
       case "continue": {
@@ -1192,7 +1196,15 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // run will answer. (A stale run of a REPLACED session doesn't match
         // and must not block — dropping here would hang the UI.)
         if (activeRunSession === session) break;
-        await runSession(msg.maxSteps, msg.maxResults, msg.byteBudget ?? 0, msg.timeMs ?? 0);
+        // A continue carries no stall cap: asking to keep searching is saying
+        // the wait is worth it.
+        await runSession(
+          msg.maxSteps,
+          msg.maxResults,
+          msg.byteBudget ?? 0,
+          msg.timeMs ?? 0,
+          0,
+        );
         break;
       }
       case "download-full": {

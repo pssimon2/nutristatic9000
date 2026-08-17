@@ -57,6 +57,12 @@ export interface SearchMsg {
   // (0 = disabled). The real cost limiter remotely — steps are the ceiling.
   byteBudget?: number;
   timeMs?: number;
+  /**
+   * Range mode only: stop when no result has been produced for this long
+   * (0 = disabled). Sent on a first run and not on a "continue", because a
+   * reader who asked to keep searching has said the wait is worth it.
+   */
+  stallMs?: number;
 }
 
 export interface ContinueMsg {
