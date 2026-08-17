@@ -648,8 +648,12 @@ function runNextSlot(): void {
     categoriesUrl: dataUrl("categories.txt"),
     stressUrl: dataUrl("stress.txt"),
     listsUrl: dataUrl("lists.txt"),
-    // Only the head of each slot matters; the extraction reads the top answer.
-    maxResults: 3,
+    // The picker shows three candidates, and asking for exactly three left it
+    // short: respellings of one answer ("solar system", "so lar system")
+    // arrive in a run right behind it and are dropped, so three fetched could
+    // become one offered. Fetch enough to survive that; the extra results are
+    // cheap, since they come from a walk that has already found the first.
+    maxResults: 12,
     ...runBudget(),
   });
 }

@@ -714,6 +714,12 @@ const slotLetters = slotCands.map((t) => t.replaceAll(" ", ""));
 if (new Set(slotLetters).size !== slotLetters.length) {
   throw new Error(`two spellings of one answer both offered: ${slotCands.join(", ")}`);
 }
+// …and dropping them must not leave the picker short. Both slots here have
+// plenty of distinct answers, so both should offer the full three: fetching
+// exactly three and then discarding respellings is how this went wrong.
+if (slotCands.length !== 6) {
+  throw new Error(`expected three candidates per slot, got ${slotCands.length}: ${slotCands.join(", ")}`);
+}
 
 // …but when the extraction counts *words*, the split is the answer:
 // `{at 2.1:…}` takes the first letter of the second word, which is "s" of
