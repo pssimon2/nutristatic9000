@@ -111,6 +111,19 @@ describe("what is offered", () => {
   });
 });
 
+describe("soft constructs and captures", () => {
+  it("completes {~ to the soft variants", () => {
+    expect(labels("{~")).toContain("~near:");
+    expect(labels("{~ne")).toEqual(["~near:"]);
+    expect(inserts("{~li")).toContain("list:"); // the ~ is already typed
+  });
+
+  it("mentions the capture atom when nothing is typed yet", () => {
+    const all = completionsAt("{", 1, lists).items;
+    expect(all.some((i) => i.label === "=name:")).toBe(true);
+  });
+});
+
 describe("every completion is something the engine accepts", () => {
   const ctx = new SessionContext();
 

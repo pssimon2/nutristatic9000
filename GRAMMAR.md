@@ -260,8 +260,10 @@ concatenated beside a neighbour, or alternated.
    `>`, `>=`, `a..b`), edits take `(letters)`, relations take `a,b` names.
    `parseFilterSpec` and `parseValueRange` are the shared grammars.
 
-5. **The completion menu offers predicates at the start of the query only**,
-   although they parse anywhere — typing one by hand works everywhere.
+5. **The completion menu knows the whole language.** Constructs complete
+   anywhere a `{` is typed, `{~` offers the soft variants, and the bare `{`
+   menu mentions the `{=name:…}` capture atom, all generated from the same
+   catalogue the parser dispatches on.
 
 ---
 

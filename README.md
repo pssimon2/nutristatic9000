@@ -24,11 +24,16 @@ Deployment notes specific to this fork:
 
       npm run build-head -- /path/to/en-wiki.index --out web/heads/en-wiki.head
 
-  Keep the built heads in `web/heads/` (gitignored) and copy them into
-  `web/dist/` as part of every deploy — `cp web/heads/*.head web/dist/` before
-  the rsync. They must NOT live only in `web/dist/`: a rebuild empties dist,
-  and a deploy with `--delete` then removes every head from the server, which
-  fails in the quiet way described below.
+  Keep the built heads in `web/heads/` (gitignored). Deploy with
+
+      NUTRISTATIC9000_DEPLOY=user@host:/srv/nutristatic9000 npm run deploy
+
+  which builds, copies the heads into `web/dist/` (refusing to deploy if
+  `web/heads/` is empty), rsyncs, and runs `check-deployed`. The heads must
+  NOT live only in `web/dist/`: a rebuild empties dist, and a hand-rolled
+  rsync `--delete` would then remove every head from the server, which fails
+  in the quiet way described below — the deploy script exists so that
+  sequence cannot be mis-typed.
 
   12 MB on disk, 3.8 MB over the wire, a few seconds to build; the 23 streamed
   indexes come to 272 MB on the server. A loop over `*-merged.index` misses

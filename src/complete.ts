@@ -15,6 +15,7 @@ import {
   GROUP_BLURB,
   qualifiedName,
 } from "./constructs.js";
+import { SOFT_NAMES } from "./construct-table.js";
 import { WikiLists, listNames } from "./word-lists.js";
 
 /**
@@ -38,7 +39,7 @@ export interface Completion {
 /** The token under the cursor, and where it starts. */
 export interface Token {
   /** What is being completed. */
-  kind: "construct" | "listname" | "kindname" | "none";
+  kind: "construct" | "soft" | "listname" | "kindname" | "none";
   /** The partial text typed so far. */
   prefix: string;
   /** Index in the query where `prefix` begins. */
@@ -87,6 +88,16 @@ export function tokenAt(query: string, cursor: number): Token {
       kind: "listname",
       prefix: anagramList[1],
       start: cursor - anagramList[1].length,
+    };
+  }
+
+  // `{~ne` — a soft construct: the boost-not-filter word lookups.
+  const soft = /\{\s*~\s*([a-z]*)$/i.exec(before);
+  if (soft) {
+    return {
+      kind: "soft",
+      prefix: soft[1].toLowerCase(),
+      start: cursor - soft[1].length,
     };
   }
 
@@ -160,6 +171,39 @@ function constructCompletions(prefix: string): Completion[] {
     });
   }
 
+  // With nothing typed yet, mention the capture atom — it has no name to
+  // complete, but it is invisible without a menu entry.
+  if (prefix === "") {
+    out.push({
+      score: 1, // ties with the constructs; "=" sorts it first as a hint
+      insert: "=",
+      label: "=name:",
+      detail: "capture: name this span for {eq/rev/shift a,b:…}",
+      example: "{rev a,b:{=a:A{4}} {=b:A{4}}}",
+    });
+  }
+
+  out.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
+  return out.map(({ score, ...rest }) => rest);
+}
+
+/** The soft (`{~name:…}`) variants: boost instead of filter. */
+function softCompletions(prefix: string): Completion[] {
+  const out: Array<Completion & { score: number }> = [];
+  for (const name of SOFT_NAMES) {
+    const score = rank(name, prefix);
+    if (score < 0) continue;
+    const base = CONSTRUCTS.find((c) => c.name === name);
+    out.push({
+      score,
+      insert: `${name}:`,
+      label: `~${name}:`,
+      detail: `soft — boost, don't filter: ${base?.summary ?? name}`,
+      example: name === "list" ? "{~list:red,green,blue}&A{5}" : `{~${name}:${
+        base?.example.replace(/^\{[a-z]+:/, "").replace(/\}$/, "") ?? "…"
+      }}&A{5}`,
+    });
+  }
   out.sort((a, b) => b.score - a.score || a.label.localeCompare(b.label));
   return out.map(({ score, ...rest }) => rest);
 }
@@ -202,6 +246,8 @@ export function completionsAt(
   const items =
     token.kind === "construct"
       ? constructCompletions(token.prefix)
-      : listCompletions(token.prefix, lists);
+      : token.kind === "soft"
+        ? softCompletions(token.prefix)
+        : listCompletions(token.prefix, lists);
   return { token, items: items.slice(0, limit) };
 }
