@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as fs from "node:fs";
 import { Nfa } from "../src/automata.js";
 import { parseExpr } from "../src/expr-parse.js";
 import { compileQuery } from "../src/find-expr.js";
@@ -268,5 +269,38 @@ describe("the fetched catalogue", () => {
     expect(suggestList("romandeity", cat)).toBe("romandeities");
     expect(suggestList("dishes", cat)).toBe("frenchdishes");
     expect(suggestList("zzzzzz", cat)).toBeNull();
+  });
+});
+
+// The catalogue's entries are members, not table columns.
+//
+// "List of breads" is a table whose columns are Name, Type and Place of origin,
+// and every cell was becoming an entry — so the list read "anadama bread, yeast
+// bread, anpan, sweet bun, japan, …". Reported as "some lists have a ton of
+// countries in them rather than the content".
+describe("the harvested catalogue", () => {
+  const lists = parseWikiLists(
+    fs.readFileSync("web/public/lists.txt", "utf8"),
+  );
+
+  it("has a breads list made of breads", () => {
+    const breads = lists.entries.get("breads");
+    expect(breads, "no breads list in the catalogue").toBeTruthy();
+    expect(breads!.length).toBeGreaterThan(100);
+    // The countries that used to be in it, from the place-of-origin column.
+    for (const stray of ["japan", "taiwan", "jordan", "france", "poland", "tibet"]) {
+      expect(breads, `${stray} is a place, not a bread`).not.toContain(stray);
+    }
+  });
+
+  it("does not carry places into other food lists either", () => {
+    // The same table shape, so the same failure would show here.
+    for (const name of ["cheeses", "sausages", "soups"]) {
+      const list = lists.entries.get(name);
+      if (!list) continue;
+      for (const stray of ["france", "japan", "italy", "germany"]) {
+        expect(list, `${name} contains ${stray}`).not.toContain(stray);
+      }
+    }
   });
 });
