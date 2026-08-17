@@ -112,18 +112,24 @@ export async function fetchIdxzPrefix(
 /**
  * Fewest blocks the cache may hold.
  *
- * The cache is a budget, not a correctness mechanism — a block being read is
- * protected by the pin, and a fetch protects its own span — but below about
- * two dozen blocks those protections stop being sufficient in practice: with a
- * cache of 8 or 16, `A{5}&C*` over the demo index dies with "byte … not
- * ensured" on a block the pin names, while its neighbours are still resident.
- * 32 is enough for that query and 4096 is the default, so nothing real gets
- * near this; the floor exists so the failure cannot be configured into being
- * while the interaction that causes it is unexplained.
+ * There is exactly one pin span, and it is overwritten by whichever `ensure`
+ * ran most recently. That is correct only while at most one read is ever
+ * pending, and traced against the demo index it is not: a block was evicted
+ * with the pin sitting on an unrelated span —
  *
- * Sized against what one fetch can bring in: MAX_READAHEAD_BLOCKS of
- * read-ahead, several such fetches in flight at once under a prefetching
- * driver, and the span being read on top.
+ *   EVICT 625 keep[332,340] pin[213,213]
+ *
+ * — and the read that had ensured 625 then failed with "byte … not ensured".
+ * It is a race, so it appears in roughly three runs in five, and only when the
+ * cache is small enough that anything gets evicted at all: 8 and 16 blocks
+ * fail, 32 and up do not, and the default is 4096.
+ *
+ * The real repair is a pin that several pending reads can hold at once, which
+ * means an acquire/release on `ByteSource` and both sources changed to match.
+ * This is the floor that keeps the race out of reach until then — sized
+ * against what one fetch brings in (MAX_READAHEAD_BLOCKS of read-ahead,
+ * several such fetches in flight under a prefetching driver, plus the span
+ * being read).
  */
 export const MIN_CACHE_BLOCKS = 64;
 

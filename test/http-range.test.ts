@@ -192,10 +192,12 @@ describe("every source returns the same results", () => {
 
 describe("the block cache floor", () => {
   it("cannot be configured below what the fetches need", async () => {
-    // A cache of 8 or 16 blocks made `A{5}&C*` die with "byte … not ensured"
-    // on a block the pin names. Nothing real asks for a cache that small —
-    // the default is 4096 — so the floor removes the failure rather than
-    // leaving it configurable while its cause is unexplained.
+    // A cache of 8 or 16 blocks made `A{5}&C*` die with "byte … not ensured",
+    // in about three runs in five. Tracing it showed a block evicted while a
+    // read of it was pending, because the single pin span had been overwritten
+    // by a later ensure — see MIN_CACHE_BLOCKS. Nothing real asks for a cache
+    // that small (the default is 4096), so the floor keeps the race out of
+    // reach; fixing it properly needs a pin several readers can hold.
     const source = await CompressedRangeSource.open(
       `${baseUrl}/demo.index`,
       data.length,

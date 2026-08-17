@@ -514,6 +514,17 @@ Goal: mechanical, low-risk changes that everything later depends on.
   results. Uncompressed: `<aaagmnr>` 0 results at 84.6 MB → 20 results at
   52.6 MB. 4 was better again on bytes but lost more to round-trips.
   Measured on both paths rather than changing one by analogy with the other.
+- [ ] **E13. A pin several pending reads can hold.** `CompressedRangeSource`
+  (and `HttpRangeSource`) keep one pin span, overwritten by whichever `ensure`
+  ran last, which is only correct while at most one read is pending. Traced on
+  2026-08-17 against the demo index with a deliberately small cache: a block
+  was evicted with the pin on an unrelated span
+  (`EVICT 625 keep[332,340] pin[213,213]`) and the read that had ensured it
+  failed with "byte … not ensured", in roughly three runs in five. Needs
+  acquire/release on `ByteSource` so overlapping reads each hold their own
+  span. `MIN_CACHE_BLOCKS = 64` keeps it out of reach meanwhile — 8 and 16
+  blocks fail, 32 and up do not, and the default is 4096 — so nothing real is
+  exposed, but the invariant is wrong rather than merely untested.
 - [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
   pattern language + only predicate-level narrowing ⇒ warn "unbounded
   search; the {palindrome} filter cannot prune — add a length or a
