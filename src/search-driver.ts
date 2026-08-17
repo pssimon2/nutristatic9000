@@ -196,6 +196,8 @@ export class SearchDriver {
   private readonly seen = new Set<string>();
   private readonly prefetchDepth: number;
   private readonly scoreFloor: number;
+  /** Set when the filter carries acceptance weights (W1). */
+  private readonly weighted: boolean;
   /** Best score emitted so far, for the score-floor cutoff. */
   private best = 0;
 
@@ -208,6 +210,7 @@ export class SearchDriver {
   ) {
     this.prefetchDepth = opts.prefetchDepth ?? 0;
     this.scoreFloor = opts.scoreFloor ?? 0;
+    this.weighted = filter.acceptWeight !== undefined;
     this.frontier.push(-1, startState, 0, 1.0, reader.count(), reader.root());
   }
 
@@ -235,6 +238,15 @@ export class SearchDriver {
     // drop it unexpanded. (Pushes are refused too; this catches entries that
     // were above the floor when pushed and sank as `best` rose.)
     if (f.topCount * f.topScale < this.cutoff()) return false;
+
+    // A deferred emission (W1), marked by a bit-flipped (negative) state —
+    // a leaf's `next` can legitimately be negative, so `next` cannot be the
+    // marker. An accepted match whose weight pushed its score below its walk
+    // priority re-entered the heap at its *exact* weighted score, so popping
+    // it here is exactly its turn — weighted results stream in true
+    // descending order. Its node was expanded when it was first popped; only
+    // the emission is left.
+    if (f.topState < 0) return this.emitTop();
 
     if (this.prefetchDepth > 0) {
       // The heap's first entries are the likeliest next pops; start their
@@ -304,25 +316,50 @@ export class SearchDriver {
     }
 
     if (this.filter.isAccepting(f.topState) && f.topCrumb !== -1) {
-      let len = 0;
-      for (let i = f.topCrumb; i >= 0; i = this.crumbs.parent[i]) ++len;
-
-      const buffer = new Array<number>(len);
-      buffer[--len] = f.topCh;
-      for (let i = f.topCrumb; i >= 0 && len > 0; i = this.crumbs.parent[i]) {
-        buffer[--len] = this.crumbs.ch[i];
+      if (this.weighted) {
+        const w = this.filter.acceptWeight!(f.topState);
+        if (w < 1) {
+          // Not this entry's turn: re-enter the heap at the exact weighted
+          // score, and emit when it surfaces. Weight 0 is a soft reject.
+          if (w > 0 && f.topScale * w * f.topCount >= this.cutoff()) {
+            f.push(
+              f.topCrumb,
+              ~f.topState,
+              f.topCh,
+              f.topScale * w,
+              f.topCount,
+              f.topNext,
+            );
+          }
+          return false;
+        }
       }
-
-      const text = String.fromCharCode(...buffer);
-      if (!this.seen.has(text)) {
-        this.seen.add(text);
-        this.text = text;
-        this.score = f.topScale * f.topCount;
-        if (this.score > this.best) this.best = this.score;
-        return true;
-      }
+      return this.emitTop();
     }
 
+    return false;
+  }
+
+  /** Emit the popped entry's text, if it is new. */
+  private emitTop(): boolean {
+    const f = this.frontier;
+    let len = 0;
+    for (let i = f.topCrumb; i >= 0; i = this.crumbs.parent[i]) ++len;
+
+    const buffer = new Array<number>(len);
+    buffer[--len] = f.topCh;
+    for (let i = f.topCrumb; i >= 0 && len > 0; i = this.crumbs.parent[i]) {
+      buffer[--len] = this.crumbs.ch[i];
+    }
+
+    const text = String.fromCharCode(...buffer);
+    if (!this.seen.has(text)) {
+      this.seen.add(text);
+      this.text = text;
+      this.score = f.topScale * f.topCount;
+      if (this.score > this.best) this.best = this.score;
+      return true;
+    }
     return false;
   }
 }

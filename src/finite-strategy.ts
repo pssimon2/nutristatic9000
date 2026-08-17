@@ -110,6 +110,11 @@ export function finiteCandidates(
   conjuncts: Conjunct[],
   cap: number = CANDIDATE_CAP,
 ): FiniteCandidates | null {
+  // A weighted conjunct (W1) scores matches; testing a list scores them by
+  // index lookup alone and would drop the weights. The walk handles weights.
+  for (const c of conjuncts) {
+    if (!isNegated(c) && c.finalWeight !== undefined) return null;
+  }
   let best: FiniteCandidates | null = null;
   for (let i = 0; i < conjuncts.length; ++i) {
     const c = conjuncts[i];

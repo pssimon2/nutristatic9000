@@ -309,7 +309,7 @@ export function mentionsConstruct(query: string, names: string[]): boolean {
   // Not \b: a name may be followed by spec digits ("{shift13 a,b:…}",
   // "{del1:…}"), and a digit is a word character, so \b missed exactly those.
   // A letter would make it a longer name; anything else starts the spec.
-  return new RegExp(`\\{\\s*(?:[a-z]+\\.)?(?:${alt})(?![a-z])`, "i").test(query);
+  return new RegExp(`\\{\\s*~?\\s*(?:[a-z]+\\.)?(?:${alt})(?![a-z])`, "i").test(query);
 }
 
 /** Closest known construct name, when it's close enough to be a typo. */

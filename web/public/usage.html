@@ -147,6 +147,20 @@ crosswords; the search box applies the same folding to whatever you type.
 <p>This build adds features on top of the original Nutristatic. So far:</p>
 
 <ul>
+<li><b>Weighted search — <tt>{~near:king}</tt>, <tt>{edit:cargo}</tt></b>.
+A soft construct boosts instead of filtering: <tt>{~near:king}</tt>,
+<tt>{~rhyme:day}</tt>, <tt>{~homo:knight}</tt>, <tt>{~like:reluctant}</tt>,
+<tt>{~kind:bird}</tt> and <tt>{~list:red,green,blue}</tt> match everything the
+rest of the query allows, scoring known words at full weight (for
+<tt>~near</tt>, decaying with distance) and everything else at a hundredth —
+so the members surface first and the rest still follows.
+<tt>{edit:cargo}</tt> with no bound is the graded edit: up to three edits,
+each dividing the score so hard that results stream strictly by damage —
+CARGO, then every one-edit word, then two.
+Both score matches, so they join a query with <tt>&amp;</tt> (or stand alone)
+rather than nesting inside a longer pattern; the engine orders weighted
+results exactly, no re-sorting.
+
 <li><b>Captures and relations — <tt>{=a:…}</tt>, <tt>{eq a,b:…}</tt>,
 <tt>{rev a,b:…}</tt>, <tt>{shift a,b:…}</tt></b>. Name the span a pattern
 covers with <tt>{=name:…}</tt>, then relate two names: <tt>eq</tt> says they

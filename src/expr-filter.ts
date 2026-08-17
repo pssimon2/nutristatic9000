@@ -40,6 +40,12 @@ export interface Filter {
   transition(state: number, ch: number): number;
   /** Lazy DFA states built so far, for Stats. Free to read. */
   readonly stateCount: number;
+  /**
+   * Acceptance weight (W1): ≤ 1, multiplied into an accepted match's score.
+   * Absent on unweighted filters, which is the zero-overhead path — the
+   * driver checks once, not per step. Only meaningful on accepting states.
+   */
+  acceptWeight?(state: number): number;
 }
 
 export class ExprFilter implements Filter {
@@ -49,6 +55,13 @@ export class ExprFilter implements Filter {
   private trans: Int32Array; // [state*NSYM+sym]: target, DEAD, or UNCOMPUTED
   private accepting: number[] = [];
   private members: number[][] = []; // NFA state set per DFA state
+  /** Memoised acceptance weights, when the NFA carries them. */
+  private weights: number[] = [];
+  /**
+   * Present only when the NFA carries weights, so an unweighted filter has
+   * no `acceptWeight` at all and the driver's fast path stays fast.
+   */
+  acceptWeight?: (state: number) => number;
 
   /** Lazy DFA states interned so far. */
   get stateCount(): number {
@@ -77,6 +90,13 @@ export class ExprFilter implements Filter {
     this.nfa = parsedExpr;
     this.closures = new Array(parsedExpr.arcs.length).fill(null);
     this.trans = new Int32Array(0);
+    if (parsedExpr.finalWeight !== undefined && parsedExpr.finalWeight.size > 0) {
+      // The best (largest) weight among the accepting members: the match
+      // could have arrived via any of them, and priority must stay an upper
+      // bound. Where members separate the weights — the edit automaton keeps
+      // its levels apart — this is simply the least-damaged reading.
+      this.acceptWeight = (state) => this.weights[state];
+    }
     this.startState = this.intern(this.closeSet([parsedExpr.start]));
   }
 
@@ -151,6 +171,15 @@ export class ExprFilter implements Filter {
       }
     }
     this.accepting.push(acc);
+    if (this.acceptWeight !== undefined) {
+      let w = 0;
+      for (const s of sorted) {
+        if (!this.nfa!.finals.has(s)) continue;
+        const fw = this.nfa!.finalWeight!.get(s) ?? 1;
+        if (fw > w) w = fw;
+      }
+      this.weights.push(acc === 0 ? 1 : w);
+    }
 
     if ((id + 1) * NSYM > this.trans.length) {
       const grown = new Int32Array(Math.max(64 * NSYM, this.trans.length * 2));
@@ -250,9 +279,25 @@ export class ProductFilter implements Filter {
   private slots = new Int32Array(1 << 12); // power of two, 0 = empty
   private slotMask = (1 << 12) - 1;
 
+  /** Present only when some component is weighted. */
+  acceptWeight?: (state: number) => number;
+
   constructor(subs: Filter[]) {
     this.subs = subs;
     this.width = this.subs.length;
+    if (subs.some((f) => f.acceptWeight !== undefined)) {
+      this.acceptWeight = (state) => {
+        let w = 1;
+        const base = state * this.width;
+        for (let i = 0; i < this.width; ++i) {
+          const sub = this.subs[i];
+          if (sub.acceptWeight !== undefined) {
+            w *= sub.acceptWeight(this.pool[base + i]);
+          }
+        }
+        return w;
+      };
+    }
     this.startState = this.intern(this.subs.map((f) => f.startState));
   }
 

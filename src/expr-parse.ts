@@ -34,7 +34,7 @@ import {
   optimize,
 } from "./automata.js";
 import { Conjunct, isNegated } from "./conjunct.js";
-import { CONSTRUCTS } from "./construct-table.js";
+import { CONSTRUCTS, softConjunct } from "./construct-table.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import { FilterError, parseFilterSpec } from "./result-filter.js";
@@ -134,6 +134,19 @@ export class Box {
    * negation can still hit a limit, and it says so.
    */
   materialize(): Nfa {
+    // A weighted conjunct's weights live on its final states, and every
+    // combinator here renumbers or merges finals — the weights would be
+    // silently dropped. Weighted constructs are conjunct-level by design.
+    for (const c of this.and) {
+      if (!isNegated(c) && c.finalWeight !== undefined) {
+        throw new ParseError(
+          "",
+          "a soft construct ({~…}) or graded {edit:…} scores matches, so it " +
+            "joins the query with \"&\" (or stands alone) — it can't sit " +
+            "inside a group, a union, a quantifier or a longer pattern",
+        );
+      }
+    }
     if (this.and.some(isNegated)) {
       this.and = this.and.map((c) => {
         if (!isNegated(c)) return c;
@@ -722,6 +735,23 @@ function parseNamedConstraint(
   quoted: boolean,
   ctx: SessionContext,
 ): number | null {
+  // `{~name:…}` — a soft construct (W2): boost instead of filter.
+  const soft = /^\{\s*~\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
+  if (soft) {
+    const close = s.indexOf("}", i);
+    if (close < 0) return null;
+    const folded = foldName(soft[1].toLowerCase(), soft[2]);
+    box.and = [
+      softConjunct(
+        folded.name,
+        folded.spec,
+        s.slice(i + soft[0].length, close),
+        ctx,
+        constructText(s, i),
+      ),
+    ];
+    return close + 1;
+  }
   const nested = parseNestedPredicate(s, i, box, quoted, ctx);
   if (nested !== undefined) return nested;
   const head = /^\{\s*([a-z][a-z.]*)\s*([^:}]*):/i.exec(s.slice(i));

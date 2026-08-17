@@ -872,19 +872,46 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase W — Weighted search (scores as a composable dimension)
 
-- [ ] **W1. Weighted transitions.** `Filter.transition` optionally returns
-  a weight (≤ 1) with the state; multiply into `scale` at `Frontier.push`.
-  Unweighted filters return 1 — zero overhead path preserved (GR3;
-  benchmark). Priority remains an upper bound ⇒ ordering semantics hold.
-- [ ] **W2. Soft constructs.** `{~near:king}`, `{~rhyme:day}` (syntax:
-  leading `~` in the registry): boost/penalize instead of filter. Ranking
-  falls out of the engine identically in CLI and web.
-- [ ] **W3. Graded edit distance.** `{edit:beast}` with per-edit weight
-  (vs the hard `{edit<=2:…}` cliff): one automaton, results ordered by
-  damage.
-- [ ] **W4. Delete the `nearOrder` hack.** `worker.ts:1719`'s post-hoc
-  sort is subsumed by W2 (or, pre-W1, by a transform from C3). Ensure the
-  CLI/web behavior matches before deleting.
+- [x] **W1. Weighted search.** *(done 2026-08-17, as acceptance weights
+  rather than per-transition ones.)* Per-transition weights break on the
+  epsilon arcs (a deletion edit is an ε) and on subset construction; what
+  the use cases actually need is a weight per *match*, and the automaton's
+  accepting state determines it exactly (the edit automaton keeps its
+  levels apart; a trie keeps its words apart). So: `Nfa.finalWeight`,
+  `Filter.acceptWeight?` (absent = the zero-overhead path, one branch at
+  driver construction), and the driver re-enters a weighted acceptance
+  into its own heap at the exact weighted score, emitting it when it
+  surfaces — ordering is exact, not approximated, and priority stays an
+  upper bound. Weighted conjuncts are conjunct-level only (materialize
+  refuses them: the combinators merge finals and would drop the weights),
+  the finite strategy and the WASM kernel decline them (JS engine runs
+  those queries), and the trailing-space append splits per weight class so
+  the weights survive it. Gotcha found on the way: the deferred-emission
+  sentinel must not live in `next` — a leaf's next is legitimately
+  negative, and marking there silently skipped leaf restarts ("ee a"
+  vanished); it lives in a bit-flipped state instead.
+- [x] **W2. Soft constructs.** *(done 2026-08-17.)* `{~near:king}`,
+  `{~rhyme:day}`, `{~homo:…}`, `{~like:…}`, `{~kind:…}`, `{~list:a,b,…}`:
+  match everything, members weighted at (near) 1 — `~near` decaying 0.9 per
+  closeness rank, floor 0.05 — and everything else at SOFT_PENALTY 0.01.
+  Ranking falls out of the engine identically in CLI and web. Measured:
+  `A{5}&{~list:gamma,alpha}` streams alpha and gamma at full score, then
+  brown and quick at exactly a hundredth.
+- [x] **W3. Graded edit distance.** *(done 2026-08-17.)* `{edit:beast}`
+  with no bound: up to three edits, finals at level e weighted
+  GRADED_EDIT_DAMAGE^e (1e-12 — larger than any corpus-frequency ratio, so
+  the stream is strictly damage-tiered). One automaton; the derived
+  "cargo g→l" notes still attach. Measured on en-wiki: CARGO first at full
+  score, then carlo/fargo/caro/largo/argo/margo, then the two-edit tail.
+- [~] **W4. Delete the `nearOrder` hack.** *(assessed and declined
+  2026-08-17 — the premise fails in floating point.)* `{near:king}` orders
+  its results purely by closeness; for engine weights to reproduce that,
+  each rank's weight would have to dominate the full corpus-frequency
+  range (~1e9), so 200 neighbours would need ~1e-9 per rank —
+  1e-1800-class scores, far below Float64. The soft `{~near:…}` (W2) is
+  the engine-ordered variant with gentle weights; the hard `{near:…}`
+  keeps its post-hoc closeness sort, which is the only exact
+  implementation of "order purely by closeness" that fits in a double.
 
 ## Phase X — Parallel search
 

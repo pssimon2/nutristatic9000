@@ -1240,8 +1240,16 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           if (served === "superseded") return;
           if (served === "complete") break; // the head answered the whole page
         }
+        // Weighted constructs (soft {~…}, graded {edit:…}) carry acceptance
+        // weights the kernel does not model; those queries stay on the JS
+        // engine, which orders them exactly.
+        const weightedQuery =
+          /\{\s*~|\{\s*(?:edit\.)?edit\s*(?:\([a-z0-9]+\))?\s*:/.test(
+            currentQuery,
+          );
         const wasmEligible =
           !wasmBroken &&
+          !weightedQuery &&
           (memBytes !== null ||
             (diskSource !== null && currentSize <= WASM_INDEX_LIMIT));
         if (wasmEligible) {

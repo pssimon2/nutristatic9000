@@ -34,6 +34,15 @@ export class Nfa {
   arcs: Arc[][] = [];
   start = -1;
   finals = new Set<number>();
+  /**
+   * Optional per-final acceptance weight (≤ 1), for the weighted constructs
+   * (W1): a match's score is multiplied by its accepting state's weight.
+   * Absent means every final weighs 1. Weighted NFAs are conjunct-level only
+   * — the parser refuses to materialize them into unions, concatenations or
+   * quantifiers, where renumbering would silently drop the weights — so the
+   * combinators here do not carry the map; only clone() does.
+   */
+  finalWeight?: Map<number, number>;
 
   addState(): number {
     this.arcs.push([]);
@@ -56,6 +65,7 @@ export class Nfa {
     const out = new Nfa();
     out.start = this.start;
     out.finals = new Set(this.finals);
+    if (this.finalWeight) out.finalWeight = new Map(this.finalWeight);
     out.arcs = this.arcs.map((list) => list.map((a) => ({ ...a })));
     return out;
   }
@@ -566,6 +576,14 @@ export function trim(nfa: Nfa): Nfa {
   out.setStart(newId[nfa.start]);
   for (const f of nfa.finals) {
     if (newId[f] !== -1) out.setFinal(newId[f]);
+  }
+  // Acceptance weights follow their finals through the renumbering.
+  if (nfa.finalWeight !== undefined) {
+    const weights = new Map<number, number>();
+    for (const [f, w] of nfa.finalWeight) {
+      if (newId[f] !== -1) weights.set(newId[f], w);
+    }
+    if (weights.size > 0) out.finalWeight = weights;
   }
   for (let s = 0; s < n; ++s) {
     if (newId[s] === -1) continue;

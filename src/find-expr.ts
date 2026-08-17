@@ -2,7 +2,7 @@
 // expression, append a required trailing space (so matches are complete
 // words), and build the search filter.
 
-import { ALPHABET, Nfa } from "./automata.js";
+import { ALPHABET, EPSILON, Nfa } from "./automata.js";
 import { Conjunct, innerNfa, isNegated } from "./conjunct.js";
 import { Filter, makeFilter } from "./expr-filter.js";
 import { Box, parseExpr, parseExprBox } from "./expr-parse.js";
@@ -52,15 +52,53 @@ export function compileConjuncts(
   // it; when every conjunct is negated there is none, and the restriction is
   // added below as its own conjunct.
   for (const conjunct of box.and) {
+    const nfa = innerNfa(conjunct);
+    if (!isNegated(conjunct) && nfa.finalWeight !== undefined) {
+      // A weighted conjunct's finals carry per-match weights, and a plain
+      // concat would merge them all into the one new final. Append the space
+      // per weight class instead: finals of equal weight share a fresh
+      // space-then-final pair carrying that weight. Exact, and the class
+      // count is small (edit levels, soft ranks).
+      appendSpaceWeighted(nfa);
+      continue;
+    }
     const space = new Nfa();
     parseExpr(" ", 0, space, true, ctx);
-    innerNfa(conjunct).concat(space);
+    nfa.concat(space);
   }
   const conjuncts: Conjunct[] = box.and;
   if (conjuncts.length > 0 && !conjuncts.some((c) => !isNegated(c))) {
     conjuncts.push(endsInSpace());
   }
   return conjuncts;
+}
+
+/**
+ * The trailing-space append for a weighted conjunct: one fresh
+ * space-then-final chain per distinct weight, so every weight survives the
+ * concat that would otherwise merge the finals.
+ */
+function appendSpaceWeighted(nfa: Nfa): void {
+  const weightOf = (s: number): number => nfa.finalWeight?.get(s) ?? 1;
+  const oldFinals = [...nfa.finals];
+  nfa.finals = new Set();
+  const chains = new Map<number, { mid: number; final: number }>();
+  const weights = new Map<number, number>();
+  for (const f of oldFinals) {
+    const w = weightOf(f);
+    let chain = chains.get(w);
+    if (chain === undefined) {
+      const mid = nfa.addState();
+      const final = nfa.addState();
+      nfa.addArc(mid, CODE_SPACE, final);
+      nfa.setFinal(final);
+      chain = { mid, final };
+      chains.set(w, chain);
+      if (w !== 1) weights.set(final, w);
+    }
+    nfa.addArc(f, EPSILON, chain.mid);
+  }
+  nfa.finalWeight = weights.size > 0 ? weights : undefined;
 }
 
 /** Any string over the alphabet, then one space: `.*" "` without the parser. */

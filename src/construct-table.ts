@@ -56,6 +56,8 @@ import {
   namedConstraint,
 } from "./value-constraint.js";
 import { dispatchName, namesAtLevel } from "./constructs.js";
+import { EPSILON } from "./automata.js";
+import { normalizeEntry as normalize } from "./word-lists.js";
 
 /** How a construct's argument is read. See the note at the top. */
 export type ArgKind = "literal" | "wrap" | "inner";
@@ -315,6 +317,119 @@ const valueOrClass: ConstructBuild = {
   build: ({ name, spec }) =>
     namedConstraint(name, spec) ?? classConstraint(name, spec),
 };
+
+/** W2: the constructs that have a soft (`{~name:…}`) variant. */
+export const SOFT_NAMES = ["near", "rhyme", "homo", "like", "kind", "list"];
+
+/** Score multiplier for a match the soft construct does not know. */
+export const SOFT_PENALTY = 0.01;
+
+/**
+ * A soft construct's automaton (W2): matches *everything*, weighting members
+ * of the looked-up set at (near) 1 and everything else at SOFT_PENALTY — a
+ * boost-not-filter version of the word lookups. `{~near:king}` additionally
+ * decays the weight down the closeness ranking, so nearer words surface
+ * first among equals. Weighted, so conjunct-level only (see Box.materialize).
+ */
+export function softConjunct(
+  name: string,
+  spec: string,
+  arg: string,
+  ctx: SessionContext,
+  text: string,
+): Nfa {
+  const word = normalize(arg);
+  let entries: string[] | null = null;
+  let ranked = false;
+  if (name === "near") {
+    if (!ctx.neighbours) {
+      needsData(text, "{~near:…} needs the meaning table, which this build could not load");
+    }
+    const limit = /^\s*(\d+)\s*$/.exec(spec);
+    entries = nearestTo(ctx.neighbours, word, limit ? +limit[1] : 32);
+    ranked = true;
+  } else if (name === "rhyme" || name === "homo") {
+    if (!ctx.phonetics) {
+      needsData(text, `{~${name}:…} needs the pronunciation dictionary, which this build could not load`);
+    }
+    entries = name === "rhyme" ? rhymesOf(ctx.phonetics, word) : homophonesOf(ctx.phonetics, word);
+  } else if (name === "like") {
+    if (!ctx.thesaurus) {
+      needsData(text, "{~like:…} needs the thesaurus, which this build could not load");
+    }
+    entries = relatedTo(ctx.thesaurus, word);
+  } else if (name === "kind") {
+    if (!ctx.categories) {
+      needsData(text, "{~kind:…} needs the category data, which this build could not load");
+    }
+    entries = kindsOf(ctx.categories, word);
+  } else if (name === "list") {
+    entries = arg.includes(",")
+      ? arg.split(",").map(normalize).filter((e) => e !== "")
+      : null;
+    if (entries === null || entries.length === 0) {
+      throw new ParseError(
+        text,
+        "{~list:…} takes your own comma-separated entries to boost — " +
+          "e.g. {~list:red,green,blue}",
+      );
+    }
+  } else {
+    throw new ParseError(
+      text,
+      `no soft form of "{${name}…}" — the soft constructs are ` +
+        SOFT_NAMES.map((n) => `{~${n}:…}`).join(", "),
+    );
+  }
+  if (entries === null) {
+    throw new ParseError(text, `"${word}" is not in the ${name} vocabulary`);
+  }
+  return softNfa(entries, ranked);
+}
+
+/** Everything (weight SOFT_PENALTY) unioned with a weighted trie of entries. */
+function softNfa(entries: string[], ranked: boolean): Nfa {
+  const nfa = new Nfa();
+  const root = nfa.addState();
+  nfa.setStart(root);
+  const weights = new Map<number, number>();
+  // The "anything" branch: all letters, digits and spaces, penalty-weighted.
+  const sigma = nfa.addState();
+  nfa.addArc(root, EPSILON, sigma);
+  for (let c = 0x30; c <= 0x39; ++c) nfa.addArc(sigma, c, sigma);
+  for (let c = 0x61; c <= 0x7a; ++c) nfa.addArc(sigma, c, sigma);
+  nfa.addArc(sigma, 0x20, sigma);
+  nfa.setFinal(sigma);
+  weights.set(sigma, SOFT_PENALTY);
+  // The member trie, per-entry weights on the finals (states, not arcs, so
+  // prefix-sharing entries keep their own weights).
+  const children = new Map<number, Map<number, number>>();
+  entries.forEach((entry, i) => {
+    let state = root;
+    for (const ch of entry) {
+      const c = ch.charCodeAt(0);
+      let kids = children.get(state);
+      if (kids === undefined) {
+        kids = new Map();
+        children.set(state, kids);
+      }
+      let next = kids.get(c);
+      if (next === undefined) {
+        next = nfa.addState();
+        nfa.addArc(state, c, next);
+        kids.set(c, next);
+      }
+      state = next;
+    }
+    nfa.setFinal(state);
+    const w = ranked ? Math.max(0.05, Math.pow(0.9, i)) : 1;
+    const had = weights.get(state);
+    if (w !== 1 && (had === undefined || w > had)) weights.set(state, w);
+    if (w === 1) weights.delete(state);
+  });
+  nfa.finalWeight = weights;
+  return nfa;
+}
 
 /**
  * The table. Every automaton-level construct appears exactly once; the ones

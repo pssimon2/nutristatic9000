@@ -132,7 +132,21 @@ A predicate's spec is validated by the same `parseFilterSpec` whether it wraps
 the query or sits nested, so `{compound 9:…}` says "2 to 5 pieces" in both
 places.
 
-### 3a. Captures and relations
+### 3a. Soft constructs and graded edits
+
+`{~near:king}`, `{~rhyme:day}`, `{~homo:…}`, `{~like:…}`, `{~kind:…}` and
+`{~list:…}` are boost-not-filter variants of the word lookups: they match
+everything, weighting known words at (near) 1 and the rest at 0.01. `{edit:…}`
+with no bound is the graded edit — up to three edits, each multiplying the
+score by 1e-12, so results stream strictly by damage. Weights ride the
+automaton's accepting states and the driver re-enters weighted matches into
+its heap at their exact weighted score, so ordering is exact with no
+re-sorting. Weighted constructs are conjunct-level: they stand alone or join
+with `&`, and materializing one into a group, union, quantifier or longer
+pattern is refused (the weights live on final states, which those combinators
+merge).
+
+### 3b. Captures and relations
 
 `{=name:PATTERN}` is an atom that matches whatever its pattern matches and
 remembers the span under the name. The three relations — `{eq a,b:…}`,
