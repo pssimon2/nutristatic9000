@@ -236,6 +236,9 @@ describe("an argument that is present but empty", () => {
 describe("an anagram with nothing to rearrange", () => {
   it("says so rather than returning the inner query", () => {
     expect(() => compileQuery("<{list:greek}>", ctx)).toThrow(/at least two parts/);
+    // And it names the construct that does what the reader wanted, which did
+    // not exist when this message was written.
+    expect(() => compileQuery("<{list:greek}>", ctx)).toThrow(/\{anagram/);
     expect(() => compileQuery("<a>", ctx)).toThrow(/at least two parts/);
   });
 

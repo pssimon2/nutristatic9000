@@ -655,15 +655,21 @@ function parseAnagram(
   // `{del1:{list:countries}}` returns, with nothing to say the angle brackets
   // had done nothing — the reader is left thinking the anagram was applied.
   // `<…>` permutes the parts *written between the brackets*, so `<aaagmnr>` is
-  // seven of them; there is no way to permute the letters of something matched
-  // rather than spelled out.
+  // seven of them.
+  //
+  // The message names `{anagram …:…}`, which is the thing the reader wanted:
+  // it rearranges whatever a pattern matches, which is exactly what the angle
+  // brackets cannot do. This said "there is no way" until that construct
+  // existed, and a message that tells someone their goal is impossible had
+  // better stop saying it the moment it is not.
   if (parts.length < 2) {
     throw new ParseError(
       s.slice(i - 1, p + 1),
       "an anagram needs at least two parts to rearrange — <…> permutes what " +
         "you write between the brackets, so <aaagmnr> is seven letters, and " +
-        "<one-thing> is just that thing. There is no way to anagram whatever " +
-        "a pattern happens to match; spell the letters out.",
+        "<one-thing> is just that thing. To rearrange whatever a pattern " +
+        "matches, use {anagram …:…} — e.g. {anagram {kind:bird}:A{6}} or " +
+        "{anagram countries:A{5}}.",
     );
   }
   collapseIdentical(parts);
