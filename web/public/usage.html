@@ -307,7 +307,11 @@ gives <b>AOP</b>. The top answer is not always the right one, so every
 candidate in a row is clickable: pick a different one and the assembled
 letters follow it. Each slot is an ordinary query with its own <tt>{at …}</tt>,
 so anything above works inside one; slots without <tt>{at …}</tt> simply show
-their top matches side by side. The whole set lives in the URL, so a
+their top matches side by side. When every slot wants the same letter you can
+write the wrapper once around the lot —
+<tt><a href="./?q=%7Bat%201%3A%3Caaagmnr%3E%20%3B%20solar%20s_stem%20%3B%20A%7B5%7D%26.%2Azz.%2A%7D">{at
+1:&lt;aaagmnr&gt; ; solar s_stem ; A{5}&amp;.*zz.*}</a></tt> gives
+<b>ASP</b> — and a slot that names its own position still wins. The whole set lives in the URL, so a
 part-solved grid is one link.
 <br>This is the batching half of multi-slot solving, not the constraint-solving
 half: the tool runs your slots and reads the extraction, it does not search for

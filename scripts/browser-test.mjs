@@ -389,6 +389,26 @@ const plainRows = await page.$$eval("table.slots tr", (rs) =>
 console.log("slots without extraction:", JSON.stringify(plainRows));
 if (plainRows[0] !== "anagram") throw new Error("slot did not run");
 
+// One {at …} written around all the slots applies to each of them. Written
+// this way the semicolons sit inside the braces, which used to be split on
+// regardless — giving "{at 1:<aaagmnr>" and "A{5}&.*zz.*}", neither of which
+// parses. src/slot-plan.ts splits at the top level only.
+await page.fill("#q", "{at 1:<aaagmnr> ; solar s_stem ; A{5}&.*zz.*}");
+await page.click("input[type=submit]");
+await page.waitForFunction(
+  () => document.getElementById("after")?.textContent?.includes("slots"),
+  null,
+  { timeout: 90000 },
+);
+const outerRows = await page.$$eval("table.slots tr", (rs) => rs.length);
+const outerExtraction = await page.$eval("p.extraction", (e) => e.textContent);
+console.log("one wrapper over slots:", JSON.stringify(outerExtraction), outerRows, "slots");
+if (outerRows !== 3) throw new Error(`wrong slot count: ${outerRows}`);
+// The first letter of each slot's top match: anagram, solar system, pizza.
+if (outerExtraction !== "asp") {
+  throw new Error(`bad extraction from outer wrapper: ${outerExtraction}`);
+}
+
 // Palindromes are a result filter, not an automaton: a length-n palindrome
 // would need 26^(n/2) states, but one string check per candidate is free.
 await page.fill("#q", "{palindrome:A{5}}");

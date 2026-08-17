@@ -35,8 +35,7 @@ import { IndexReader } from "../src/index-reader.js";
 import { SearchSession } from "../src/search-session.js";
 import { SessionContext } from "../src/session-context.js";
 import { makeWordChecker } from "../src/index-words.js";
-import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
-import { parseFilterWrappers } from "../src/result-filter.js";
+import { planSlots } from "../src/slot-plan.js";
 import { applyResultFilters } from "../src/result-predicate.js";
 import { OutputTransform } from "../src/output.js";
 import { parsePhonetics } from "../src/phonetics.js";
@@ -117,14 +116,23 @@ function pageExamples() {
 
 /** Run one example the way the page does, and return its first few answers. */
 async function answersFor(query) {
-  // A multi-slot query is several searches; it works if every slot does.
-  const slots = splitSlots(query);
+  // The same planner both front ends use, so a documented multi-slot query is
+  // checked as the page reads it — including a wrapper written around all the
+  // slots, which is not something splitting on ";" by hand can see.
+  const slots = planSlots(query, 12);
   if (slots.length > 1) {
-    const per = await Promise.all(slots.map((s) => answersFor(s)));
+    // Several searches; the example works if every slot does.
+    const per = await Promise.all(slots.map((s) => runSlot(s)));
     return per.every((a) => a.length > 0) ? per.flat() : [];
   }
-  const shaped = shapeOfQuery(slots[0] ?? query, 12);
-  const { specs, inner } = parseFilterWrappers(shaped.pattern);
+  return runSlot(slots[0]);
+}
+
+/** One planned slot, run as the page runs it. */
+async function runSlot(slot) {
+  const shaped = { extract: slot.extract, rank: slot.rank };
+  const specs = slot.filters;
+  const inner = slot.pattern;
   const reader = await IndexReader.open(new MemorySource(data));
   const isWord = makeWordChecker(reader);
   const out = new OutputTransform(shaped.extract, shaped.rank);

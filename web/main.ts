@@ -5,7 +5,7 @@ import {
   applyExtract,
 } from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
-import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
+import { type SlotPlan, planSlots } from "../src/slot-plan.js";
 import { type Stats, formatStats } from "../src/stats.js";
 import { OutputTransform } from "../src/output.js";
 import { type Completion, completionsAt } from "../src/complete.js";
@@ -554,6 +554,8 @@ function runBudget(): { maxSteps: number; byteBudget: number; timeMs: number } {
 // turn, with the picked letters assembled into the answer string.
 interface Slot {
   query: string;
+  /** What the planner made of it: the pattern to search and its wrappers. */
+  plan: SlotPlan;
   extract: ExtractSpec | null;
   results: Array<{ score: number; text: string }>;
   /** Which candidate feeds the extraction; the top one until told otherwise. */
@@ -697,20 +699,9 @@ function runNextSlot(): void {
   }
   const slot = slots[slotIndex];
   renderSlots();
-  let pattern: string;
-  try {
-    const shape = shapeOfQuery(transliterate(slot.query), MIN_OVERLAP_CHARS);
-    slot.extract = shape.extract;
-    pattern = shape.pattern;
-  } catch (e) {
-    slot.done = true;
-    ++slotIndex;
-    runNextSlot();
-    return;
-  }
   postToWorker({
     type: "search",
-    query: pattern,
+    query: slot.plan.shape.pattern,
     // Resolved here: the page knows its own base, the worker script does not.
     // The version is part of the URL because the side datasets are cached
     // permanently — without it, a rebuilt dataset would never reach anyone who
@@ -789,13 +780,14 @@ function retryUnfinishedSlots(): void {
   runNextSlot();
 }
 
-function startMultiSlot(queries: string[]): void {
+function startMultiSlot(planned: SlotPlan[]): void {
   resultsEl.textContent = "";
   afterEl.textContent = "";
   resultCount = 0;
-  slots = queries.map((q) => ({
-    query: q,
-    extract: null,
+  slots = planned.map((p) => ({
+    query: p.query,
+    plan: p,
+    extract: p.extract,
     results: [],
     chosen: 0,
     done: false,
@@ -813,9 +805,18 @@ function startMultiSlot(queries: string[]): void {
 }
 
 function startSearch(query: string): void {
-  const parts = splitSlots(query);
-  if (parts.length > 1) {
-    startMultiSlot(parts);
+  // One place decides what the slots are, and the CLI reads it too — see
+  // src/slot-plan.ts. Transliterated first, so a slot written with umlauts
+  // splits and peels the same as one written without.
+  let planned: SlotPlan[];
+  try {
+    planned = planSlots(transliterate(query), MIN_OVERLAP_CHARS);
+  } catch (e) {
+    setStatus(e instanceof ExtractError ? e.message : String(e), true);
+    return;
+  }
+  if (planned.length > 1) {
+    startMultiSlot(planned);
     return;
   }
   slots = null;
@@ -823,23 +824,18 @@ function startSearch(query: string): void {
   afterEl.textContent = "";
   resultCount = 0;
   resetResultCollapsing();
-  // `{at …:…}` is an output wrapper: strip it here so the engine only ever
-  // sees the pattern itself.
-  let pattern: string;
-  try {
-    const shape = shapeOfQuery(transliterate(query), MIN_OVERLAP_CHARS);
-    pattern = shape.pattern;
-    extractSpec = shape.extract;
-    rankSpec = shape.rank;
-    caesarText = shape.caesar;
-    queryLiterals = shape.literals;
-    // Built here rather than in resetResultCollapsing, which runs before the
-    // wrappers are known and would hand it the previous search's specs.
-    output = new OutputTransform(extractSpec, rankSpec);
-  } catch (e) {
-    setStatus(e instanceof ExtractError ? e.message : String(e), true);
-    return;
-  }
+  // `{at …:…}` is an output wrapper, already stripped by the planner; the
+  // predicate wrappers are not, because the worker peels those on its side —
+  // it is the side that can ask the index whether a piece is a word.
+  const { shape } = planned[0];
+  const pattern = shape.pattern;
+  extractSpec = shape.extract;
+  rankSpec = shape.rank;
+  caesarText = shape.caesar;
+  queryLiterals = shape.literals;
+  // Built here rather than in resetResultCollapsing, which runs before the
+  // wrappers are known and would hand it the previous search's specs.
+  output = new OutputTransform(extractSpec, rankSpec);
   // Local step budget from the live URL's comp (not the load-time snapshot) so
   // back/forward through raised-budget entries picks up the right value.
   currentComp =

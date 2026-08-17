@@ -328,10 +328,27 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Still open: splitting `value-constraint.ts` (713 lines) into per-feature
   modules under `src/engine/language/constructs/`, which wants S4's directory
   reshape; and `dataNeeds` on the rows, which C6 needs.
-- [ ] **C5. Slots first-class.** `;` parsed in C2's grammar; CLI gains
-  multi-slot with the assembled extraction line; a whole-query wrapper
-  outside slots applies per-slot. `main.ts` slot UI consumes SlotPlan
-  results instead of owning the splitting.
+- [~] **C5. Slots first-class.** *(planner and CLI done 2026-08-17; the
+  grammar-level `;` of C2 is not.)* `src/slot-plan.ts` `planSlots` is the one
+  place a query becomes slots: it splits, peels each slot's output wrappers
+  and predicates, and returns a `SlotPlan` per slot. `main.ts` consumes it
+  instead of splitting and shaping itself, the CLI gained multi-slot, and
+  `check-examples.mjs` reads it too — so a documented multi-slot query is now
+  checked the way the page runs it rather than by a hand-rolled split.
+  The CLI runs each slot in turn, prints `# slot N: …` headers when there is
+  more than one, and prints the assembled extraction line after the last.
+  A single-slot query's output is byte for byte what it was, since anything
+  piping this reads the result stream. The step limit is per slot, matching
+  the page: a dozen patterns is a dozen searches, and one shared budget would
+  mean the last few never ran.
+  `splitSlots` now splits at the top level only, which is what makes one
+  wrapper over several slots possible: `{at 1:A{5};B{6}}` was split down the
+  middle into two unparseable halves, and is now one wrapper applied to each
+  slot — with a slot's own wrapper still winning over it. Both forms are
+  covered in the browser test, and they give different answers (`aop` against
+  `asp`), which is what proves the outer one is really applied per slot.
+  Still open: `;` in C2's grammar rather than a pre-pass, and the slot UI
+  consuming a plan object richer than the per-slot query it holds now.
 - [ ] **C6. Data-provider registry.** One
   `DataProvider { key, url(ctx), parse(Response), sizeHint }` per side
   dataset; loading loops in `worker.ts:1671-1710` and

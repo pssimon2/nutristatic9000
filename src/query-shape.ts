@@ -51,12 +51,29 @@ export const NEAR_DEFAULT_LIMIT = 32;
 
 const NEAR = /\{\s*(?:word\.)?near\s*(\d*)\s*:\s*([a-z ]+)\}/gi;
 
-/** Split a multi-slot query on ";" — not a character the pattern language uses. */
+/**
+ * Split a multi-slot query on ";" — not a character the pattern language uses.
+ *
+ * Only at the top level. A `;` inside braces belongs to whatever wrote the
+ * braces, which is what lets one wrapper cover several slots:
+ * `{at 1:A{5};B{6}}` is one wrapper over two slots, and splitting it on the
+ * bare semicolon gave two halves that were each unparseable.
+ */
 export function splitSlots(query: string): string[] {
-  return query
-    .split(";")
-    .map((q) => q.trim())
-    .filter((q) => q !== "");
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < query.length; ++i) {
+    const c = query[i];
+    if (c === "{") ++depth;
+    else if (c === "}") depth = Math.max(0, depth - 1);
+    else if (c === ";" && depth === 0) {
+      out.push(query.slice(start, i));
+      start = i + 1;
+    }
+  }
+  out.push(query.slice(start));
+  return out.map((q) => q.trim()).filter((q) => q !== "");
 }
 
 const CAESAR = /\{\s*(?:cipher\.)?caesar\s*:([a-z ]+)\}/gi;
