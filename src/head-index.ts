@@ -25,6 +25,10 @@
 // arbitrary order.
 
 import type { Filter } from "./expr-filter.js";
+import type { FilterSpec } from "./result-filter.js";
+import type { SessionContext } from "./session-context.js";
+import type { WordCheck } from "./compound.js";
+import { applyResultFilters } from "./result-predicate.js";
 
 export interface HeadIndex {
   /** Entries in the order the index search emits them: best score first. */
@@ -79,6 +83,46 @@ export function searchHeadIndex(
     if (ok && filter.isAccepting(state)) {
       out.push({ text: t, score: head.score[i] });
     }
+  }
+  return out;
+}
+
+/**
+ * A page of results from the head, with the result predicates applied.
+ *
+ * The head holds *candidates*: it answers the automaton half of a query, and
+ * anything checked on a finished match — `{palindrome:…}`, `{compound …}` —
+ * still has to be applied afterwards, exactly as the index path applies it.
+ * Leaving that out served "of the" as a palindrome.
+ *
+ * Because a predicate can reject nearly everything, this reads well past
+ * `limit` candidates when there are predicates, and stops at `limit`
+ * survivors. `null` means "not answerable from the head" — the caller should
+ * run the real search.
+ */
+export async function headPage(
+  head: HeadIndex,
+  filter: Filter,
+  filters: FilterSpec[],
+  ctx: SessionContext,
+  isWord: WordCheck,
+  limit: number,
+  candidateFactor = 40,
+): Promise<Array<{ text: string; score: number; note?: string }>> {
+  const wanted = filters.length > 0 ? limit * candidateFactor : limit;
+  const hits = searchHeadIndex(head, filter, wanted);
+  if (filters.length === 0) return hits.slice(0, limit);
+
+  const out: Array<{ text: string; score: number; note?: string }> = [];
+  for (const hit of hits) {
+    if (out.length >= limit) break;
+    const verdict = await applyResultFilters(filters, hit.text, ctx, isWord);
+    if (!verdict.keep) continue;
+    out.push({
+      text: hit.text,
+      score: hit.score,
+      ...(verdict.notes.length === 0 ? {} : { note: verdict.notes.join("  ") }),
+    });
   }
   return out;
 }

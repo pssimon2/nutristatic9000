@@ -33,6 +33,12 @@ import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilters, nearOrderKey } from "../src/result-predicate.js";
 import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { shapeOfQuery } from "../src/query-shape.js";
+import {
+  type HeadIndex,
+  headPage,
+  parseHeadIndex,
+} from "../src/head-index.js";
+import type { Filter } from "../src/expr-filter.js";
 import { conflictText } from "../src/emptiness.js";
 import { explainMatch } from "../src/explain.js";
 import { formatPlan, planQuery } from "../src/plan.js";
@@ -131,6 +137,14 @@ let wasmBroken = false; // this environment can't run the kernel: stop trying
 let memBytes: Uint8Array | null = null; // index bytes when in memory mode
 let currentQuery: string | null = null;
 let emitted = new Set<string>(); // texts posted for the current query
+/**
+ * The index's highest-scoring entries, fetched once per index.
+ *
+ * `null` once a fetch has failed or found nothing there — most indexes have no
+ * sidecar, and the search is exactly as it was without one.
+ */
+let head: HeadIndex | null = null;
+let headTried = false;
 // Steps already executed on an engine that was discarded mid-search (the WASM
 // kernel overflowing its frontier cap and replaying on the JS engine). Added
 // to the live session's steps so the progress counter never jumps backwards.
@@ -181,6 +195,84 @@ async function ensureExtra(
     extraLoads.set(key, load);
   }
   await load;
+}
+
+/** Is the index being streamed, rather than held in memory or on disk? */
+function indexIsRemote(): boolean {
+  return rangeSource !== null && memBytes === null && diskSource === null;
+}
+
+/**
+ * Answer from the head of the index, if it has the answers.
+ *
+ * Returns "complete" when it filled the page, in which case the index is not
+ * touched at all; "partial" when it found some or none and the real search
+ * should carry on from there — the results it did post are in `emitted`, so
+ * the search will not repeat them.
+ */
+async function serveFromHead(
+  url: string,
+  query: string,
+  maxResults: number,
+  token: number,
+): Promise<"complete" | "partial" | "superseded"> {
+  if (!headTried) {
+    headTried = true;
+    try {
+      const resp = await fetch(url);
+      // A missing sidecar is the normal case for most indexes, not an error.
+      if (resp.ok) head = parseHeadIndex(await resp.text());
+    } catch {
+      head = null;
+    }
+  }
+  if (token !== runToken) return "superseded";
+  if (!head) return "partial";
+
+  let filter: Filter;
+  try {
+    filter = compileQuery(query, ctx);
+  } catch {
+    return "partial"; // let the real search report the error, once
+  }
+  // `{near:…}` orders the whole result set by closeness once the run is over,
+  // so a page taken from the head would be ordered by frequency instead.
+  if (nearOrder) return "partial";
+
+  const page = await headPage(
+    head,
+    filter,
+    resultFilters,
+    ctx,
+    isIndexedWord,
+    maxResults,
+  );
+  if (token !== runToken) return "superseded";
+  for (const hit of page) {
+    emitted.add(hit.text);
+    post({
+      type: "result",
+      score: hit.score,
+      text: hit.text,
+      ...(hit.note === undefined ? {} : { note: hit.note }),
+    });
+  }
+  const posted = page.length;
+  // Short of a full page only means the head ran out; the index may have more.
+  if (posted < maxResults) return "partial";
+  // A full page from the head, and the next page can come from it too: report
+  // it the way a finished run is reported so the page's own flow continues.
+  post({
+    type: "done",
+    status: "results",
+    conflict: null,
+    steps: 0,
+    stats: null,
+    engine: "head",
+    fetched: rangeSource?.bytesFetched,
+    requests: rangeSource?.requests,
+  });
+  return "complete";
 }
 
 /**
@@ -380,6 +472,8 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
   const stale = () => gen !== openGen;
   reader = null;
   wordChecker = null; // bound to the old index
+  head = null;
+  headTried = false;
   rangeSource = null;
   diskSource?.close(); // release the OPFS lock before (re)opening anything
   diskSource = null;
@@ -1026,6 +1120,23 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         emitted = new Set();
         searchStepBase = 0; // fresh query: no discarded-engine steps yet
         session = null;
+
+        // The head of the index answers first, when there is one. It holds the
+        // top entries in exactly the order the search emits them, so its
+        // answers *are* the first page of the search — and serving them costs
+        // no index traffic at all, which over a streamed 1.3 GB index is the
+        // difference between an answer and a transfer budget spent finding
+        // none. Only in range mode: a local index is already faster than this.
+        if (indexIsRemote() && msg.headUrl) {
+          const served = await serveFromHead(
+            msg.headUrl,
+            currentQuery,
+            msg.maxResults,
+            token,
+          );
+          if (served === "superseded") return;
+          if (served === "complete") break; // the head answered the whole page
+        }
         const wasmEligible =
           !wasmBroken &&
           (memBytes !== null ||

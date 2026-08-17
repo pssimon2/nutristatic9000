@@ -41,6 +41,11 @@ export interface SearchMsg {
   categoriesUrl?: string | null;
   stressUrl?: string | null;
   listsUrl?: string | null;
+  /**
+   * The index's head sidecar, beside the page rather than beside the index:
+   * the index files are shared between deployments and this one is not.
+   */
+  headUrl?: string | null;
   maxSteps: number;
   maxResults: number;
   // Range mode only: stop after this many bytes fetched or ms elapsed

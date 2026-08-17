@@ -16,9 +16,11 @@ import { SessionContext } from "../src/session-context.js";
 import { compileQuery } from "../src/find-expr.js";
 import {
   type HeadIndex,
+  headPage,
   parseHeadIndex,
   searchHeadIndex,
 } from "../src/head-index.js";
+import { parseFilterWrappers } from "../src/result-filter.js";
 
 const ctx = new SessionContext();
 let reader: IndexReader;
@@ -112,5 +114,68 @@ describe("parsing", () => {
   it("keeps entries containing spaces whole", () => {
     const parsed = parseHeadIndex("solar system\t5e-6\n");
     expect(parsed.text).toEqual(["solar system"]);
+  });
+});
+
+// The head answers the automaton half of a query. Anything checked on a
+// finished match still has to be applied afterwards — and was not, at first:
+// `{palindrome:A{5}}` served "of the", which is not a palindrome, because the
+// head path skipped the step the index path does in `flushPending`.
+describe("predicates on head results", () => {
+  const isWord = (w: string) => head.text.includes(w);
+
+  async function page(query: string, limit: number) {
+    const { specs, inner } = parseFilterWrappers(query);
+    return headPage(
+      head,
+      compileQuery(inner, ctx),
+      specs,
+      ctx,
+      isWord as never,
+      limit,
+    );
+  }
+
+  it("applies the predicate rather than serving candidates", async () => {
+    const out = await page("{palindrome:A{5}}", 5);
+    expect(out.length).toBeGreaterThan(0);
+    for (const r of out) {
+      const letters = r.text.replaceAll(" ", "");
+      expect([...letters].reverse().join(""), r.text).toBe(letters);
+    }
+  });
+
+  it("carries the note the predicate produced", async () => {
+    const out = await page("{compound 2:A{9}}", 3);
+    expect(out.length).toBeGreaterThan(0);
+    for (const r of out) expect(r.note, r.text).toMatch(/·/);
+  });
+
+  it("reads past the limit to find survivors", async () => {
+    // The point of the candidate factor: palindromes are not in the first
+    // few entries of anything, so reading only `limit` candidates finds none.
+    const { specs, inner } = parseFilterWrappers("{palindrome:A{5}}");
+    const filter = compileQuery(inner, ctx);
+    const narrow = await headPage(head, filter, specs, ctx, isWord as never, 3, 1);
+    const wide = await headPage(head, filter, specs, ctx, isWord as never, 3, 40);
+    expect(narrow.length).toBe(0);
+    expect(wide.length).toBeGreaterThan(narrow.length);
+  });
+
+  it("returns what it found when the predicate rejects the rest", async () => {
+    const out = await page("{palindrome:A{5}}", 100000);
+    // Fewer than asked, and every one still a palindrome — a short page must
+    // not be padded with candidates.
+    expect(out.length).toBeLessThan(100000);
+    for (const r of out) {
+      const letters = r.text.replaceAll(" ", "");
+      expect([...letters].reverse().join("")).toBe(letters);
+    }
+  });
+
+  it("passes plain queries straight through", async () => {
+    const out = await page("A{5}", 4);
+    expect(out.length).toBe(4);
+    for (const r of out) expect(r.note).toBeUndefined();
   });
 });

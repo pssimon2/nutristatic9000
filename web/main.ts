@@ -97,6 +97,19 @@ const DATA_VERSION = "2";
 const dataUrl = (file: string): string | null =>
   OFFLINE ? null : new URL(`./${file}?v=${DATA_VERSION}`, location.href).href;
 
+/**
+ * Where this index's head sidecar lives: beside the *page*, not beside the
+ * index. The index files are shared between deployments — /en-wiki.index is
+ * one file however many pages point at it — and the sidecar is per
+ * deployment, so `/9000/en-wiki.head` sits with the page that knows about it.
+ */
+const headUrl = (): string | null => {
+  if (OFFLINE) return null;
+  const name = indexUrl.split("/").pop() ?? "";
+  if (!name.endsWith(".index")) return null;
+  return new URL(`./${name.slice(0, -".index".length)}.head`, location.href).href;
+};
+
 const params = new URLSearchParams(location.search);
 // Resolve against the page URL: the worker would otherwise resolve relative
 // paths against its own script URL.
@@ -708,6 +721,7 @@ function runNextSlot(): void {
     categoriesUrl: dataUrl("categories.txt"),
     stressUrl: dataUrl("stress.txt"),
     listsUrl: dataUrl("lists.txt"),
+    headUrl: headUrl(),
     // The picker shows three candidates, and asking for exactly three left it
     // short: respellings of one answer ("solar system", "so lar system")
     // arrive in a run right behind it and are dropped, so three fetched could
@@ -845,6 +859,7 @@ function startSearch(query: string): void {
     categoriesUrl: dataUrl("categories.txt"),
     stressUrl: dataUrl("stress.txt"),
     listsUrl: dataUrl("lists.txt"),
+    headUrl: headUrl(),
     // A rank window has to be reached before it can be shown; ask the engine
     // for enough results to cover it (bounded, so a huge "to" can't run away).
     maxResults: rankSpec
