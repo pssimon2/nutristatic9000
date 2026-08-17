@@ -21,6 +21,7 @@ import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { makeWordChecker } from "../src/index-words.js";
 import { parseRemoteList, remoteListUrls } from "../src/word-lists.js";
 import { installPack, parsePack } from "../src/packs.js";
+import { MergedDriver } from "../src/merged-driver.js";
 import {
   SourceStats,
   emptyStats,
@@ -34,7 +35,8 @@ process.stdout.on("error", (e: NodeJS.ErrnoException) => {
 });
 
 const USAGE =
-  "usage: find-expr [--max-steps N] [--stats] [--explain] input.index expression\n" +
+  "usage: find-expr [--max-steps N] [--stats] [--explain] a.index[,b.index...] expression\n" +
+  "  several comma-separated indexes merge into one normalized result stream\n" +
   "  N: step limit (default 1000000; 0 = unlimited)\n" +
   "  --walk: always walk the index, even where testing a list would do\n" +
   "  --score-floor F: drop frontier entries below F x the best score seen\n" +
@@ -173,8 +175,21 @@ if (wantExplain) {
   }
 }
 
-const reader = await cliOpenIndex(indexPath);
-const isWord = makeWordChecker(reader);
+// F5: several indexes at once, comma-separated. Results merge in normalized
+// score order, each tagged with the index it came from.
+const indexPaths = indexPath.split(",").map((x) => x.trim()).filter((x) => x !== "");
+const readers = await Promise.all(indexPaths.map((x) => cliOpenIndex(x)));
+const reader = readers[0];
+const checkers = readers.map((r) => makeWordChecker(r));
+/** A word check over every index: a piece counts if any corpus knows it. */
+const isWord: ReturnType<typeof makeWordChecker> = async (word, floor) => {
+  for (const check of checkers) {
+    if (await check(word, floor)) return true;
+  }
+  return false;
+};
+const labelOf = (x: string): string =>
+  (x.split("/").pop() ?? x).replace(/\.index$/, "");
 
 /** What the run accumulated, for the --stats summary. */
 interface Run {
@@ -240,7 +255,7 @@ async function runQuery(): Promise<Run> {
   // A query with one small finite conjunct is a list, and a list can be
   // tested rather than searched for — same answers, same order, same scores.
   // See src/finite-strategy.ts; --walk forces the search, for comparing them.
-  if (!forceWalk) {
+  if (!forceWalk && readers.length === 1) {
     const tested = await finiteStrategy(reader, compileConjuncts(pattern, ctx));
     if (tested !== null) {
       run.candidatesTested = tested.candidates;
@@ -256,7 +271,15 @@ async function runQuery(): Promise<Run> {
     }
   }
 
-  const driver = makeDriver(reader, filter, undefined, { scoreFloor });
+  const driver =
+    readers.length === 1
+      ? makeDriver(reader, filter, undefined, { scoreFloor })
+      : new MergedDriver(
+          readers.map((r, i) => ({ reader: r, label: labelOf(indexPaths[i]) })),
+          filter,
+          undefined,
+          { scoreFloor },
+        );
   for (;;) {
     if (maxSteps > 0 && run.steps >= maxSteps) {
       process.stdout.write(`# computation limit reached (${run.steps} steps)\n`);
@@ -269,8 +292,9 @@ async function runQuery(): Promise<Run> {
     if (r) {
       if (driver.text === null) break;
       const text = driver.text.replace(/ +$/, "");
-      const line = await present(driver.score, text);
+      let line = await present(driver.score, text);
       if (line !== null) {
+        if (driver instanceof MergedDriver) line += `  (${driver.source})`;
         ++run.emitted;
         process.stdout.write(`${line}\n`);
       }

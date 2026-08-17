@@ -1061,9 +1061,19 @@ below is planned.
   the comparison grammar is one grammar. Deliberately not done: migrating
   the built-in tables into a pack — they are compile-time constants and
   moving them buys churn, not capability.
-- [ ] **F5. Multi-index merged search.** Merged driver: heap over
-  per-index drivers, comparable scores; one query consults demo + Simple
-  + full English at once. Straightforward after C3; needs S1.
+- [~] **F5. Multi-index merged search.** *(engine + CLI done 2026-08-17;
+  the web side deliberately deferred.)* src/merged-driver.ts: one shared
+  lazy filter over N per-index drivers, scores normalized to corpus size
+  and rescaled to the largest corpus, an exact K-way merge (each lane
+  buffers its next result; the merge commits only when every lane has
+  shown its hand), duplicates collapsed to their best reading, results
+  tagged with their source. CLI: `find-expr a.index,b.index 'query'`.
+  Not the web, on purpose: the worker's whole state — range caches, OPFS
+  copies, the head sidecar, the WASM engine, refinement — is one-index by
+  construction, and merging inside it is a rework on the scale of S3's
+  orchestrator split. When the web wants it, the cheaper path is one
+  worker per index and a page-side merge of the posted streams, which the
+  normalized scores here already make correct.
 - [ ] **F6. Generalized alphabet.** Per-index symbol table from the
   manifest replacing hardwired `NSYM`/`CHAR_TO_SYM`/`[a-z0-9 ]`
   (`automata.ts`): native Russian/Greek/Hebrew indexes instead of lossy
