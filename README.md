@@ -24,9 +24,18 @@ Deployment notes specific to this fork:
 
       npm run build-head -- /path/to/en-wiki.index --out web/dist/en-wiki.head
 
-  12 MB on disk, 3.8 MB over the wire, a few seconds to build; all 22 language
-  indexes come to 259 MB on the server and are built by the same loop over
-  `*-merged.index`. Without one the site still works and is much slower —
+  12 MB on disk, 3.8 MB over the wire, a few seconds to build; the 23 streamed
+  indexes come to 272 MB on the server. A loop over `*-merged.index` misses
+  `simple-wiki.index`, which is built differently and is not named that way —
+  which is exactly how it went live with no head for two days. Check the
+  deployment rather than the loop:
+
+      npm run check-deployed
+
+  It reads the picker's own list and asks the site, by range request, whether
+  each index, its `.idxz` and its `.head` are served. Not in CI, which has no
+  deployment to look at; run it after uploading, while a gap is still cheap to
+  fix. Without one the site still works and is much slower —
   `{palindrome:A{5}}` goes from half a second to twenty and finds nothing — so
   a deploy that forgets it fails quietly. `?debug=1` says "answered from the
   head of the index" when it is being used, which is the quickest way to tell.

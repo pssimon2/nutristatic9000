@@ -29,7 +29,8 @@
     "build-offline": "node scripts/build-offline.mjs",
     "test:browser": "sh scripts/browser-test.sh",
     "test:offline": "node scripts/offline-test.mjs",
-    "check-head": "tsx scripts/check-head.mjs"
+    "check-head": "tsx scripts/check-head.mjs",
+    "check-deployed": "tsx scripts/check-deployed.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
