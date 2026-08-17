@@ -14,7 +14,15 @@
 import { Filter } from "./expr-filter.js";
 import { compileQuery } from "./find-expr.js";
 import { SessionContext } from "./session-context.js";
-import { A1Z26, SCRABBLE } from "./value-constraint.js";
+import {
+  A1Z26,
+  ELEMENT_SYMBOLS,
+  MORSE,
+  SCRABBLE,
+} from "./value-constraint.js";
+
+/** The element symbols as a set, for the spelling explanation. */
+const ELEMENT_SET: ReadonlySet<string> = new Set(ELEMENT_SYMBOLS);
 import { findConstruct, foldName } from "./constructs.js";
 
 /** One conjunct of the query, and why the match does or does not satisfy it. */
@@ -233,7 +241,53 @@ function detailFor(
     }
     if (c.name === "distinct") return "no letter repeats";
   }
+  if (group === "spell") {
+    // Both of these have several readings of the same match, and the reading
+    // is what the solver wanted.
+    if (c.name === "elements") return spellOut(letters(text), ELEMENT_SET);
+    if (c.name === "morse") return morseSplit(text);
+  }
   return null;
+}
+
+/**
+ * Cut `text` into symbols from `set` — "search" into "se ar c h".
+ *
+ * The cut is the answer for these constructs, not a detail of it: knowing
+ * SEARCH is spellable from the periodic table is worth much less than knowing
+ * it is selenium-argon-carbon-hydrogen, and the same query has several
+ * spellings, so "it matched" leaves the reader to redo the work by hand.
+ *
+ * Greedy would be wrong — a longest-first cut can strand a tail that no symbol
+ * covers — so this backtracks, and returns the first cut it completes.
+ */
+function spellOut(text: string, set: ReadonlySet<string>): string | null {
+  const cut = (i: number): string[] | null => {
+    if (i === text.length) return [];
+    for (const len of [2, 1]) {
+      const piece = text.slice(i, i + len);
+      if (piece.length !== len || !set.has(piece)) continue;
+      const rest = cut(i + len);
+      if (rest) return [piece, ...rest];
+    }
+    return null;
+  };
+  const parts = cut(0);
+  return parts ? parts.join(" ") : null;
+}
+
+/** The letters a morse string spells, with the split that produced them. */
+function morseSplit(text: string): string | null {
+  const want = letters(text).replace(/ /g, "");
+  const codes = new Map<string, string>();
+  for (const [ch, pattern] of Object.entries(MORSE)) codes.set(ch, pattern);
+  const parts: string[] = [];
+  for (const ch of want) {
+    const pattern = codes.get(ch);
+    if (!pattern) return null;
+    parts.push(`${ch}=${pattern}`);
+  }
+  return parts.length > 0 ? parts.join(" ") : null;
 }
 
 /**

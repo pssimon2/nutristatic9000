@@ -114,3 +114,34 @@ describe("robustness", () => {
     expect(rs[0].detail).toBeNull();
   });
 });
+
+// The two constructs whose answer is a *reading* of the match.
+//
+// SEARCH being spellable from the periodic table is worth much less than
+// knowing it is Se-Ar-C-H, and the same query has many spellings, so a bare
+// "it matched" leaves the solver to redo the work by hand. Same for morse,
+// where the whole difficulty is that ...-... splits several ways.
+describe("naming the reading behind a match", () => {
+  it("cuts a match into element symbols", () => {
+    expect(detail("{elements:A*}", "search")).toBe("se ar c h");
+    expect(detail("{elements:A*}", "bacon")).toBe("ba co n");
+    expect(detail("{elements:A*}", "arsenic")).toBe("ar se ni c");
+  });
+
+  it("backtracks rather than taking the first symbol that fits", () => {
+    // "br" is bromine, and taking it strands "ains", which no symbol covers.
+    // A greedy longest-first cut reports no spelling for a word that has one.
+    expect(detail("{elements:A*}", "brains")).toBe("b ra in s");
+  });
+
+  it("claims no spelling for a word that has none", () => {
+    expect(detail("{elements:A*}", "jazz")).toBeNull();
+    expect(detail("{elements:A*}", "quiz")).toBeNull();
+  });
+
+  it("names the letters a morse string splits into", () => {
+    // The point of the construct: ...-... is both V+S and I+L+E.
+    expect(detail("{morse:...-...}", "vs")).toBe("v=...- s=...");
+    expect(detail("{morse:...-...}", "ile")).toBe("i=.. l=.-.. e=.");
+  });
+});

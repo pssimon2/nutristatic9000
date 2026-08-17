@@ -645,7 +645,8 @@ export function encodingNfa(name: string, spec: string, arg: string): Nfa | null
 // Unspaced Morse is ambiguous, which is exactly what the corpus is for: the
 // same dots and dashes resolve into every letter-splitting, and the index
 // says which ones are words.
-const MORSE: Record<string, string> = {
+/** Letter -> its morse pattern. Exported so the explainer can undo a match. */
+export const MORSE: Record<string, string> = {
   a: ".-", b: "-...", c: "-.-.", d: "-..", e: ".", f: "..-.", g: "--.",
   h: "....", i: "..", j: ".---", k: "-.-", l: ".-..", m: "--", n: "-.",
   o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-", u: "..-",
@@ -675,7 +676,8 @@ export function morseNfa(code: string): Nfa | null {
 
 // Chemical symbols, lowercased. Spelling a word in them (BACON = Ba+C+O+N) is
 // a segmentation, which is regular: return to a boundary state after each.
-const ELEMENT_SYMBOLS = (
+/** Element symbols, lower case. Exported so the explainer can undo a match. */
+export const ELEMENT_SYMBOLS = (
   "h he li be b c n o f ne na mg al si p s cl ar k ca sc ti v cr mn fe co ni " +
   "cu zn ga ge as se br kr rb sr y zr nb mo tc ru rh pd ag cd in sn sb te i " +
   "xe cs ba la ce pr nd pm sm eu gd tb dy ho er tm yb lu hf ta w re os ir pt " +
