@@ -152,22 +152,35 @@ int main(int argc, char* argv[]) {
   if (reader == NULL) return 1;
 
   int ret;
-  std::string title, text, *current = NULL;
+  // `ns` is the page's namespace number. A pages-articles dump is not only
+  // articles: it carries the "primary meta-pages" too, which is namespace 4
+  // (Wikipedia:), 10 (Template:), 14 (Category:) and others. Indexing those
+  // put project boilerplate into the corpus at article frequencies, and it
+  // showed — `_+e_+i_+e_+i_+o_+` answered "wikipedia wikiproject spam
+  // linkreports" and "sockpuppet investigations" above "the university of".
+  // Only namespace 0 is an article.
+  std::string title, text, ns, *current = NULL;
   while ((ret = xmlTextReaderRead(reader)) == 1) {
     char const* name = (char const*) xmlTextReaderConstName(reader);
     if (xmlTextReaderNodeType(reader) == XML_READER_TYPE_TEXT) {
       if (current != NULL)
         current->append((char const*) xmlTextReaderConstValue(reader));
     } else if (!strcmp(name, "page")) {
-      do_page(title, text);
+      // Empty `ns` means this is the <page> start element, where the fields
+      // have not been read yet — that call emitted an empty article before
+      // this change and still does, so nothing downstream sees a difference.
+      if (ns.empty() || ns == "0") do_page(title, text);
       title.clear();
       text.clear();
+      ns.clear();
     } else if (xmlTextReaderNodeType(reader) == XML_READER_TYPE_END_ELEMENT) {
       current = NULL;
     } else if (!strcmp(name, "title")) {
       current = &title;
     } else if (!strcmp(name, "text")) {
       current = &text;
+    } else if (!strcmp(name, "ns")) {
+      current = &ns;
     }
   }
 
