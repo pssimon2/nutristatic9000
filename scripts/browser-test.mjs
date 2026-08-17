@@ -698,6 +698,38 @@ if (!kinds.some((t) => /^bird/.test(t))) {
   throw new Error(`kind completions do not match the prefix: ${kinds.join(", ")}`);
 }
 
+// A slot offers three candidates, so a respelling costs a real alternative:
+// "solar system" and "so lar system" are one answer written twice, and
+// `{at 2:…}` counts letters with the spaces removed, so both extract the same
+// letter. They collapse.
+await page.goto(base + "?index=./demo.index&q=" +
+  encodeURIComponent("{at 2:solar s_stem} ; {at 1:<aaagmnr>}"));
+await page.waitForFunction(() => document.querySelectorAll("span.cand").length > 0,
+  null, { timeout: 60000 });
+await page.waitForTimeout(2000);
+const slotCands = await page.$$eval("span.cand", (es) =>
+  es.map((e) => e.textContent.trim()));
+console.log("slot candidates:", slotCands.join(" | "));
+const slotLetters = slotCands.map((t) => t.replaceAll(" ", ""));
+if (new Set(slotLetters).size !== slotLetters.length) {
+  throw new Error(`two spellings of one answer both offered: ${slotCands.join(", ")}`);
+}
+
+// …but when the extraction counts *words*, the split is the answer:
+// `{at 2.1:…}` takes the first letter of the second word, which is "s" of
+// "system" one way and "l" of "lar" the other. Both must stay.
+await page.goto(base + "?index=./demo.index&q=" +
+  encodeURIComponent("{at 2.1:solar s_stem} ; {at 1:A{4}}"));
+await page.waitForFunction(() => document.querySelectorAll("span.cand").length > 0,
+  null, { timeout: 60000 });
+await page.waitForTimeout(2000);
+const wordCands = await page.$$eval("span.cand", (es) =>
+  es.map((e) => e.textContent.trim()));
+console.log("word-position candidates:", wordCands.join(" | "));
+if (!wordCands.some((t) => /\s/.test(t.trim()) && t.replace(/\s+/g, "") === "solarsystem" && t !== "solar system")) {
+  throw new Error(`respelling dropped where the word split changes the answer: ${wordCands.join(", ")}`);
+}
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(

@@ -905,7 +905,24 @@ worker.onmessage = (ev) => {
       if (slots) {
         const slot = slots[slotIndex];
         if (slot && slot.results.length < 3) {
-          slot.results.push({ score: msg.score, text: msg.text });
+          // "solar system" and "so lar system" are one answer written twice,
+          // and there is room for three candidates: a respelling costs a real
+          // alternative. `{at 3:…}` counts letters with the spaces taken out,
+          // so the two extract the same letter and one of them is waste.
+          //
+          // Not when the extraction counts *words*, though — `{at 1.1:…}`
+          // takes the first letter of the first word, which is "s" of "solar"
+          // one way and "s" of "so" the other. There the split is the answer,
+          // so both belong in the list.
+          const byWord =
+            slot.extract?.positions.some((p) => typeof p !== "number") ?? false;
+          const letters = msg.text.replaceAll(" ", "");
+          const respelling =
+            !byWord &&
+            slot.results.some((r) => r.text.replaceAll(" ", "") === letters);
+          if (!respelling) {
+            slot.results.push({ score: msg.score, text: msg.text });
+          }
         }
         break;
       }
