@@ -546,6 +546,8 @@ interface Slot {
   /** Which candidate feeds the extraction; the top one until told otherwise. */
   chosen: number;
   done: boolean;
+  /** How the slot's search ended, which decides what an empty slot means. */
+  status: string | null;
 }
 let slots: Slot[] | null = null;
 let slotIndex = 0;
@@ -598,7 +600,20 @@ function renderSlots(): void {
       answer.textContent = "searching…";
       answer.className = "from";
     } else if (slot.results.length === 0) {
-      answer.textContent = slot.done ? "no match" : "";
+      // "no match" is a claim about the corpus, and only one of these endings
+      // supports it. A slot that ran out of budget searched part of the index
+      // and stopped; saying nothing is there would send the reader off to
+      // rewrite a slot that may have been right all along. Slots share one
+      // budget now, so the later ones reach this far more often.
+      answer.textContent = !slot.done
+        ? ""
+        : slot.status === "exhausted"
+          ? "no match"
+          : slot.status === "empty"
+            ? "cannot match anything"
+            : slot.status === "complex"
+              ? "too complex to search"
+              : "nothing found in the budget";
       answer.className = "from";
     } else {
       const letters = slotLetters(slot);
@@ -700,6 +715,7 @@ function startMultiSlot(queries: string[]): void {
     results: [],
     chosen: 0,
     done: false,
+    status: null,
   }));
   slotIndex = 0;
   slotBytesSpent = 0;
@@ -1022,7 +1038,10 @@ worker.onmessage = (ev) => {
       }
       if (slots) {
         const slot = slots[slotIndex];
-        if (slot) slot.done = true;
+        if (slot) {
+          slot.done = true;
+          slot.status = msg.status as string;
+        }
         // `fetched` is the source's lifetime total, so the difference is what
         // this slot cost.
         if (typeof msg.fetched === "number") {

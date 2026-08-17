@@ -736,6 +736,30 @@ if (!wordCands.some((t) => /\s/.test(t.trim()) && t.replace(/\s+/g, "") === "sol
   throw new Error(`respelling dropped where the word split changes the answer: ${wordCands.join(", ")}`);
 }
 
+// An empty slot has to say *why* it is empty. "no match" is a claim about the
+// corpus, and only an exhausted search supports it — a slot that ran out of
+// budget searched part of the index and stopped, and slots share one budget
+// now, so the later ones reach that far often.
+await page.goto(base + "?index=./demo.index&q=" +
+  encodeURIComponent('{at 1:"qqzzxxjjv"} ; {at 1:A{5}&A{6}} ; {at 1:A{4}}'));
+await page.waitForFunction(() => /slots\./.test(document.body.textContent),
+  null, { timeout: 90000 });
+await page.waitForTimeout(1500);
+const emptySlotRows = await page.$$eval("table.slots tr", (trs) =>
+  trs.map((t) => t.textContent.replace(/\s+/g, " ").trim()));
+console.log("slot outcomes:", emptySlotRows.map((r) => r.slice(0, 34)).join(" / "));
+// Searched to the end and found nothing: the corpus really has none.
+if (!/no match/.test(emptySlotRows[0])) {
+  throw new Error(`an exhausted empty slot should say "no match": ${emptySlotRows[0]}`);
+}
+// Contradictory, so no search happened at all.
+if (!/cannot match anything/.test(emptySlotRows[1])) {
+  throw new Error(`an impossible slot should say so: ${emptySlotRows[1]}`);
+}
+if (/no match/.test(emptySlotRows[1])) {
+  throw new Error(`an impossible slot must not claim the corpus was searched: ${emptySlotRows[1]}`);
+}
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(
