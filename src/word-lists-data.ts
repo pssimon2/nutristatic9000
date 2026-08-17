@@ -4,7 +4,7 @@
 // `node scripts/build-lists.mjs`; the file is committed so clean clones and
 // CI need no network. Small canonical sets are hand-written in word-lists.ts.
 //
-// Counts at generation time: countries 197, capitals 203, usstates 50, elements 175, constellations 90, greekgods 320, norsegods 70, dogbreeds 922, presidents 39.
+// Counts at generation time: countries 197, capitals 203, usstates 50, elements 175, constellations 90, greekgods 320, norsegods 70, dogbreeds 922, presidents 39, instruments 2723, carmakers 1913, sports 695, currencies 642.
 
 export const GENERATED_LISTS: Record<string, string> = {
   countries:
@@ -423,4 +423,1275 @@ export const GENERATED_LISTS: Record<string, string> = {
     "jackson,jefferson,johnson,kennedy,lincoln,madison,mckinley,monroe," +
     "nixon,obama,pierce,polk,reagan,roosevelt,taft,taylor,truman,trump," +
     "tyler,van buren,washington,wilson",
+  instruments:
+    "a clarinet,abel axe,aburukuwa,accordion,acme siren,acoustic bass," +
+    "acoustic electric guitar,acoustic guitar,adjalin,adufe,aeolian harp," +
+    "aeolodion,aeotana,aerophone,afoxe,african drum,african fiddle," +
+    "african flute,african harp,agiarut,agidigbo,agogo,agung," +
+    "agung a tamlang,ahardin,ahenk,ahoko,ainu fiddle,air horn,airpods," +
+    "airpods max,airpods pro,ajaeng,ajayu,akai mpc,akan drum,akete," +
+    "akkordolia,akonting,alapini vina,alarm device,alboka,alesis fusion," +
+    "alexander violin,alfaia,algaita,algerian mandole,alghoza," +
+    "alligator drum,alounloun,alphasphere,alphorn," +
+    "alpini vina and eka tantri vina,altar bell,altec lansing duplex,alto," +
+    "alto clarinet,alto flute,alto horn,alto recorder,alto sarrusophone," +
+    "alto saxophone,alto trombone,amazon echo buds,amberola," +
+    "american bass viol,amplified cactus,an a,an ay,an bau,an gao,an goong," +
+    "an ho,an moi,an nguyet,an nhi,an sen,an tam,an tam thap luc,an tinh," +
+    "an tranh,an tre,an tu,an ty ba,analog modeling synthesizer," +
+    "analog sequencer,analog synthesizer,anandalahari,anasazi flute," +
+    "ancient veena,angelique,angklung,anglo concertina,angular harp," +
+    "anti tank guitar,apache fiddle,apkhyarta,apollonicon," +
+    "appalachian dulcimer,apple earbuds,arabic musical instrument,arbajo," +
+    "arched harp,archeophone,archicembalo,archlute,archtop guitar,ardin," +
+    "arghul,armeeposaune,armonico,armpit fart,arp avatar,arp odyssey," +
+    "arp string ensemble,arpa jarocha,arpeggione,array mbira," +
+    "arturia microfreak,ashiko,asiko,askomandoura," +
+    "assamese musical instrument,atabaque,atenteben,atumpan," +
+    "audio effects unit,aulos,autoharp,auxetophone,axatse,ayoyotes," +
+    "azerbaijani musical instrument,aztec death whistle,azusa yumi," +
+    "babendil,bachi,bachin,backsticking,baghet,baglama,baglamas,bagpipe," +
+    "bahian guitar,bajo quinto,bajo sexto,bak,balaban,balafon,balalaika," +
+    "balloon popping,baltic psaltery,bamboo clapper,bamboo flute," +
+    "bamboo musical instrument,bamboula,bandol,bandola,bandolin,bandolon," +
+    "bandoneon,bandora,bandura,bandurria,bangu,banhu,banjeaurine,banjo," +
+    "banjo guitar,banjo uke,banjolin,bansuri,bar zither,bara,barbat," +
+    "barbiton,baritenor,baritone,baritone guitar,baritone horn," +
+    "baritone sarrusophone,baritone saxophone,baritone ukulele," +
+    "baritone violin,baroque flute,baroque guitar,baroque instrument," +
+    "baroque trumpet,baroque violin,barrel,barrel drum,barrel organ," +
+    "barril de bomba,baryton,basel drum,basolia,bass,bass banjo," +
+    "bass baritone,bass clarinet,bass cornett,bass drum,bass flute," +
+    "bass guitar,bass harmonica,bass oboe,bass pedals,bass recorder," +
+    "bass sarrusophone,bass saxophone,bass trombone,bass trumpet," +
+    "bass ukulele,bass violin,bassanello,basset clarinet,basset horn," +
+    "basshorn,basso profondo,bassoon,bata drum,bawu,bayan,bazooka," +
+    "bbc marconi type a microphone,beamz,beatboxing,beater,bedon,bedug," +
+    "begena,beigoma,belembaotuyan,bell,bell box,bell guittern,bell plate," +
+    "bell tree,belloneon,bellow,belt drive turntable,bendir,benju,benta," +
+    "berimbau,bhankora,bianqing,bianzhong,bicycle bell,bifora,big piano," +
+    "binayo,biniou,binson echorec,binzasara,bipa,birbyne,birch trumpet," +
+    "biwa,black screen of death,blackpool high tide organ,bladder fiddle," +
+    "bladder pipe,blaster beam,bleep censor,blowing horn,blown bottle," +
+    "blown idiophone,blue screen of death,blues bender,bo,boatswains call," +
+    "bobbili veena,bobre,bock,bock a da bock,bodega,bodhran,bodu beru," +
+    "bogdon box bass,boha,bohemian harp,bolombatto,bolon,bombard,bombo," +
+    "bombo leguero,bonang,bond electraglide,bones,bongo,bonsho,boobam," +
+    "bookshelf speaker,boom ba,boomwhacker,bordonua,bose sounddock," +
+    "bose soundlink,botet,botija,bougarabou,boula,boundary microphone," +
+    "bourdon,bouzouki,bow harp,bowed clavier,bowed psaltery," +
+    "bowed string instrument,bowl lyre,box zither,boy soprano,boyuk nagara," +
+    "brahms guitar,brass instrument,brian boru bagpipe,briazkalnytsia," +
+    "brinquinho,bro,broadside,bronze drum,bu,bubon,buccin,buccina,bucium," +
+    "buckhorn,bugchu,bugle,buhay,buisine,buk,buki,bulgari,bullroarer," +
+    "bundengan,bungkaka,bungkau,burny,burst bucker pro pickups,burton grip," +
+    "button accordion,buzuq,buzzer,byzaanchy,byzantine lyra,c g rtma," +
+    "c melody saxophone,c soprano saxophone,cabasa,cabrette,caisa," +
+    "caja vallenata,cajon,cajon de rumba,cajon de tapeo,cajun accordion," +
+    "cak,calabash,calabrian lira,call bell,calliope,calung,cana de millo," +
+    "candombe drums,canh,cantaro,car alarm,caramusa,carbon microphone," +
+    "carillon,carimba,carnyx,carter family picking,casio cz synthesizers," +
+    "casiotone,castanets,cat organ,cata,catalan shawm,caucasian dhol," +
+    "cavalry trombone,cavaquinho,caxirola,caxixi,cegled water jug," +
+    "cekuntrung,celebratory gunfire,celesta,cello,cello da spalla,cellone," +
+    "celtic harp,cembalet,ceng,ceremonial drum,cetara,ceterone,cetra," +
+    "chabrette,chacaras,chadagan,chagane,chajchas,chakapa,chakhe,chalumeau," +
+    "chamber organs,chamberlin,chande,chang,chanza,chap,chapey," +
+    "chapman stick,charango,charangon,charlie christian pickup," +
+    "charvel surfcaster,chekker,chelys,chemnitzer concertina,chenda," +
+    "chengila,chhepchher,chi,chiba,chikara,chillador,chime bar,chimes," +
+    "chimta,china cymbal,chinese flute,chinese musical instrumets,ching," +
+    "chinlili,chirimia,chitarra battente,chitarra italiana,chitrali sitar," +
+    "chiwang,chocalho,choghur,chompi,choor,chord organ,chordophone," +
+    "chordotonal organ,chromatic button accordion,chromatic harmonica,chuk," +
+    "chuniri,church bell,church organ,cifteli,cimbalom,cimbasso,cimboa," +
+    "cimpoi,circuit bending,citole,cittern,civil defense siren,clapper," +
+    "clapper stick,clapstick,clarinet,clarinet family,clarinette damour," +
+    "clash cymbals,classical electric guitar,classical guitar," +
+    "classical guitar with additional strings,classical kemence," +
+    "clavecin electrique,claves,clavichord,clavicymbalum,clavicytherium," +
+    "clavier a lumieres,claviharp,clavinet,claviola,clavioline,claviorgan," +
+    "clavivox,clay drum,clicker,clog fiddle,coaxial loudspeaker,cobza," +
+    "cocktail drum,colascione,colombian tiple,coloratura soprano," +
+    "comb and paper,combo organ,combolin,compressed air gramophone," +
+    "compression driver,concertina,conch,concheras,condenser microphone," +
+    "conga,conical drum,conn o sax,console steel guitar,contact microphone," +
+    "continuum,contra alto clarinet,contra alto flute,contrabass bugle," +
+    "contrabass clarinet,contrabass flute,contrabass guitar," +
+    "contrabass oboe,contrabass recorder,contrabass sarrusophone," +
+    "contrabass saxophone,contrabass trombone,contrabass trumpet," +
+    "contrabassoon,contraforte,contraguitar,contralto,cor anglais," +
+    "cornamuse,cornet,cornett,cornettino,corno da tirarsi,cornstalk fiddle," +
+    "cornu,couesnophone,countertenor,course,cowbell,crash cymbal," +
+    "crash ride cymbal,cretan lyra,cristal baschet,croix sonore,cromorne," +
+    "cross stringing,cross strung harp,crosspicking,crotal bell,crotales," +
+    "crotalum,crotalus,crowdy crawn,crumhorn,crwth,crystallophone,csakan," +
+    "cuatro,cuica,cuk,culoepuya,cultrun,cumbus,cup chime,cura nagara," +
+    "curfew bell,cutaway,cyberarts,cyclone,cylinder back mandolin," +
+    "cylindrical drum,cymbal,cymbalum,cythara,dabakan,dacian draco,dadaiko," +
+    "daegeum,daf,daguangxian,dahu,dakkari,dakshinavarti shankh,damaha," +
+    "damaru,dammam,damphu drum,dance chimes,dance organ,danelectro c," +
+    "dangjeok,dangubica,danso,dapaqin,darbuka,darkhuang,datong,davandai," +
+    "davul,daxophone,dayereh,dead bell,dean cadillac,dean soltero," +
+    "den den daiko,denis dor,dentsivka,detuner,devil chaser,deze,dhaa," +
+    "dhadd,dhak,dhantal,dhantara,dhimay,dhol,dholak,dhyangro,diaphone," +
+    "diatonic button accordion,diaulos,diddley bow,didgeridoo," +
+    "digital accordion,digital audio workstation,digital mixing console," +
+    "digital organ,digital piano,digital synthesizer,dihu,dili tuiduk," +
+    "dilrupa,diple,diplica,dipole speaker,direct drive turntable," +
+    "directional microphone,directional siren," +
+    "directly struck membranophone,division viol,diwas,diyingehu,dizi," +
+    "dj controller,djembe,dobro,doedelzak,dog whistle,dohol,dojo,dolceola," +
+    "doli,dollu,dombra,domra,donskoy ryley,door knocker,doorbell," +
+    "doppio borgato,dord,doshpuluur,dotaku,dotara,double bass," +
+    "double bell euphonium,double clarinet,double contrabass flute," +
+    "double flute,double neck guitar,double violin,downpicking,dozaleh," +
+    "dramatic coloratura soprano,dramatic soprano,dramyin,dreadnought," +
+    "dreidel,drejelire,drone zither,drum,drum charts,drum kit,drum machine," +
+    "drum sequencer,drum stick,drums in communication,ducheke,duck call," +
+    "duct flute,duda,dudas,duduk,duet concertina,duggi,duhulla,duitara," +
+    "dulce melos,dulcian,dulcimer,dulcitar,dulcitone,dulzaina,dungchen," +
+    "dunun,dutar,duxianqin,dvoyanka,e clarinet,e mu drumulator," +
+    "eagle bone whistle,earbuds,ebow,echo machine,echoplex,economy picking," +
+    "eeng,effects cymbal,egg shaker,eigenharp,eight string bass guitar," +
+    "eight string guitar,eka tantri vina,ekpili,ektara,ekwe,electone," +
+    "electret microphone,electribe a,electribe m,electric bass," +
+    "electric bell,electric cello,electric double bass," +
+    "electric grand piano,electric guitar,electric harp," +
+    "electric instrument,electric lamellophone,electric mandolin," +
+    "electric organ,electric piano,electric sitar,electric viola," +
+    "electric violin,electro theremin,electrocardiophone," +
+    "electrodynamic loudspeaker,electroencephalophone,electronic drum," +
+    "electronic keyboard,electronic musical instrument,electronic organ," +
+    "electronic piano,electronic tanpura,electrophone," +
+    "electrostatic loudspeaker,electrostatic pickup,elektron octatrack," +
+    "eleven string alto guitar,elka rhapsody,elka synthex,ems synthi a," +
+    "ems synthi aks,end blown flute,engalabi,english concertina," +
+    "english guitar,enharmonic keyboard,eo,eows,epigonion," +
+    "epinette des vosges,epiphone alleykat,epiphone casino,epiphone dot," +
+    "epiphone jack casady signature bass,epiphone joe pass emperor ii," +
+    "epiphone les paul,epiphone sheraton,erhu,eric clapton stratocaster," +
+    "erikundi,erke,erkencho,error message,erxian,es les paul,escopetarra," +
+    "esophageal speech,esp eclipse,esp jeff hanneman,esp kirk hammett," +
+    "esp ron wood,esp rzk series,esp signature series,esp skulls snakes," +
+    "esp sunburst tiger,esp tom araya,esraj,esterilla,eulers disk," +
+    "eunuch flute,euphonicon,euphonium,ever buree,ewi," +
+    "experimental musical instrument,extended range bass,fadno," +
+    "fairground organ,fairlight cmi,fanfare trumpet,fanfrnoch,fangxiang," +
+    "fender aerodyne jazz bass,fender bass vi,fender bronco," +
+    "fender cabronita telecaster,fender california series," +
+    "fender contemporary stratocaster japan,fender cyclone," +
+    "fender duo sonic,fender geddy lee jazz bass,fender jag stang," +
+    "fender jaguar bass,fender jazz bass,fender jazz bass v," +
+    "fender jazzmaster,fender jeff beck stratocaster,fender king," +
+    "fender mark hoppus jazz bass,fender musicmaster bass,fender mustang," +
+    "fender mustang bass,fender precision bass,fender precision bass plus," +
+    "fender prophecy ii bass,fender squier precision bass," +
+    "fender starcaster,fender stratocaster,fender stratocaster xii," +
+    "fender swinger,fender telecaster,fender telecaster custom," +
+    "fender victor bailey jazz bass,fender white steel,fender wide range," +
+    "fender wildwood,ferrinho,fi la,fiddle,fiddlesticks,fidget spinner," +
+    "fife,filimonovo toys,fingerstyle guitar,firebird,fiscorn,fish drum," +
+    "five string violin,flabiol,flageolet,flamenco guitar,flat ride cymbal," +
+    "flatpicking,flexatone,floghera,floor tom,floppotron,flower drum," +
+    "floyara,floyarka,flugabone,flugelhorn,fluier,flumpet,flute," +
+    "flute damour,flute method,flutina,fog bell,foghorn," +
+    "folding harpsichord,folk instrument,folk instruments of punjab," +
+    "fontomfrom,foot drum,footed drum,fortepiano,fou," +
+    "found object percussion,frame drum,frame zither,free reed aerophone," +
+    "freeman string symphonizer,freepulse wireless headphones," +
+    "fretless bass,fretless guitar,friction drum,friction idiophone,frilka," +
+    "frottoir,frula,fue,fujara,full range speaker,furin,g sharp guitar," +
+    "gabbang,gadulka,gagar,gaita asturiana,gaita cabreiresa,gaita de boto," +
+    "gaita de saco,gaita gastorena,gaita sanabresa,galgo,galician gaita," +
+    "galician tambourine,gallotone guitar,gambang,gaming top,gandingan," +
+    "gandingan a kayo,gangsa,ganurags,ganza,gaohu,garamut," +
+    "garklein recorder,garmon,gataberaya,gazamba,gbedu,gehu,gemshorn," +
+    "gendang beleq,generalized keyboard,genggong,geomungo,geophone," +
+    "georgian accordion,georgian musical instrument,german horn,ghanta," +
+    "gharha,ghatam,ghaychak,ghijak,ghumot,ghungroo,gibson barney kessel," +
+    "gibson blueshawk,gibson byrdland,gibson chet atkins sst,gibson corvus," +
+    "gibson country western,gibson dove,gibson es series,gibson explorer," +
+    "gibson firebird,gibson flying v,gibson hummingbird,gibson l series," +
+    "gibson les paul,gibson les paul bass,gibson les paul custom," +
+    "gibson les paul doublecut,gibson les paul junior," +
+    "gibson les paul special,gibson les paul standard," +
+    "gibson les paul studio,gibson little lucille,gibson marauder," +
+    "gibson moderne,gibson robot guitar,gibson sg,gibson thunderbird,giga," +
+    "gingras,giraffe piano,gittern,gittith,gittler guitar,glass flute," +
+    "glass harmonica,glass harp,glass marimba,glasschord,glockenspiel," +
+    "goema,gogona,goje,gong,gong ageng,gong bass drum,gong chime,gongue," +
+    "google pixel buds,gottan,gottuvadhyam,gourd mouth organ,graile,gralla," +
+    "gralsglockenklavier,gramophone,grand piano,gravikord," +
+    "great bass recorder,great highland bagpipe,great irish warpipes," +
+    "greek musical instrument,green screen of death,gretsch triple jet," +
+    "groove machine,ground bow,ground zither,gruppenhorchgerat,guacharaca," +
+    "guan,guayo,guban,gubguba,gudastviri,gudok,gudugudu,gue,guira,guiro," +
+    "guitalele,guitalin,guitar,guitar fiddle,guitar phim lom," +
+    "guitar picking,guitar synthesizer,guitar zither,guitaret,guitaro," +
+    "guitarra chamula,guitarra de canya,guitarra de golpe,guitarra latina," +
+    "guitarra morisca,guitarra panzona,guitarra septima," +
+    "guitarron argentino,guitarron chileno,guitjo,guitorgan,gumbass,gumbe," +
+    "gun salute,gunjac,gunshot,guqin,gusli,guzheng,gyaling,gyile,habban," +
+    "hackbrett,haegeum,hakgediya,halszither,hammered chordophone," +
+    "hammered dulcimer,hammond organ,hand cymbal,hand drum,hand repique," +
+    "handbell,handchime,handpan,hang,hardanger fiddle,harjedalspipa," +
+    "harmoneon,harmonetta,harmonica,harmonichord,harp,harp guitar," +
+    "harp lute,harpejji,harpsichord,harpsichord viola,hasapi," +
+    "hatun charango,haute contre,he drum,headless guitar," +
+    "headless tambourine,headphone,heavy metal guitar,heckel clarina," +
+    "heckelphone,heckelphone clarinet,hegelung,heike shamisen," +
+    "heldenbaritone,heldentenor,helicon,heligonka," +
+    "here one wireless smart earbuds,hi hat,hichiriki,highway hi fi," +
+    "hirtenschalmei,hitler bell,hne,holztrompete,hom,home swinger,horagai," +
+    "horn,horn loudspeaker,hornet,hornophone,hornpipe," +
+    "hornucopian dronepipe,hosaphone,hosho,hot fountain pen,hotchiku," +
+    "hourglass drum,hu hu,huapanguera,huehuetl,hugu,huiringua,hujia,huluhu," +
+    "huluqin,hulusi,hum,humbucker,hummel,hummelchen,hun,hunting horn," +
+    "huobosi,huqin,hurdy gurdy,hurricane,hybrid guitar,hybrid picking," +
+    "hydraulophone,hydrophone,hyoshigi,hyperbass flute,hypermedia," +
+    "hypervideo,ibanez artcore series,ibanez gr series," +
+    "ibanez musician bass,ibanez pgm,ibanez rg prestige,ibanez talman," +
+    "ichigenkin,idakka,idiochord,idiophone,igba,igil,ikembe,ikoro,ilimba," +
+    "ilimba drum,ilu,imperial bosendorfer,imzad,in ear monitor,inanga," +
+    "indian harmonium,indian slide guitar,indirectly struck idiophone," +
+    "inline chromatic harp,ipod hi fi,ipu,irish bouzouki,irish flute," +
+    "isomorphic keyboard,istarski mih,jackson dinky,jackson kelly," +
+    "jackson king v,jackson rhoads,jackson soloist,jackson zoraxe,jadagan," +
+    "jal tarang,jam block,james burton telecaster,janggu,janko keyboard," +
+    "janzi,jarana huasteca,jarana jarocha,jawbone,jazz guitar,jazzophone," +
+    "jetigen,jews harp,jhyali,jhyamta,jiahu gudi,jiaohu,jiegu," +
+    "jim root telecaster,jing,jing erhu,jinghu,jingle,jingle bell,jirba," +
+    "jouhikko,junggeum,junjung,kaba gaida,kabosy,kacapi,kaco,kaekeeke," +
+    "kafir harp,kagul,kagura suzu,kagurabue,kakaki,kakko,kalaleng,kali," +
+    "kalimba,kalindula,kalumbu,kalyuka,kamancheh,kane,kangling,kanjira," +
+    "kankara sanshin,kankles,kannel,kantele,karamuza,karaniing," +
+    "karantouzeni,karatalas,karawasi,karinding,karkm,karnal,karyenda," +
+    "kashaka,kato,katsa,kaval,kawala,kayagum,kayamb,kazoo,kebero,kecer,kei," +
+    "keluri,kemanak,kemane,kemence of the black sea,kemenche,kempul,ken," +
+    "ken am ma,ken bau,kendang,kendara,kenong,kent,kepyak,kernel panic," +
+    "key bugle,keyboard amplifier,keyboard bass,keyboard glockenspiel," +
+    "keyboard instrument,keyed trumpet,keytar,khak a hian,khamak,khanjani," +
+    "khartal,khene,khim,khin,khloy,khlui,khol,khong wong lek," +
+    "khong wong yai,khonkhota,khromka,khushtar,khutang,khuuchir,kingri," +
+    "kinnari vina,kinnor,kirikoketa,kiringi,kisanji,kissar,kithara,kittle," +
+    "kkwaenggwari,klaxon,klaxophone,klon centaur,klong khaek,klong put," +
+    "klong song na,klong thap,klong that,klong yao,klopotec,koauau,kobyz," +
+    "kobza,kokiriko,kokle,kokyu,kolintang,kolitong,komabue,kombu,kompang," +
+    "komuz,koncovka,kong mong,kong ring,kong thom,kong toch,kongahyan," +
+    "konghou,kontigi,kontra,kora,korean barrel drum,korean drum," +
+    "korg mini pops,korg polysix,korg trident,korg volca,kortholt,koto," +
+    "kotsuzumi,koudi,kouxian,kovalevskaya top,koza,kozobas,kpanlogo," +
+    "kraakdoos,krachap pi,krakebs,krap,krar,krekhts,krem,krez,kse diev," +
+    "kubing,kuhlohorn,kuisi,kukkuma,kulibit,kulintang a kayo," +
+    "kulintang a tiniok,kumuz,kundu,kurdish tanbur,kus,kusle,kutiyapi," +
+    "kuvytsi,kuzhal,kwitra,kyam,lace sensor,lag na,laggutu,lahuta,lali," +
+    "lambeg drum,lamellophone,lamzdeliai,langeleik,langspil,laouto," +
+    "lap steel guitar,lap steel ukulele,larchemi,laruan,laser harp," +
+    "laser microphone,latfiol,lau,laud,launeddas,lautenwerck," +
+    "lavalier microphone,lavta,leadpipe,leiqin,leona,lesiba,ligature," +
+    "light soprano,lijerica,limbe,lincolnshire bagpipes,ling,lingm," +
+    "linndrum,linndrum midistudio,lions roar,lip ribbon microphone," +
+    "lipstick pickup,lira,lira da braccio,lirone,lithophone,litungu,lituus," +
+    "liujiaoxian,liuqin,liuto cantabile,livenka,livestock bell,livika," +
+    "llanera harp,logan string melody,loh tarang,lokanga bara,lokole," +
+    "lone worker monitoring,long drum,loophonium,loudspeaker," +
+    "loudspeakers in mosques,loure,low whistle,lowrey organ,lucille,lujon," +
+    "lummi stick,luntang,luogu,lur,lusheng,lute,lute guitar,lutheal," +
+    "lyra viol,lyre,lyre guitar,lyres of ur,lyric coloratura soprano," +
+    "lyric soprano,lyricon,lytavry,machete,madal,maddale,madhalam,magadis," +
+    "magnetic cartridge,maguhu,mahuri,maktoum,makuta," +
+    "mallet percussion instrument,malunga,mandobass,mandocello,mandola," +
+    "mandolin,mandolin banjo,mandolone,mandolute,mandora,mandore,mangtong," +
+    "manguerito,manjira,manjur,mantura,maraca,marching brass instrument," +
+    "marching instrument,marching percussion instrument,marfa,marimba," +
+    "marimba lumina,marimbula,mark tree,marovany,martinstrompete," +
+    "marxophone,masak baja,maschine,masenqo,mashak,matepe,matofono," +
+    "mayohuacan,mazanki,mazhar,mbira,mbira dzavadzimu,mdb polysequencer," +
+    "mechanical organ,medium voice,megaphone,mejoranera,mellophone," +
+    "mellotron,melodic percussion instrument,melodica,melophon," +
+    "membranophone,memorymoog,memotron,metallophone," +
+    "mexican twelve string guitar,mexican vihuela,mey,mezzo soprano," +
+    "mezzo soprano saxophone,mi gyaung,micromoog,microphone," +
+    "mid range speaker,midi controller,midwinter horn,mihbaj,mijwiz," +
+    "military drum,milkymist,mina,minggah,mini humbucker,minimoog," +
+    "minimoog voyager,minipiano,minteki,mirwas,misa kitara,miskal,misnice," +
+    "misr veena,mixing console,mizhavu,mizmar,mizwad,modular synthesizer," +
+    "modulator,mohan veena,moko,moldavian fluier,molinukai,molo," +
+    "monkey stick,monochord,monome,monotron,monowave,monsoon,moodswinger," +
+    "moog grandmother,moog guitar,moog liberation,moog little phatty," +
+    "moog prodigy,moog rogue,moog satellite,moog sonic six,moog source," +
+    "moog synthesizer,moog taurus,moog theremini,moogerfooger,moraharpa," +
+    "morin khuur,morsing,mouth bow,mouth drumming,mouth organ," +
+    "moving iron speaker,mridangam,msondo,muchosa,mukkuri," +
+    "multi band excitation,multi course harp,multi image,multi neck guitar," +
+    "multimedia,multimoog,murasu,musa,musette bressane,musette de cour," +
+    "music box,music man bongo,music man sterling,music man stingray," +
+    "music sequencer,music tracker,music workstation,musical bow," +
+    "musical clock,musical instrument,musical jug,musical keyboard," +
+    "musical saw,mute cornett,mute violin,muyu,mvet,nabal,nadaswaram,nafir," +
+    "nagak,nagara,nagoya harp,nai,nail violin,nakara,nakkare,naqara," +
+    "naqareh,naqus,nares jux,native american flute," +
+    "natural brass instrument,natural horn,natural trumpet,naumati baaja," +
+    "naverlapp,ndzendze,ndzumara,neigh,neo bechstein,nepalese sarangi," +
+    "neutron,nevel,ney,ney anban,ngoma,ngoma lungundu,ngombi,ngoni,nguru," +
+    "nine string guitar,ninera,niutuiqin,njarka,nocaster,nodo,nogo,nohkan," +
+    "noise canceling microphone,noise cancelling headphones,nord electro," +
+    "north drums,northumbrian smallpipes,nose flute,nose whistle," +
+    "novation drumstation,nplooj,nunun,nuzhe,nvike,nyatiti,nyckelharpa," +
+    "nyele,oberheim dsx,oberheim matrix synthesizers,oboe,oboe da caccia," +
+    "oboe damore,obokano,obrom,ocarina,occitan whistled from aas," +
+    "ocean drum,octave effect,octave glissando,octave mandolin," +
+    "octave twelve,octavin,octavina,octavist,octoban,octobass," +
+    "octocontra alto clarinet,octocontrabass clarinet,octophone,odrecillo," +
+    "okraulo,olifant,omele,omubanda,onavillu,ondes martenot,ondioline," +
+    "ong son drum,onugadu,oom pah,oopoochawa,ophicleide,orchestrion," +
+    "orchestron,organ,organ crawl,organ flue pipe scaling,organ manual," +
+    "organetto,organum,orpharion,orphica,orthotonophonium,orutu,otamatone," +
+    "oterfl yte,otsuzumi,ottu,oud,oudola,oval spinet,ovation deacon," +
+    "ovation ukii,ovation viper,overtone flute,padayani thappu,paf,pahu," +
+    "pahu pounamu,paiban,paidi,paigu,paila criolla,paixiao,pakhavaj," +
+    "paldong,palendag,paleolithic flute,palitos,pamiri rubab,pan flute," +
+    "pancai baja,panchamukha vadyam,pandeiro,pander,pandereta plenera," +
+    "pandero jarocho,pandura,panduri,pantalon,paqin,parabolic microphone," +
+    "paraguayan harp,pararayki,pardessus de viole,parkapzuk,party horn," +
+    "pastoral pipes,pat kon,pat waing,pate,pattala,pc speaker,pea whistle," +
+    "peavey destiny series,peavey reactor series,pedal clavichord," +
+    "pedal harp,pedal keyboard,pedal piano,pedal steel guitar,pellet drum," +
+    "pena,pepa,percussion instrument,persian musical instrument,phach," +
+    "phagotum,philomel,phin,phin pia,phondar,phonofiddle,phonograph," +
+    "phorminx,photoplayer,physharmonica,pi,pi chum,pianet,piano," +
+    "piano accordion,piano wire,pibgorn,piccolino trombone,piccolo," +
+    "piccolo bass,piccolo heckelphone,piccolo oboe,piccolo trombone," +
+    "piccolo trumpet,pickup,pidkova,piezoelectric speaker,pifana,piffero," +
+    "pifilca,piganino,pilai,pilili,pin,pinaka vina,pinkillu,pipa,pipasso," +
+    "pipe,pipe organ,piri,pisha,piston,pitch pipe,pitch shift,piva," +
+    "piwancha,pixiphone,pku,plasma speaker,player piano,plectrum banjo," +
+    "ploong,plucked string instrument,pluriarc,pochette,pocket operators," +
+    "pocket trumpet,podorythmie,poeng mang,pogo cello,polymoog,polyphon," +
+    "pommer,pong lang,portative organ,portuguese guitar,porutu," +
+    "positive organ,post horn,powerbeats pro,practice chanter," +
+    "practice goose,practice pad,prato e faca,precision bass lyte," +
+    "prempensua,prepared piano,protos,psalmodicon,psalterium,psaltery," +
+    "puerto rican cuatro,punggyeong,pungi,putatara,putipu,putorino,puvama," +
+    "pyrophone,pyzhatka,qairaq,qanbus,qanun,qelutviaq,qilaut,qinqin," +
+    "qoltuq nagara,quarter bells,quarter tone clarinet,quasimidi sirius," +
+    "quena,quijongo,quinticlave,quinto,quintola,quinton,quray,raban,rabeca," +
+    "rabel,rackett,radiodrum,radiogram,raft zither,raganella,rainstick," +
+    "rajao,rakatak,rakkopilli,rale pousse,ramkie,ramsinga,ranat,ranat ek," +
+    "ranat ek lek,ranat kaeo,ranat thum,ranat thum lek,rapach,rasgueado," +
+    "ratchet,rattle,rattleback,rauschpfeife,ravanahatha,ravanne,rawap," +
+    "reactable,rebab,rebana,rebec,reclam de xeremies,reco reco,recorder," +
+    "recording studio as an instrument,red color,redoba,reed aerophone," +
+    "reed contrabass,reed organ,regal,registration,reguilete,repinique," +
+    "requinto guitar,requinto jarocho,resonator guitar,resonator mandolin," +
+    "resonator ukulele,reyong,rhaita,rhodes piano,rhythmicon," +
+    "ribbon microphone,richter tuned harmonica,riddle drum,ride cymbal,rih," +
+    "ring modulator,ring of bells,ring repique,ringing rocks,riq,riwana," +
+    "robb wave organ,rock gong,rock si chord,roland fantom series," +
+    "roland jd xi,roland juno,roland v synth,roman tuba,romantic guitar," +
+    "rompler,rondador,roneat dek,roneat ek,roneat thung,ronroco," +
+    "roof knocking,rotary woofer,rothphone,rototom,rotta,rotte,ruan,rubab," +
+    "rud,rudra veena,rumbler siren,russian bassoon,russian guitar," +
+    "russian horn,ryuteki,sabar,sac de gemecs,sackbut,sad mac,saenghwang," +
+    "sagar veena,sakara drum,salamiyyah,salamuri,sallaneh,salo,salpinx," +
+    "salterio,saluang,salvo,sambal,sambuca,sami drum,samica,samphor," +
+    "sampler,samponha,samsung galaxy buds,samsung galaxy buds live,sanba," +
+    "sanctuary knocker,sanhu,sanj,sanshin,santoor,santur,sanxian,sao,sapp," +
+    "sarangi,saraswati vina,saratovskaya garmonika,sardonyx,sargija," +
+    "sarinda,sarod,saron,sarronca,sarrusophone,sasando,sataer,sato,saung," +
+    "saw bang,saw duang,saw sam sai,saw u,sawat saxophone,saxhorn," +
+    "saxonette,saxophone,saxotromba,saxtuba,scabellum,scheitholt," +
+    "school bell,schrammel accordion,schwyzerorgeli,scottish smallpipes," +
+    "screen of death,se,sea organ,selmer guitar,semantron," +
+    "semi acoustic guitar,senh tien,seni rebab,seperewa,seraphine," +
+    "serinette,serpent,servant bell,setar,setor,seven string guitar," +
+    "seven trumpets,shabbat microphone,shagur,shahi baaja,shahrud," +
+    "shak shak,shaker,shakubyoshi,shakuhachi,shamel,shamisen,shang,shankha," +
+    "shawm,shehnai,shekere,sheng,shime daiko,shinobue,ship horn,ships bell," +
+    "shishi odoshi,sho,shofar,shoko,shoshannim,shruti box,shurangiz," +
+    "shuttle pipes,shvi,shyuvr,sifung,signal instrument,sihu,sikulu,sikus," +
+    "silent alarm,silent piano,silex piano,silversonic trombone,simbing," +
+    "simple system flute,simsimiyya,singing bowl,singing tesla coil," +
+    "single coil,single reed instrument,sintir,sipsi,siren,siren disk," +
+    "sistil,sistrum,sitar,sitarla,siter,six string alto guitar," +
+    "sizzle cymbal,sj fl yte,skrabalai,skull,slack key guitar,slenthem," +
+    "slentho,slide saxophone,slide trumpet,slide whistle,slim phatty," +
+    "slit drum,slit drums in ambrym island,smart doorbell,snare drum,sneng," +
+    "socavon,sodina,software synthesizer,sogeum,sohaegeum,soku,solid body," +
+    "sompoton,song bells,song loan,sopila,sopilka,sopranino recorder," +
+    "sopranino saxophone,sopranino trombone,sopranist,soprano," +
+    "soprano clarinet,soprano cornet,soprano flute,soprano helicon," +
+    "soprano recorder,soprano sarrusophone,soprano saxophone," +
+    "soprano sfogato,soprano trombone,soprano ukulele,soprillo,sorahi," +
+    "sordun,sorna,sotto voce,soubrette,sound icon,sound module,sound truck," +
+    "sound trucks in japan,soundbar,soundfield microphone,sounding stone," +
+    "souravli,sousaphone,space harp,spilapipa,spinet,spinettone,spinja," +
+    "spinto,spinto soprano,spitzharfe,splash cymbal,spoons,sprechgesang," +
+    "springtime,square piano,squeaky toy,squeezebox,sralai,sring,sringa," +
+    "sruti upanga,stabule,stagemaster,stamna,starcaster by fender," +
+    "starosvitska bandura,station bell,steam whistle,steel guitar," +
+    "steel string acoustic guitar,steel tongue drum,steelpan," +
+    "steinway vertegrand,steirische harmonika,stenomask," +
+    "stevie ray vaughan stratocaster,stoessel lute,stomp box,stone marimba," +
+    "stradivarius,straight alto,streamer bass,stredici,street organ," +
+    "street piano,string,string change,string ensemble keyboard," +
+    "string instrument,string noise,stroh violin,struck idiophone,strum," +
+    "strummolo,studio monitor,stylophone,sub contrabass recorder," +
+    "sub great bass recorder,subcontrabass flute,subcontrabass saxophone," +
+    "subcontrabass tuba,subharchord,subu,subwoofer,sudrophone,sueng," +
+    "suikinkutsu,suka,sulibao,suling,sumui,suona,supelka,super tweeter," +
+    "superbone,superstrat,surbahar,surdo,surma,suroz,sursingar," +
+    "suspended cymbal,suzu,suzuki omnichord,svilpa,svirel," +
+    "swallows nest organ,swarabat,swarmandal,swarmatron,swazzle," +
+    "swedish bagpipes,swedish cowhorn,swedish lute,sweep picking," +
+    "swish cymbal,sybyzgy,sympathetic string,symphonia,symphonic organ," +
+    "synare,synclavier,synthesizer,syrinx,szopelka,taal,taarija,tabla," +
+    "tabor,tack piano,tadghtita,taepyeongso,tahitian ukulele,taiko,taille," +
+    "takuapu,takumbo,talempong,talharpa,talk box,tamak,tamalin,tambin," +
+    "tamboo bamboo,tamboori,tambora,tambori,tamborim,tamborita calentana," +
+    "tambouras,tambourin,tambourine,tambu drum,tambur,tambura,tamburica," +
+    "tan tan,tanbou,tanbur,tanbura,tangent piano,tanggu,tangmuri,tanpura," +
+    "taonga puoro,taphon,tar,tar shehnai,taraban,taralila,tarawangsa,tarhu," +
+    "tarka,tarogato,tarpu,tassa,tati,taus,tautirut,tbilat,teetotum,telenka," +
+    "telharmonium,tembor,temir komuz,temple block,ten string guitar,tenor," +
+    "tenor banjo,tenor cornett,tenor drum,tenor guitar,tenor recorder," +
+    "tenor sarrusophone,tenor saxophone,tenor trombone,tenor ukulele," +
+    "tenor violin,tenore contraltino,tenore di grazia,tenori on,tenoroon," +
+    "teponaztli,terpodion,terpsitone,tetzilacatl,thaboura,thappu,thattai," +
+    "thavil,theatre organ,theorbo,theremin,therevox,thon and rammana," +
+    "thongophone,three hole pipe,throat microphone,thumb rest," +
+    "thunder machine,thunder sheet,thunderbolt,tibia,tiexianzai,tifa,tihu," +
+    "timbales,timbau,timbrel,timbrh,timila,timpani,timple,tin whistle," +
+    "tingsha,tintinnabulum,tinya,tiorbino,tiple,tiple doliente,tiqin,titti," +
+    "tlapitzalli,tochacatl,toka,tololoche,tom,tom tom drum,tonbak,tonette," +
+    "tongatong,tonkori,top,torban,torupill,toubeleki,touch guitar,tovshuur," +
+    "toy piano,toy rattle,tozacatl,tppe top," +
+    "traditional cambodian musical instrument," +
+    "traditional french musical instrument," +
+    "traditional japanese musical instrument," +
+    "traditional korean musical instrument," +
+    "traditional malaysian musical instrument," +
+    "traditional thai musical instruments,train horn,train whistle," +
+    "transposing instrument,transverse flute,trautonium,travel guitar,tre," +
+    "treble booster,treble flute,treble voice,trejdeksnis,trembita," +
+    "tremolo harmonica,tremoloa,tres,treshchotka,treujenn gaol,triangle," +
+    "triccaballacca,tricordia,trigonon,trikiti,triola,tripflare," +
+    "triple contrabass viol,triple harp,tritantri veena,tritare,tro," +
+    "tro khmer,tro sau thom,tro sau toch,tro u,tromba marina,trombone," +
+    "trombonium,trompa de ribagorza,trompeta china,trong cai,trong chau," +
+    "trong com,trough zither,truba,true wireless headphones,trumpet," +
+    "trumpets,trung,trutruka,tsampouna,tsintsila,tsuri daiko,tsuur,tsuzumi," +
+    "tsymbaly,tuba,tubaphone,tubax,tube fiddle,tube trumpet,tube zither," +
+    "tubular bell,tuhu,tulum,tulum zurna,tumbi,tumdak,tumpong,tumyr," +
+    "tuned bottles,tungehorn,tungna,tungso,tuning fork,turkish crescent," +
+    "turkish musical instrument,turkish ney,tutek,tweeter,twi ba," +
+    "txalaparta,txistu,tympanum,tyngryng,tzouras,udaka vadya,udu,udukai," +
+    "udukku,ue roll,ugal,ugly stick,uhadi musical bow,uilleann pipes,ukeke," +
+    "ukelin,ukulele,uliuli,ulla,umpan,umuduri,unintentional discharge," +
+    "univox super fuzz,unpitched percussion instrument,upic,upright piano," +
+    "upright serpent,urumee,uruttu chenda,utogardon,vaccine,vadya," +
+    "valide trombone,valiha,valve microphone,valve trombone,vanilla car," +
+    "vector synthesis,veekku chenda,veena,venezuelan cuatro,venu,venue," +
+    "verrophone,vertical viola,vessel flute,veuze,vibraphone,vibraslap," +
+    "vibrating alert,vichitra veena,video synthesizer,vielle,vienna horn," +
+    "vienna valve trombone,vihuela,vintage musical equipment," +
+    "vintage noiseless,viol,viola,viola amarantina,viola beiroa," +
+    "viola braguesa,viola caipira,viola campanica,viola da braccio," +
+    "viola da terceira,viola da terra,viola damore,viola de arame," +
+    "viola de buriti,viola de cocho,viola de queluz,viola organista," +
+    "viola pomposa,viola sertaneja,viola toeira,violetta,violi de bufa," +
+    "violin,violin family,violino piccolo,violone,virginal,vistalite drums," +
+    "vitar violins,vocal percussion,vocaloid,vocoder,voice flute,volynka," +
+    "vox continental,vox maris,vox mark iii,vuvuzela,wagner tuba," +
+    "wagnerian soprano,wah wah pedal,wakrapuku,walaycho,waldzither,walpipe," +
+    "warning shot,warr guitar,washboard,washint,washtub bass,water drum," +
+    "water microphone,water organ,waterphone,wave organ,wayside horn,wazza," +
+    "weissenborn,welsh bagpipe,western concert flute,westone,whamola,whip," +
+    "whirligig,whirly tube,whistle,whistled language,whistling,wiener oboe," +
+    "wii speak,willow flute,wind chime,wind controller,wind instrument," +
+    "wind machine,wind organ,wireless headphones,wireless microphone," +
+    "wobble board,wolf whistling,wood block,wooden jaw harp," +
+    "woodwind instrument,woofer,wot,wurlitzer band organ," +
+    "wurlitzer electric piano,xalam,xaphoon,xeremia,xiao,xindi,xiqin," +
+    "xirula,xun,xutuli,xylophone,xylorimba,yak,yakatat,yamaha pacifica," +
+    "yamaha reface,yamatogoto,yamudi,yanggeum,yangqin,yaogu,yatga,yaybahar," +
+    "yayl tanbur,yazh,yazheng,yehu,yelataj chos woley," +
+    "yngwie malmsteen stratocaster,yoke lute,yokobue,yu,yueqin,yunluo," +
+    "zabumba,zampogna,zaqq,zatula,zendrum,zerbaghali,zeze,zhaleika,zhangu," +
+    "zhengni,zhonghu,zhongruan,zhongyin sheng,zhu,zhuihu,zill,zither," +
+    "zongora,zubivka,zuffolo,zukra,zummarah bi soan,zurna",
+  carmakers:
+    "a automobile company,a d meiselbach motor wagon co,a m,a s,aag,abadal," +
+    "abarth,abbott detroit,abc,abc motors,abendroth root manufacturing co," +
+    "aberdonia cars,abingdon,able,abt sportsline,ac cars,ac propulsion," +
+    "ac schnitzer,academy of robotics,accles turrell,ace,ace ev group," +
+    "adami,adams,adamson,addison,adem,ader,adk,adolf bleichert co," +
+    "adria mobil,advance motor manufacturing company,aem,aero,aero car," +
+    "aerocarene,afa,africar,ag fur akkumulatoren und automobilbau,aga," +
+    "ageron,agrale,aichi,ailloud,air navigation and engineering company," +
+    "aiways,ajams,ajax,ajax motor vehicle company,ajax motors company,ajs," +
+    "ak hellas,aka,al haj faw motors,alamagny,alan,alatac,alba,albany," +
+    "albar,albatros,albatross,albion motors,alcyon,alenia aermacchi,ales," +
+    "alesbury,aletra,alex von falkenhausen motorenbau,alexander leutner co," +
+    "alexandra,alfa romeo,alfgang,alfi,all british car company,allard co," +
+    "allard latour,allard motor company,alldays onions,allen,alliance," +
+    "allright,allwyn cyclecars,alma,alp,alpena flyer," +
+    "alpena motor car company,alpha sports,alphi,alpina,alpine,alta,altena," +
+    "alternative cars limited,altmann,alva,alvechurch," +
+    "alvis car and engineering company ltd,am general,amalgamated," +
+    "amati cars,amazonas motos especiais,america,american," +
+    "american austin car company,american motor car company," +
+    "american motors corporation,american napier,american simplex," +
+    "american steam car,american tri car,american waltham,ames,amherst," +
+    "amilcar italiana,amiot peneau,amor,ampere,amphicar,anadolu isuzu," +
+    "anahuac,anchor buggy,anderheggen,anderson,andre,andre py," +
+    "anger engineering company,anglo dane,anker,anna,ansaldo,ansbach," +
+    "antoine,antoinette,anzani,apal,apex motors,apis,apollo,apperson," +
+    "aquila italiana,aquila racing cars,arab,arash motor company," +
+    "arawak motors,arbel,ardex,argo,argonne,argus,argus motoren," +
+    "argyll motors ltd,ariane,ariel motor company,aries,arimofa,arista," +
+    "arkley,armstrong siddeley,armstrong whitworth,arnold,arnolt,aro," +
+    "arrival,arrol johnston,arrow,artline racing,arzac,arzani volpini,asa," +
+    "asa aluminium body,asardo,ascari cars,ascot,asdomobil," +
+    "ashley laminates,asia motors,askulap,aspa,aspid,asquith," +
+    "asquith brothers,ass,associated vehicle assemblers,astatic," +
+    "aster societa italiana motori,aston martin lagonda,astra," +
+    "astra daihatsu motor,atalanta motors," +
+    "ateliers d automobiles et d aviation,ateliers defrance freres," +
+    "ateliers germain,atla,atlantic,atlas,atlas motor car company,atomette," +
+    "atterbury vehicles,attila,auburn motor chassis company,audi ag," +
+    "audi sport,audibert lavirotte,auge,aurea,aurus,austin healey," +
+    "austin rover group,austral,australian motor industries,australian six," +
+    "australis,austro,austro tatra,auto cub,auto mixte,auto trail," +
+    "auto union,autoalliance thailand,autobianchi,autobleu,autocars co," +
+    "autoette,autokinitoviomihania ellados,automeccanica," +
+    "automobile craiova,automobiles bellanger freres,automobiles bernardet," +
+    "automobiles boitel,automobiles claveau,automobiles erad," +
+    "automobiles gonfaronnaises sportives,automobiles gregoire," +
+    "automobiles julien,automobiles l rosengart,automobiles lambert," +
+    "automobiles lombard,automobiles marathon,automobiles rally," +
+    "automobiles rene bonnet,automobiles robert serf," +
+    "automobiles talbot france,automobilfabrik orion," +
+    "automobili stanguellini,automobili turismo e sport," +
+    "automobilwerk eisenach,automodello,automotive design and development," +
+    "automotive industries,automotor company,autosan,autovia,autozodiaco," +
+    "auverland,av motors,avanti,avatr technology,avia,avolette,avtotor," +
+    "avtovaz,ayax,aymesa,b engineering,baby brousse,bachelle electric,baer," +
+    "baguley cars,baja bug,baker dale,baker motor vehicle,bako motors," +
+    "balkan,ballot,bamby cars,bandini automobili,bangchan general assembly," +
+    "barabus tkr,barkas,barley motor car co,barreiros,basil green motors," +
+    "batten,battery manufacturing association,baughan,bavarian auto group," +
+    "baw,beacon motors,beauford automobiles,beijing benz," +
+    "beijing henrey automobile technology,beijing jeep,beisel,bel motors," +
+    "belga rise,bell,bell brothers,belmont,belsize motors,ben hur,bendix," +
+    "benham,bentall vehicles,bentley,bergmann metallurgique,berkeley," +
+    "berkeley cars,berna,bertone,bessemer motor truck company," +
+    "biddle murray manufacturing company,bignan,bij t vuur," +
+    "binghamton electric,binney burnham,binz,biomot," +
+    "biotechnia ellinikon trikyklon,birchfield,biscuter,bitter automobile," +
+    "bizzarrini,bjering,black motor company,blackjack cars," +
+    "blakely auto works,bleriot,bluebird automotive,bmw,bmw m," +
+    "bmw manufacturing,bmw south africa,bmw us manufacturing company,bocar," +
+    "bollack netter and co,bollinger motors,borderel cail,bordrin,bound," +
+    "bouquet garcin schivre,bourassa,bowler offroad,bpd,brabham automotive," +
+    "brabus,bradley,bradley automotive,bradwell,brasier,bravia," +
+    "breguet aviation,brems,brew hatcher,briggs automotive company," +
+    "bright automotive,brilliance auto,briscoe,brissonneau et lotz," +
+    "bristol cars,britannia,british leyland,british motor corporation," +
+    "british motor holdings,british salmson,briton motor company," +
+    "brixia zust,brockmore classic replicas,bromme,brooke cars," +
+    "brough superior,browniekar,brush motor car company,brutsch," +
+    "bryan steam car,bucciali,buchanan,buckler cars,buffalo," +
+    "buffalo electric carriage,buffalo electric vehicle company,buffum," +
+    "bufori,bugatti,bugatti rimac,buick,bukh gry,bulgaralpine," +
+    "bulgarrenault,bungartz butz,burton,bush,bushbury electric,butterosi," +
+    "byd auto,byton,c ar,c r patterson and sons,c v r,cadillac," +
+    "california automobile company,california motor company,calthorpe cars," +
+    "campbell,campion cycle company,canadian motor,canda,cannon,canoo," +
+    "caparo vehicle technologies,car de luxe,car nation,carbodies," +
+    "carbon motors corporation,carhartt,carlsson,carmichael," +
+    "carroll shelby international,carrosserie hess,carrosserie worblaufen," +
+    "carrozzeria fissore,carrozzeria marazzi,cartercar,carver,cas,casalini," +
+    "caterham cars,cavac,cedre,ceirano fabbrica automobili,ceirano gb c," +
+    "central motors,centralne warsztaty samochodowe,century," +
+    "chaigneau brasier,chainless,chalmers automobile,chambers motors," +
+    "chamonix,champion,changan automobile,changfeng motor,changhe," +
+    "chappe et gessalin,chapuis dornier,charles lucas engineering,charlon," +
+    "charron girardot et voigt,charron laycock,chater lea," +
+    "checker motors corporation,chery automobile,chevrolet," +
+    "chevrolet el morocco,chevron cars,chevron engineering ltd," +
+    "china south industries group,chiribiri,christchurch campbell," +
+    "chrysler europe,chrysler fevre argentina s a,chrysler uk,church field," +
+    "ciimo,cime,cirelli motor company,cisitalia,citroen,citroen argentina," +
+    "citroen chile,city transformer,clarkmobile,clement talbot," +
+    "clenet coachworks,cleveland,clinton,clipper,clyno,coadou et fleury," +
+    "coates goshen,cochotte,coda automotive,coey,cognet de seynes,colda," +
+    "cole motor car company,colonial,colonial motors,colt runabout," +
+    "columbia automobile company,columbus buggy company," +
+    "columbus motor vehicle company,comarth,comil,commer,commonwealth," +
+    "commuter cars,compagnie nationale excelsior,constantinesco," +
+    "cooper car company,cooper motor corporation,corre la licorne,correja," +
+    "cortland cart carriage company,corwin manufacturing company," +
+    "costruzioni meccaniche di saronno,cottin desgouttes,courier car co," +
+    "cournil,couverchel,coventry victor,covert,covin,covini engineering," +
+    "crane breed,crawford automobile,crayford engineering,crescent," +
+    "crespi competicion,cricket,crosley,crouch cars,crow elkhart,csonka," +
+    "cta arsenal,cuautitlan assembly,cubitt,cudell,cumbria motors," +
+    "cunningham cars,cupra,custoca,cutting,cvi,cyklon,czinger,d yrsan,dac," +
+    "dacia,dadi auto,daewoo motors,daf,daihatsu,daimler benz ag," +
+    "daimler company,daimler manufacturing company," +
+    "daimler motors corporation,daimler truck north america," +
+    "dalgliesh gullane,dallara,dallas,damaizin pujos,dana,dangel,dansk," +
+    "dansk automobil byggeri,danvignes,darmont,dart,dauer sportwagen,david," +
+    "david bourgeois,david brown automotive,davis motorcar company,davrian," +
+    "dax cars,day leeds,dayton electric,db,de bazelaire,de dion bouton," +
+    "de la chapelle,de la vergne,de mot,de riancey,de sanzy,de schaum," +
+    "de tomaso,de vaux,de vaux continental,de wandre,deal,debora," +
+    "deep sanderson,deguingand,delage,delamare deboutteville," +
+    "delaugere et clayette,delaunay belleville,delecroix," +
+    "delorean motor company,delta motor corporation,delta veicoli speciali," +
+    "denis de boisse,dennis,denzel,derby,derways,desande,desberon,detroit," +
+    "detroit cyclecar,detroit dearborn,detroit diesel,detroit oxford," +
+    "devaux coupe,devin cars,dewan farooque motors,dewcar," +
+    "dewitt motor company,diamond star motors,diar,diatto,diatto clement," +
+    "dile,dim,dingfelder,divolvo,dixie flyer,dkw,dodge," +
+    "dominion motors frontenac,donald healey motor company," +
+    "dongfeng liuzhou motor company,dongfeng motor corporation," +
+    "dongfeng stellantis,doninvest,donkervoort,donnet," +
+    "doriot flandrin parant,dort motor car company,downing detroit," +
+    "dr automobiles groupe,driggs,ds automobiles,du pont motors,dual ghia," +
+    "dudly bug,duesenberg,durant,durant motors,durkopp adler,dutton cars," +
+    "e m f company,e n v motor syndicate,eagle,eagle cars limited," +
+    "eagle engineering,ebro,economic motors,econoom," +
+    "edelsbrunner automobile munchen,edford,edismith,edisonfuture," +
+    "edwin foden sons co,effa motors,egg,egt new energy automotive," +
+    "egyptian german automotive company,ehrhardt,ehrhardt szawe,eicher," +
+    "eisenacher motorenwerk,ekstromer," +
+    "el nasr automotive manufacturing company,elan motorsport technologies," +
+    "elbo,elcar,elcat oy,electric car corporation,electricar,electromobile," +
+    "elemental motor company,elfin sports cars,elge,elgin,ellemobil,elmore," +
+    "elswick,elva,embo s p a,emgrand,empire,emporiki autokiniton,enders," +
+    "enfield automotive,engler,english racing automobiles,enova systems," +
+    "entreposto,entrop,enzmann,equus automotive,eraz,ermini vehicles," +
+    "esculape,esemka,eshelman,espenlaub,etablissements henry precloux," +
+    "etnyre,etsong vehicle manufacturing,eudelin,eureka,eurocar,europestar," +
+    "eurostar automobilwerk,evante,excalibur,excel,excelsior mascot," +
+    "excelsior motor company,eysink,fabbrica ligure automobili genova," +
+    "fabrica de carrocerias andres nemer s a,fabrica nacional de motores," +
+    "fabryka samochodow ciezarowych,fabryka samochodow ma olitrazowych," +
+    "facel vega,fafnir,fairthorpe cars,fal car,falcon knight," +
+    "falcon motorsports,falcon shells,famo,faraday future," +
+    "farman aviation works,farner,fasa renault,faulkner blanchard," +
+    "faw group,faw oley,faw tianjin,faw volkswagen,fca srbija,fejes," +
+    "fendt caravan,ferrari,ferves,fial,fiat,fiat chrysler automobiles," +
+    "fiat india,fiat industrial,fiat ireland,fiat s p a,fiberfab,fimer," +
+    "fischer,fisker,flaid,flint,flint automobile company,flxible,flyer,fn," +
+    "fonlupt,foos gas engine company,force motors,ford argentina," +
+    "ford australia,ford do brasil,ford france,ford germany,ford ireland," +
+    "ford italia,ford lio ho motor,ford motor company," +
+    "ford motor company of canada,ford motor company of japan," +
+    "ford netherlands,ford of britain,ford of europe,ford of south africa," +
+    "ford of spain,ford otosan,ford performance vehicles,ford romania," +
+    "ford union,ford vietnam limited,fornasari,forthing,foton motor," +
+    "foxtron,framo,fratelli ceirano,fredonia,freight rover," +
+    "friction drive car,friedman automobile company," +
+    "frontenac motor corporation,fusi,gac aion,gac fiat chrysler,gac honda," +
+    "gac mitsubishi,gac motor,gac toyota,gadabout,galba,galloway," +
+    "gardner douglas,gardner serpollet,gareau," +
+    "gasi motorradwagen gesellschaft mbh,gatter autowerk reichstadt," +
+    "gautier wehrle,gaylord,gaz,gaz group,gb corp,gea westfalia separator," +
+    "geely,geely auto,geering,gem,gemballa,general motors," +
+    "general motors do brasil,general motors egypt,general motors europe," +
+    "general motors japan,general motors new zealand," +
+    "general motors of argentina,general motors of canada," +
+    "general motors thailand,general vehicle company,genesis motor," +
+    "george w davis motor car company,georges irat,ghia aigle,giad auto," +
+    "giannini automobili,gilbern,gillet,gillet herstal,ginetta cars," +
+    "giocattolo,giotti victoria,gitane,gladiator cycle company,glas," +
+    "glasspar,gleagle,glide,global electric motorcars,gm defense,gm korea," +
+    "gm vietnam,gobron brillie,goliath,gonow,gordini,gordon,gordon keeble," +
+    "goujon,grade automobilwerke,gray,gray dort motors,gray light car," +
+    "great eagle,great wall motor,grecav,greenleaf," +
+    "grinnall specialist cars,grivel,grofri,groupe psa,gta motor,gtm cars," +
+    "guangzhou automobile industry group," +
+    "guangzhou peugeot automobile company,guerraz,guerry et bourguignon," +
+    "gumpert,gurgel,gutbrod,guy motors,gwk,gyroscope,hackett,hackney," +
+    "hafei motor co,haima automobile,halladay,hammer,hampton," +
+    "handley knight,hannoversche waggonfabrik,hanomag,hanover,hansa," +
+    "hanzer vehicles,haresh kumar,harvard,hatfield motor vehicle company," +
+    "havers,hawk,hawtai,haynes automobile company,hb,hedea,heibao," +
+    "heine velox,heinis,helbe,helios ag,hennessey performance engineering," +
+    "henney motor company,henriod,henry dubray,henry ford company,hercules," +
+    "hering richard,herreshoff,hesketh motorcycles,hewitt lindstrom,hexe," +
+    "hi tech automotive,hicom automotive manufacturers,hidley steam car," +
+    "higer,higgs champion car syndicate,hill stanier,hillman," +
+    "hindustan motors,hindustan motors factory uttarpara,hino motors," +
+    "hinstin,hitchcock,hobbie accessible,hoffman,hol tan,holden," +
+    "holden special vehicles,holland car,hollier,holly,honda," +
+    "honda australia,honda canada,honda de mexico," +
+    "honda manufacturing of indiana,honda of the uk manufacturing," +
+    "honda turkiye,hongqi,hoover cyclecar,hopium,horch,hotchkiss," +
+    "hotchkiss gregoire,houlberg,hqm sachsenring gmbh," +
+    "hrg engineering company,huayang,hudson,hudson motor car company," +
+    "huffman bros motor co,hugh kennedy company,hulas motors,hult healey," +
+    "humber limited,humber motorcycles,hupmobile,hurtan,hycan," +
+    "hyundai assan otomotiv,hyundai automotive south africa," +
+    "hyundai motor company,hyundai motor group,hyundai motor india limited," +
+    "hyundai motor manufacturing rus,iame rastrojero,iena,ikarus,ilinga," +
+    "im motors,imperia,indomobil group,induco,industrias kaiser argentina," +
+    "industrieverband fahrzeugbau,industrija motornih vozil,innocenti," +
+    "inokom,inter state,intermeccanica,international harvester,invicta," +
+    "iran khodro,irmscher,iroquois motor car company,isdera,iso rivolta," +
+    "isotta fraschini,isuzu,isuzu astra motor indonesia," +
+    "isuzu hicom malaysia,isuzu malaysia,isuzu truck south africa," +
+    "isuzu vietnam,itala,italcar,italdesign giugiaro,izhavto," +
+    "j h dawson machinery company,j p wimille,jac group,jack sport," +
+    "jackson automobile company,jacob boes co,jago,jaguar cars,james," +
+    "james cunningham son and company,james robertson,janemian,janoir," +
+    "jean bart,jean gras,jeantaud,jeecy vea,jeep,jehle,jensen motors," +
+    "jetcar,jetour,jewell,jewett,jg sport,jiangling motors," +
+    "jiangsu yueda kia motors,jinbei,jmc yusheng,joel rosenthal," +
+    "jonway automobile,jordan motor car company,joswin,jouffret,jousset," +
+    "jouvie,jpl,juho,juneyao auto,junior f j t a,juwel,juzan,kaipan," +
+    "kaiser jeep,kaiser motors,kaiyi auto,kantanka automobile,karenjy," +
+    "karl kassbohrer fahrzeugwerke,karmann,karosserie baur," +
+    "karosseriebau autenrieth,karosseriewerke weinsberg,karsan," +
+    "kauffman motor vehicle company,keeton,keinath,keller," +
+    "kelmark engineering,kenter,keohwa,kersting modellbauwerkstatten," +
+    "kessler motor company,kevah,kg mobility,kgm commercial,kia,kidder," +
+    "kieft cars,king,kissel motor car company,kleinschnittger,kline kar," +
+    "knox automobile,koenigsegg,kojima engineering,kombat armouring,komet," +
+    "kondor,koppin,korn et latil,krampers," +
+    "krieger company of electric vehicles,kuhlstein," +
+    "kutaisi auto mechanical plant,la confortable,la dawri,la lorraine," +
+    "la ponette,la roulette,la va bon train,lacoste battmann," +
+    "lada zapad tolyatti,lads car,lafayette motors,laffite automobili," +
+    "lafitte vehicles,lagonda,lahaussois,lambert," +
+    "lambert automobile company,lamborghini,lanchester motor company," +
+    "lancia,land rover,land rover aqaba assembly plant,laraki,lardennais," +
+    "lasalle,laurence jackson,laurin klement,lavie,lawil s p a,ldv,le blon," +
+    "le cabri,le dauphin,le favori,le piaf,le roitelet,le zebre," +
+    "lea francis,leach,leading edge sports car company,leapmotor,leata," +
+    "leblanc,lech,leichtbau maier,lems,leon bollee automobiles,leon paulet," +
+    "leroy,lexus,leyat,libelle,liberty motor car,ligier,lincoln," +
+    "lincoln motor car works,lincoln motor company,lion,lion peugeot," +
+    "lister cars,litex motors,little midland,little motor car company," +
+    "little princess,lloyd cars ltd,local motors," +
+    "locomobile company of america,locost,logan,lomax,london ev company," +
+    "london motors,lone star,loremo,lorraine dietrich,lost cause motors," +
+    "lotus cars,louis chenard,lozier,lt,lti,luaz,luc court," +
+    "lucchini engineering,lucid motors,lufbery,lurquin coudert,luverne," +
+    "luxgen,luxior,lynk co,lyons knight,lyons motor car," +
+    "m p moller motor car company,madelvic motor carriage company,madoz," +
+    "magyar suzuki,mahindra mahindra,mahindra renault limited," +
+    "mahmiyat umm al rayhan,maico,maillard,maison parisienne,majola," +
+    "malcolm jones,malicet et blin,malliary,man auto uzbekistan," +
+    "manderbach fahrzeugbau,mania spyder,manta cars," +
+    "marathon motors engineering,marauder cars,marbais and lasnier," +
+    "marble swift,marc nordon racing,marca tre spade,march engineering," +
+    "marchese,marcos engineering,marendaz,margaria,marie de bagneux,marion," +
+    "marion handley,marlei,marlin,marmon motor car company,marot gardon," +
+    "marquette,marr,mars,martin motors,martin speciale,maruti suzuki," +
+    "maryland steamer,maserati,mastraggelis,mastretta,matford,matra," +
+    "maudslay motor company,maurer union,mava renault,maximag," +
+    "maxwell motor company,maybach manufaktur,maytag mason motor company," +
+    "mazda,mcburnie,mcfarlan automobile,mcintyre automobile," +
+    "mclaren automotive,mclaughlin motor car company,meadows frisky,mebea," +
+    "media,mekong auto,melkus,menominee,mercedes,mercedes amg," +
+    "mercedes benz argentina,mercedes benz group,mercedes benz mexico," +
+    "mercedes benz south africa,mercedes benz u s international," +
+    "mercedes maybach,mercury,messerschmitt,messier,metallurgique,mg motor," +
+    "mia electric,michel irat,michigan,micro cars,micro vett,microcar," +
+    "midas cars,middleby auto company,midland motor company,millot," +
+    "minari engineering,mitsubishi fuso truck of america inc," +
+    "mitsubishi motors,mitsubishi motors north america,mitsuoka motor," +
+    "mmc automotriz,mobile company of america,mobius motors,mochet,modec," +
+    "modiran vehicle manufacturing company,mohs,mol trucks,monocar,monroe," +
+    "monteverdi,moon motor car,moreland motor truck company," +
+    "morgan motor company,morris motors,mors,moskvitch,mosler automotive," +
+    "moss vehicles,motobloc,motor bob,motor traction,motorette corporation," +
+    "mototri contal,mowag,mpm,mtm motoren technik mayer,mtx,munro vehicles," +
+    "muntz car company,murray motor car company,mutel,myers motors,nagant," +
+    "namco,nami,nanceene,nanjing automobile,nanjing fiat automobile," +
+    "napier son,naptholette,nardi,nardini,nash motors," +
+    "national motor vehicle company,national pescara," +
+    "national sewing machine company,nazzaro,neale,neander,neckar,nelson," +
+    "neue automobil gesellschaft,new british,new era,new map," +
+    "newton bennett,niagara automobile company,nichols and shepard,nielson," +
+    "nio inc,nissan,nissan ireland,nissan motor australia," +
+    "nissan motor iberica,nissan motor manufacturing uk,niutron,nobel," +
+    "noble automotive,norma auto concept,norsk," +
+    "north german automobile and engine,nota sports and racing cars," +
+    "nsu motorenwerke,nu klea starlite,nuffield organization,nyayo car," +
+    "nyberg automobile,o we go,oaf,oakland motor car company,obus,obvio," +
+    "octo,officine meccaniche,officine stampaggi industriali,ogren," +
+    "ohio electric car company,oldsmobile,oltcit,olympian,omega six,omoda," +
+    "opel,opperman,orca engineering,osca,oscar,osella,overland automobile," +
+    "owen thomas,oyak renault,ozamktas ozaltin makina otomotiv,packard," +
+    "pagani automobili,pak age car,palmerston,pan american motor company," +
+    "pan car,panhard,panoz auto development,pantelemidis,paragon," +
+    "paramount cars,paris rhone,parry auto company,pars khodro," +
+    "partin manufacturing company,paterson,pawi,payze," +
+    "peel engineering company,peerless,pegaso,pelland engineering," +
+    "pellandini cars,penn,perodua,petropoulos,petters limited," +
+    "peugeot croizat,peugeot sport,phelps motor vehicle,phianna,phoenixev," +
+    "pic pic,pichon et parat,piech automotive,piedmont,pieper,pierce arrow," +
+    "pierce racine,piggins,pilbeam racing designs,pilgrim," +
+    "pilot motor car company,pilot wagen,pipe,plage i laskiewicz," +
+    "playboy automobile company,podeus,poinard,polaris,polarsun automobile," +
+    "polestar,polski fiat,ponsard ansaloni,ponts moteurs," +
+    "pope manufacturing company,pope robinson,pope toledo,pope tribune," +
+    "porsche,portaro,porter motor company,powell manufacturing company," +
+    "pragoti,premier automobiles limited,premier automotive group," +
+    "premier motor manufacturing company,princess,prinetti stucchi," +
+    "prodhomme,proton,protos of nonnendamm,ptv,puli,puma,pungs finch,qoros," +
+    "quantum sports cars,queen,quinby,quo vadis,qvale,radical sportscars," +
+    "radior,rae,raesr,railsbach,rainier motor car company,ralf stetysz," +
+    "ram trucks,ranger,raouval,rational,rauch and lang,ravailler,rayfield," +
+    "read,reading steamer,reber manufacturing company,rebour,red star auto," +
+    "redpath,regal,regas automobile company,reichenberger automobil fabrik," +
+    "reliable dayton,reliance,reliant,renault,renault argentina," +
+    "renault do brasil,renault espana,renault india private limited," +
+    "renault korea motors,renault nissan mitsubishi alliance,renault pars," +
+    "renault russia,renault tanger mediterranee,renntech," +
+    "reo motor car company,replicar hellas,reva,rex,rex acme,reyonnah,rfw," +
+    "richard brasier,richmond,rickenbacker,rickett,rickman motorcycles," +
+    "riga autobus factory,riley motor,rimac automobili,rinspeed," +
+    "rivian automotive,roberts motor manufacturing company,robie," +
+    "robin hood engineering,robinson price,rockne,rodae,rodley," +
+    "rolland pilain,rollin motors,rolls royce limited," +
+    "rolls royce motor cars,rolux,ronart cars,ronn motor company," +
+    "rootes australia,rootes group,roper corbet,ross,rossa cars," +
+    "rotinoff motors,roush performance,roussel,rouxel,rovin,rox motor," +
+    "royal motor company,ruby,ruf automobile,ruska," +
+    "russell motor car company,ruston hornsby,rutenber motor company," +
+    "ruxton,ryjan,ryknield motor company,s c a p,s p a,s r bailey co," +
+    "saab aero,saab automobile,sablatnig beuchelt,saginaw," +
+    "saic general motors,saic volkswagen,saipa,saleen,samcor," +
+    "samsung motors,sandusky automobile company,santax,santler," +
+    "saturn corporation,sava,savage gt,scat,scavas,schacht,schaum," +
+    "scootacar,scripps booth,scuderia cameron glickenhaus,seab," +
+    "seagrave fire apparatus,searchmont motor company,seat,seaz,sebring," +
+    "secqueville hoyau,securus,seidel arop,selden motor vehicle company," +
+    "self,selve,senechal automobiles,sensaud de lavaud,sera,seres auto," +
+    "seres group,sero electric,sevel,sg automotive,sgmw motor indonesia," +
+    "shad wyck,shamrock,shanghai maple,shanghai wanfeng auto group,sharp," +
+    "sharps commercials,shawmobile,shawmut motor company," +
+    "shay motors corporation,sheffield simplex,sheridan,shineray group," +
+    "shuanghuan auto,sibley,siddeley deasy,siemens schuckert,sigma motors," +
+    "signet,silva coroner,silver hawk,sima violet,simca,simca do brasil," +
+    "simplex automobile company,simplicia,simplo,simson," +
+    "sinclair motor works,singer motors,single center,sinogold,sipani," +
+    "sitech,sizaire berwick,sizaire freres,sizaire naudin,skene,skeoch," +
+    "skirrow,skoda auto,skopak,slate auto,smith and mabley," +
+    "smith automobile company,smith electric vehicles,soar automotive," +
+    "societa torinese automobili rapid,societe parisienne,sofasa,sofia," +
+    "solidor,somaca,soncin,sono motors,soriano pedroso,soueast,soules," +
+    "southern cross,spark racing technology,spaulding," +
+    "spaulding manufacturing company,special vehicle team,speedex," +
+    "speranza motors,spex design corporation,spijkstaal," +
+    "springfield automobile company,springuel,spyker,spyker cars," +
+    "spyker n v,squire car manufacturing company,ss cars ltd," +
+    "ssc north america,st louis motor company,stabilia,standard," +
+    "standard electric,standard motor company," +
+    "stanley motor carriage company,stanwood,star,star motor car company," +
+    "star motor company,states cyclecar,staunau,staver," +
+    "steamobile company of america,stearns knight," +
+    "stearns steam carriage company,stebro,steel swallow,steiger," +
+    "steinmetz opel tuning,stelka,stellantis,stellantis argentina," +
+    "stellantis australia,stellantis europe,stellantis france," +
+    "stellantis north america,stephens,stevens duryea,stevens vehicles," +
+    "stewart motor corporation,steyr daimler puch,stoewer,straker squire," +
+    "stuart,studebaker,studebaker garford,studebaker packard corporation," +
+    "studillac,stutz motor company,styl kar,subaru,subaru corporation," +
+    "subaru of indiana automotive inc," +
+    "success automobile manufacturing company,suere,sun,sunbeam," +
+    "sunbeam talbot,sungri motors,super car,superformance," +
+    "suzuki motor corporation,switch mobility,sylva autokits,t b,tagaz," +
+    "talbot lago,tan chong motor holdings berhad,tarrant automobile," +
+    "tata motors cars,tata motors ltd,tata zambia,tawon car,taylor dunn," +
+    "tec mec,techrules,tecnologia automotiva catarinense,telo trucks,tenet," +
+    "th schneider,the adams brothers company," +
+    "the great horseless carriage company,the pick motor company,theologou," +
+    "think global,tholome,thomas b jeffery company,thomas built buses," +
+    "thornycroft,thrige titan,tiffany,tiger racing,tilling stevens,timmis," +
+    "timoney technology limited of ireland,timor putra nasional,tincher," +
+    "tofas,togg,tokyu kogyo kurogane,tomcar,tony huber,tornado cars,tornax," +
+    "tourey,toward philipson,town life,toyota,toyota argentina," +
+    "toyota ireland,toyota kenya,toyota kirloskar motor private limited," +
+    "toyota motor manufacturing canada,toyota motor manufacturing kentucky," +
+    "toyota motor manufacturing mississippi," +
+    "toyota motor manufacturing russia,toyota motor manufacturing turkey," +
+    "toyota motor manufacturing uk,toyota south africa motors,tracta," +
+    "traum vehicles,travco,tribelhorn,trident cars,triouleyre,triumph," +
+    "trnavske automobilove zavody,troll,troller veiculos especiais," +
+    "tropical,turcat mery,turinelli pezza,tushek spigel supercars," +
+    "twentieth century motor car corporation,uaz,ultima sports,umm,unic," +
+    "united australian automobile industries,uro,urovesa,utopian," +
+    "valmet automotive,valveless,van hool,vanderhall motor works," +
+    "vapomobile,vauxhall,vauxhall luton,vdl nedcar,vector motors,vee gee," +
+    "vehicle production group,velam,velie,velorex,vemac car company," +
+    "venirauto,venucia,veritas,vermont,vermorel,vest buss,victor motors," +
+    "victoria,vignale,villard,vilvoorde renault factory,vinamazda,vinaxuki," +
+    "virus,vivinus,vlf automotive,voiturettes automobiles a s,volkswagen," +
+    "volkswagen anhui automotive co ltd,volkswagen argentina," +
+    "volkswagen australia,volkswagen autoeuropa," +
+    "volkswagen china investment co ltd,volkswagen de mexico," +
+    "volkswagen do brasil,volkswagen group,volkswagen of south africa," +
+    "volkswagen sarajevo,volugrafo,volvo buses,volvo cars,vulcan," +
+    "waaijenberg,wales edwards,wallyscar,walter vehicles,wanderer," +
+    "waukesha engines,waverley cars,waymo,wayne corporation,weez," +
+    "wegmann co,weichai chongqing automotive,wenkelmobil," +
+    "westcott automobile,western tool works,western wheel works," +
+    "westfalia werke,white motor company,wikov,wilbrook," +
+    "william beardmore and company,willowvale motor industries,willys," +
+    "wilson automobile,wilson pilcher,windhoff bahn und anlagentechnik," +
+    "windsor,winton motor carriage company,wolseley motor company,wolsit," +
+    "woodrow,woojin industrial systems,wuling motors,x,xenia,xpeng,yank," +
+    "yaxa,yec,yellow cab manufacturing company,yenko chevrolet," +
+    "yes roadster,yorkshire patent steam wagon co,youngman,yulon motor," +
+    "zak ad samochodow dostawczych,zastava automobiles,zaz,zeekr," +
+    "zeiller fournier,zendik,zeta,zhengzhou nissan automobile company,zil," +
+    "zimmer,zinoro,zoe motors,zust,zx auto",
+  sports:
+    "academic fencing,advanced chess,aerial skiing,airsoft,aka," +
+    "all japan womens pro wrestling,alpine skiing,alpine skiing combined," +
+    "alpine snowboarding,altitude training,alysh,amateur boxing," +
+    "amateur wrestling,american mahjong,anaku,andernach chess,archery," +
+    "arkea ultim challenge,armenian draughts,artistic cycling,athletics," +
+    "athletics pentathlon,backcountry skiing,backgammon,backyard ultra," +
+    "backyard wrestling,badminton,bandy,barcelona half marathon," +
+    "bare knuckle boxing,barefoot running,barrog,baseball," +
+    "baseball in japan,bashni,beach golf,beach tennis,beach wrestling," +
+    "bear hug,beer checkers,belt wrestling,biathlon orienteering,big air," +
+    "big two,big wave surfing,bikejoring,bikepacking,blind mans bluff," +
+    "blitz chess,bmx,bmx racing,bodysurfing,boli khela,bowfishing," +
+    "bowhunting,boxing,boxing style,brazilian draughts,brazilian jiu jitsu," +
+    "bucharest marathon,buckshot run,budapest marathon,budokan karate," +
+    "bullet chess,bullseye shooting,bultong,bunkai,buno,burnie gift," +
+    "burnie ten,caber toss,canadian checkers,canarian wrestling,canicross," +
+    "canoe slalom,canoe sprint,canoeing,caribbean stud poker," +
+    "casino battle royale,castle,catch wrestling,cave diving,checkers," +
+    "cheskers,chess,chess aesthetics,chess problem,chess puzzle," +
+    "chess software,chess variant,chivarreto boxing,clay pigeon shooting," +
+    "cliff jumping,clout archery,club throw,collar and elbow wrestling," +
+    "college baseball,college ice hockey,collegiate wrestling," +
+    "columbus marathon,combat pistol shooting," +
+    "combined track and field events,compak sporting," +
+    "competition bouldering,competition climbing," +
+    "competition combined climbing,competition ice climbing," +
+    "competition lead climbing,competition multi pitch climbing," +
+    "competition speed climbing,competitive swimming,computer chess," +
+    "computer shogi,contesting,cornish wrestling,correspondence chess," +
+    "cowboy action shooting,cowboy mounted shooting,cpc loop den haag," +
+    "cross country cycling,cross country eliminator,cross country marathon," +
+    "cross country olympic,cross country running,cross country skiing," +
+    "crossfit,cumberland and westmorland wrestling,curling,cycle polo," +
+    "cycle sport,cyclo cross,cylinder chess,czech draughts,d ds diving," +
+    "dam tot damloop,dameo,deaf tennis,dealers choice,decathlon,destreza," +
+    "devon wrestling,diaulos,dice chess,directmate,discus throw," +
+    "displacement chess,diving,diving chess,dolichos,double trap,downhill," +
+    "downhill mountain biking,downhill skateboarding,draw poker," +
+    "dublin marathon,dumog,egmond half marathon,eight queens puzzle,ekiden," +
+    "elfstedentocht,endgame study,enduro mountain biking,english draughts," +
+    "equilateral triathlon,eugene marathon,every womans marathon," +
+    "exhibition shooting,extreme skiing,fairy chess,fanorona,farmers golf," +
+    "fast chess,fastpacking,fen skating,fencing,fevga,field archery," +
+    "field hockey,field shooting,field target,fighting cholitas," +
+    "figure skating,finswimming,five card draw,five card stud," +
+    "five player chess,flatland,folk wrestling,foot orienteering," +
+    "form of cricket,fosbury flop,four player chess,four skating," +
+    "foxy boxing,freeride mountain biking,freeriding,freeskiing," +
+    "freestyle bmx,freestyle skateboarding,freestyle skiing," +
+    "freestyle swimming,freestyle wrestling,frisian rules draughts," +
+    "front aerial,front handspring vaults,full contact karate," +
+    "fullbore target rifle,gatta gusthi,gena,genseiryu,ghent marathon," +
+    "giant slalom,glade skiing,gold coast marathon,golf,gouren,gran fondo," +
+    "grand prix de la liberation,grand prix des nations,grappling," +
+    "grass skiing,gravel cycling,greco roman wrestling,greek wrestling," +
+    "grotesque,ground golf,guangzhou marathon,hafjell tt,haito," +
+    "hakone ekiden,half marathon,half pipe skiing,hammer throw," +
+    "handspring double salto forward tucked,hardcore wrestling,hari," +
+    "heads up poker,heliskiing,helpmate,helsingborg marathon,heptathlon," +
+    "hexagonal chess,hexdame,high diving,high jump," +
+    "high school baseball in japan,history of professional wrestling," +
+    "hoplitodromos,human chess,hurdling,hyeong,ice cross downhill," +
+    "ice dance,ice hockey,ice sailing,ice skating,ice sledge racing," +
+    "icestock sport,icetrack cycling,icosathlon,inbuan wrestling," +
+    "independent chip model,individual events,individual pursuit," +
+    "individual time trial,indoor golf,indoor hockey,instinctive shooting," +
+    "inter prefectural womens ekiden,international draughts,inuoumono," +
+    "italian draughts,italian school of swordsmanship,izmir marathon," +
+    "janggi variant,japan collegiate ekiden championships,japanese mahjong," +
+    "javelin throw,joke chess problem,judo,judo kata,junior tennis," +
+    "karakucak,karate,karate kata,kasagake,kata,kayak diving," +
+    "kazakh wrestling,keirin,kene,keny,khmer traditional wrestling,khuresh," +
+    "kickboxing,kigali international peace marathon,kings road style," +
+    "kite ice skating,kite skiing,kladno marathon,kluning,knights tour," +
+    "kortebaanschaatsen,kosen judo,koshti,kumite,kurash,kyin," +
+    "kyokushin kaikan,kyoto marathon,kyudo,lancashire wrestling,lasca," +
+    "lima marathon,long distance running,long distance swimming,long jump," +
+    "long track speed skating,longboarding,lowball,luge,luta livre," +
+    "lutte traditionnelle,madison,mahjong,malakhra," +
+    "malaysian singaporean checkers,malla yuddha,man versus horse marathon," +
+    "marabana,marathon,marathon race walk," +
+    "marathon race walking mixed relay,marathon swimming,marseillais chess," +
+    "masters athletics,masters swimming,match crossbow," +
+    "mathematical chess problem,melbourne marathon,memory sport,mens golf," +
+    "metallic silhouette shooting,mexico city marathon," +
+    "middle distance running,mile run,mind sport,minichess,mino castle," +
+    "minor league baseball,mixed curling,mixed doubles curling," +
+    "model yachting,modern competitive archery,mogul skiing," +
+    "mokkar boli khela,mongolian draughts,mongolian wrestling," +
+    "moscow marathon,motobu ryu,motor paced racing," +
+    "mountain bike orienteering,mountain bike racing,mountain biking," +
+    "mud wrestling,mukha,mukna,multiplayer chess,naban,narodno rvanje," +
+    "natural track luge,neujahrsmarathon zurich,new year ekiden," +
+    "nigerian open,night skiing,nordic combined,nordic skiing,nouka baich," +
+    "nuba fighting,ocean racing,octathlon,off road triathlon,oil wrestling," +
+    "okinawa seidokan,olympic sailing class,olympic skeet,olympic sport," +
+    "olympic trap,omaha hold em,one design sailboat,one hour run," +
+    "online chess,online poker,open water swimming,orienteering," +
+    "outrigger ski,pacu jalur,padi discover scuba diving,pair skating," +
+    "para alpine skiing,para athletics,para badminton," +
+    "para cross country skiing,para cycling,para hockey,para ice hockey," +
+    "para judo,para nordic skiing,para snowboarding,para swimming," +
+    "para table tennis,para taekwondo,para triathlon,parelloop,park golf," +
+    "parkour,parkrun,pehlwani,peiron,pick a partner poker,pieing," +
+    "pigeon shooting,pinan,piphilology,pistol duelling,plakoto,plinking," +
+    "poddavki,pok deng,poker,pole vault,pool checkers," +
+    "professional baseball,professional baseball in japan," +
+    "professional boxing,professional ice hockey,professional wrestling," +
+    "professional wrestling aerial technique,professional wrestling throw," +
+    "proof game,puroresu,quarter marathon,racewalking,rackets,razz," +
+    "recreational diving,reflexmate,retrograde analysis,rink bandy," +
+    "rinkball,ristynes,river surfing,road bicycle racing,road running," +
+    "road tennis,roller skiing,route du rhum,rugby sevens," +
+    "running target shooting,russian draughts,russian poker,sabre fencing," +
+    "sailing,salt lake city marathon,salta,sandskiing," +
+    "santa barbara marathon,saturation diving,scholastic wrestling," +
+    "schwingen,scottish backhold,selfmate,semedo chess," +
+    "senegalese wrestling,seriesmover,seven card stud,shin kicking," +
+    "shindo jinen ryu,shogi,shogi variant,shooting para sport," +
+    "shooting sports,shorei ryu,short form cricket," +
+    "short track speed skating,shot put,shotgun shooting sports,shuai jiao," +
+    "shuttle hurdle relay,simultaneous exhibition,singaporean mahjong," +
+    "single skating,six day racing,six days of aarhus,six days of antwerp," +
+    "six days of atlantic city,six days of bassano del grappa," +
+    "six days of berlin,six days of bordeaux,six days of boston," +
+    "six days of bremen,six days of brussels,six days of buenos aires," +
+    "six days of buffalo,six days of charleroi,six days of chicago," +
+    "six days of cologne,six days of copenhagen,six days of dortmund," +
+    "six days of essen,six days of fiorenzuola,six days of frankfurt," +
+    "six days of ghent,six days of grenoble,six days of groningen," +
+    "six days of hasselt,six days of herning,six days of london," +
+    "six days of maastricht,six days of madrid,six days of milan," +
+    "six days of munich,six days of munster,six days of new york," +
+    "six days of newark,six days of noumea,six days of paris," +
+    "six days of quebec,six days of rio de janeiro,six days of rotterdam," +
+    "six days of saint etienne,six days of sao paulo,six days of turin," +
+    "six days of zurich,six plus hold em,skandalopetra diving," +
+    "skate sailing,skate skiing,skateboarding,skateboarding style," +
+    "skeet shooting,skeleton,skeleton world cup,ski cross,ski flying," +
+    "ski jumping,ski mountaineering,ski orienteering,ski touring,skiing," +
+    "skijoring,slalom skiing,slopestyle,smallbore rifle shooting,snow golf," +
+    "snowboard cross,snowboard racing,snowboarding,snowkiting,soksom," +
+    "solo diving,special figures,speed skating,speed skiing,speedcubing," +
+    "sporting clays,springboard diving,sprint,sprinting,ssireum,stadion," +
+    "standing high jump,standing long jump,standing triple jump," +
+    "stangskyting,starchess,steeplechase,stockholm half marathon," +
+    "streamline,street skateboarding,strip poker,strong style,stud poker," +
+    "styles of wrestling,submission wrestling,sudoku,summer biathlon," +
+    "super g,suplex,surfing,swedish relay,swordsmanship," +
+    "synchronized diving,synchronized skating,synchronized swimming," +
+    "table tennis,tables ladders and chairs match,taekwondo,tafl games," +
+    "taikyoku,tanzanian draughts,taolu,target archery,tashkent marathon," +
+    "tavli,team pursuit,team time trial,technical diving,tegumi," +
+    "telemark skiing,tennis,tetradecathlon,texas hold em,thai checkers," +
+    "the color run,thoda,three card poker,three dimensional chess," +
+    "three player chess,three player mahjong,throw,throws pentathlon," +
+    "tiberias marathon,tnt express meeting kladno,tombstoning,toshiya," +
+    "touchtennis,tour skating,tow in surfing,track and field,track cycling," +
+    "track time trial,trail orienteering,trail running,trap shooting," +
+    "triangular chess,triathlon,tric trac,triple jump,tsukahara," +
+    "tube riding,tug of war,tugging rituals and games,turkish archery," +
+    "turkish draughts,two knights endgame,uki otoshi," +
+    "ultra distance cycling,ultra triathlon,ultrabullet chess," +
+    "ultramarathon,underwater ice hockey,unicycle hockey,urban golf," +
+    "vallam kali,variation of basketball," +
+    "vendee arctique les sables d olonne,vert skateboarding,video poker," +
+    "waffenlauf,wakeskating,wall street poker,warsaw half marathon," +
+    "water polo,water skiing,weight throwing,wheelchair curling," +
+    "wheelchair fencing,wheelchair tennis,winter swimming,winter triathlon," +
+    "women in chess,womens baseball,womens boxing,womens curling," +
+    "womens fencing,womens golf,womens ice hockey,womens kickboxing," +
+    "womens pentathlon,womens professional wrestling,womens surfing," +
+    "womens tennis,wreck diving,wrestling,xiangqi,xterra triathlon," +
+    "xtreme triathlon,yabusame,yacht racing,yagura castle," +
+    "yokohama international womens ekiden,yurchenko,zabeg," +
+    "zevenheuvelenloop",
+  currencies:
+    "aargau frank,abkhazian apsar,aes grave,aes rude,aes signatum," +
+    "afghan rupee,afghani,african hoe money,agontano,akce," +
+    "aksumite currency,alaskan parchment scrip,albanian lek,albus," +
+    "alderney pound,algerian budju,algerian dinar,algerian franc," +
+    "almohad dinar,almoravid dinar,am lira,ancient drachma,angel," +
+    "angevin pound,angolan angolar,angolan escudo,angolan real," +
+    "ant nose coin,antigua dollar,appenzell frank,argenteus," +
+    "argentine argentino,argentine convertible peso,argentine peso ley," +
+    "argentine peso moneda corriente,argentine real,ariary,armenian dram," +
+    "armenian rouble,artsakh dram,aruban florin,as,assignation ruble," +
+    "aureus,australian dollar,austrian krone," +
+    "austrian netherlands kronenthaler,austro hungarian gulden," +
+    "austro hungarian krone,azerbaijani manat,azerbaijani ruble," +
+    "azorean real,b yen,baden gulden,bahamian dollar,bahraini dinar,baht," +
+    "baiocco,bangladeshi taka,banknotes of the czechoslovak koruna," +
+    "barbadian dollar,barter rings,basel frank,basel thaler,basilikon," +
+    "bavarian gulden,belarusian ruble,belize dollar,bermudian dollar," +
+    "bermudian pound,berne frank,berne thaler,bes,biafran pound,biatec,bir," +
+    "bitcoin,bohemian and moravian koruna,boliviano,boratynka," +
+    "botswana pula,brazilian real,breadcoin,british columbia dollar," +
+    "british iron bar currency,british north borneo dollar," +
+    "british west indies dollar,broad,brunei dollar,bukharan tenga," +
+    "bulgarian lev,burmese rupee,burundian franc,cambodian franc," +
+    "cambodian tical,canadian dollar,cape verdean escudo,cape verdean real," +
+    "caribbean guilder,carthaginian currency,cash,catalan peseta," +
+    "cayman islands dollar,ceiniog,central african cfa franc,cfa franc," +
+    "cfp franc,chechen naxar,chilean escudo,chilean peso,chinese gold yuan," +
+    "chinese national currency,cistophorus,cochinchina piastre," +
+    "coinage of the republic of venice,coins and postage stamps of sealand," +
+    "coins of turkey,colombian peso,colombian real," +
+    "commemorative coins of the soviet union,comorian franc," +
+    "confederate states dollar,congolese franc,conventionsthaler," +
+    "convertible mark,convertible peso,cook islands dollar," +
+    "costa rican colon,costa rican peso,cuban peso,czech koruna," +
+    "czechoslovak koruna,dalasi,danish indian rupee,danish krone," +
+    "danish rigsdaler,danish west indian daler," +
+    "danish west indian rigsdaler,danzig gulden,danzig mark,danzig thaler," +
+    "denarius,denga,deutsche mark,dinar,dirham,djiboutian franc,dolar muc," +
+    "dominican franco,dominican peso,east african florin," +
+    "east african rupee,east african shilling,east timor centavo coins," +
+    "eastern caribbean dollar,eco,ecu,ecuadorian centavo coins," +
+    "ecuadorian peso,ecuadorian real,egyptian gold stater,egyptian pound," +
+    "emergency circulating notes,equatorial guinean peseta," +
+    "eritrean tallero,europa,european composite unit," +
+    "european monetary unit,falkland islands pound,fals,falus," +
+    "faroese krona,fatimid coinage,fijian dollar,fiume krone,forint," +
+    "franc poincare,franga,french camerounian franc,french denier," +
+    "french equatorial african franc,french guianan franc," +
+    "french indian rupee,french indochinese piastre," +
+    "french polynesian franc,french sol,french west african franc," +
+    "fribourg frank,friedrich dor,frizatik,gaucho,geneva franc," +
+    "geneva genevoise,geneva thaler,genoese lira,georgian lari," +
+    "german east african rupie,german mark,german ostmark,german ostruble," +
+    "german south west african mark,ghana cedi,gibraltar pound," +
+    "gibraltar real,gigliato,giulio,glarus frank,gold coast ackey," +
+    "gold dinar,goldback,gourde,graubunden frank,great qing treasure note," +
+    "greek phoenix,greenlandic krone,greenlandic rigsdaler,grenadan dollar," +
+    "grivna,groat,gros,groschen,grzywna,guadeloupe franc,guadeloupe livre," +
+    "guatemalan peso,guernsey pound,guinea,guinean franc,guyanese dollar," +
+    "hacksilver,haitian livre,hamburg mark,hanoverian thaler," +
+    "hawaiian dollar,hejaz riyal,hesse kassel thaler," +
+    "hesse kassel vereinsthaler,honduran lempira,honduran peso," +
+    "hong kong dollar,hryvnia,hubu guanpiao,hungarian adopengo," +
+    "hungarian korona,hungarian pengo,hyderabadi rupee,hyperpyron," +
+    "icelandic krona,ichibuban,independent state of croatia kuna," +
+    "indian paisa,indian rupee,indo sasanian coinage,ionian gazeta," +
+    "ionian obol,iraimbilanja,iranian qiran,iranian rial,iranian toman," +
+    "iraqi dinar,iraqi swiss dinar,islamic state dinar," +
+    "italian east african lira,italian somaliland lira," +
+    "italian somaliland rupia,italian somaliland somalo,italian yuan," +
+    "jamaican dollar,jamaican pound,japanese military currency," +
+    "japanese military yen,japanese mon,joachimsthaler,jordanian dinar," +
+    "kabuli rupee,katangese franc,kazakhstani tenge,kelantanese dinar," +
+    "kenyan shilling,kerenka,khaleeji,khwarazmi tenga,kiautschou dollar," +
+    "kina,kiribati dollar,knife money,kopeck,korce franc,korce skender," +
+    "korean mun,korean won,korean yang,korean yen,krajina dinar," +
+    "krakow z oty,kronenthaler,kushan coinage,kutch kori,kuwaiti dinar," +
+    "kwanza,kyat,kyrgyz som,lao kip,lebanese pound,lebanese syrian pound," +
+    "leone,leprosy colony money,liang,liard,liberian dollar,libyan dinar," +
+    "liechtenstein frank,liechtenstein krone,lilangeni," +
+    "lithuanian long currency,livre parisis,livre tournois," +
+    "lombardy venetia pound,loti,luccan pound,luxembourgian livre," +
+    "luzern frank,luzern gulden,macanese pataca,macedonian denar," +
+    "made beaver,madras fanam,makhno ruble,malawian kwacha,malawian pound," +
+    "malayan dollar,malaysian ringgit,maldivian rufiyaa,maltese scudo," +
+    "manchukuo yuan,mang r,manx pound,marchuwa,mariengroschen," +
+    "martinique franc,mauritanian ouguiya,mauritian dollar,mauritian rupee," +
+    "mei ner groschen,meiji tsuho,mengjiang yuan,mexican real," +
+    "milanese scudo,mogadishu currency,moidore,moldovan cupon,moldovan leu," +
+    "monegasque franc,money of litzmannstadt ghetto,mongolian dollar," +
+    "mongolian togrog,montenegrin perper,mordovka,moroccan dirham," +
+    "moroccan rial,mozambican metical,mvdol,naira,nakfa,namibian dollar," +
+    "nasry,nepalese mohar,nepalese rupee,netherlands antillean guilder," +
+    "netherlands indies guilder,netherlands new guinean gulden," +
+    "neutral unit of construction,nevisian dollar,new brunswick dollar," +
+    "new caledonian franc,new design series,new france livre," +
+    "new generation currency series,new guinean mark,new hebrides franc," +
+    "new shekel,new taiwan dollar,new turkish lira,new zealand dollar," +
+    "newfoundland dollar,ngultrum,nicaraguan cordoba,niue dollar," +
+    "north carolina confederate currency,north german thaler," +
+    "north korean won,north vietnamese ong,north yemeni rial," +
+    "norwegian krone,norwegian rigsdaler,norwegian speciedaler," +
+    "nova scotian dollar,nova scotian pound,nuevo sol,obol," +
+    "offas imitation dinar,old taiwan dollar,omani rial," +
+    "orange free state pound,ortug,ottoman lira,pakistani rupee," +
+    "palembang pitis,palestine pound,palladium as an investment," +
+    "panamanian balboa,paolo,papal lira,paraguayan guarani,paraguayan peso," +
+    "paraguayan real,parman lira,parthian coins,penning,peruvian inca," +
+    "peruvian libra,peruvian peseta,peruvian real,peso," +
+    "peso moneda nacional,pfennig,philippine peso,piedmontese scudo," +
+    "pim weight,pitcairn islands dollar,plate money,polish marka,poltura," +
+    "polushka,portuguese dinheiro,portuguese guinean real," +
+    "portuguese indian escudo,portuguese indian rupia,portuguese real," +
+    "portuguese timorese pataca,pound scots,pound sterling," +
+    "prince edward island dollar,prussian thaler,prutah,pul,qatari riyal," +
+    "qiang tie,quadrans,quantum money,quattrino,quetzal,quinarius," +
+    "rai stone,rand,reichsthaler,renminbi,rentenmark," +
+    "republika srpska dinar,reunion franc,rhodesia and nyasaland pound," +
+    "riau rupiah,riel,riffan mamoun,roman scudo,romanat,romanian leu," +
+    "royal canadian mint olympic coins,rupiah,russian ruble," +
+    "rwanda and burundi franc,rwandan franc,ryo,ryukyuan mon,saar franc," +
+    "saar mark,sahrawi peseta,saint helena pound,saint kitts dollar," +
+    "saint lucia dollar,saint lucia livre,saint pierre and miquelon franc," +
+    "saint vincent dollar,salvadoran colon,salvadoran peso,salvadoran real," +
+    "sammarinese lira,samoan tala,sao tome and principe dobra," +
+    "sao tome and principe escudo,sao tome and principe real," +
+    "sarawak dollar,sardinian lira,sardinian scudo,sasanian coinage," +
+    "saudi riyal,saxon thaler,schaffhausen frank,schwyz frank," +
+    "schwyz gulden,scyphate,sechsling,semis,serbian dinar,serbian perper," +
+    "sextans,seychellois rupee,sicilian piastra,siliqua," +
+    "silver as an investment,singapore dollar," +
+    "single south american currency,skilling,slovak koruna,soldo,solidus," +
+    "solomon islands dollar,solothurn frank,solothurn thaler,som," +
+    "somali shilling,somaliland shilling,south german gulden," +
+    "south korean hwan,south korean won,south sudanese pound," +
+    "south vietnamese ong,south west african mark,southern rhodesian pound," +
+    "sovereign bolivar,sovznak,spade money,spanish dollar,spanish escudo," +
+    "spanish maravedi,spesmilo,sri lankan rupee,st gallen frank," +
+    "st gallen thaler,stavraton,straits dollar,sucre,sudanese pound," +
+    "sultani,sumatran dollar,surinamese dollar,swedish krona," +
+    "swedish riksdaler,swiss franc,sycee,syrian pound,taiwanese yen," +
+    "tajikistani somoni,tanga,tanzanian shilling,tari,tem,tenpo tsuho," +
+    "terra,tetradrachm,texas dollar,thaler,thurgau frank,tibetan srang," +
+    "tibetan tangka,ticinese franco,tien,tin ingot,tobagan dollar," +
+    "togolese franc,tokugawa coinage,tong bei,tongan pa anga,trachy," +
+    "transcaucasian ruble,transnistrian ruble,travancore fanam,tremissis," +
+    "trifollaro,trinidad and tobago dollar,trinidadian dollar," +
+    "tripolitanian lira,tunisian dinar,tunisian franc,tunisian rial," +
+    "turkish lira,turkmenistan new manat,tuscan florin,tuscan pound," +
+    "tuvaluan dollar,tuvan aksa,tyrian shekel,ugandan shilling," +
+    "ukrainian shah,unidad previsional,united arab emirates dirham," +
+    "united states dollar,unterwalden frank,ural franc,uri frank," +
+    "uruguay peso en unidades indexadas,uruguayan peso,uzbek som," +
+    "vanuatu vatus,vatican lira,vaud franc,ven,venezolano,venezuelan peso," +
+    "vereinsthaler,vermont copper,victoriatus,vietnamese cash," +
+    "vietnamese mach,vietnamese ong,vlore frank,wei pfennig," +
+    "west african cfa franc,west irian rupiah,westphalian frank," +
+    "westphalian thaler,won,won of the red army command,wu zhu," +
+    "wurttemberg gulden,xin dynasty coinage,yarmaq,yemeni rial,yen," +
+    "yuan of the red army command,yugoslav dinar,yugoslav krone,z oty," +
+    "zambian kwacha,zanzibari rupee,zanzibari ryal,zhuangpiao,zimbabwe zig," +
+    "zimbabwean bonds,zimbabwean dollar,zurich frank,zurich thaler",
 };

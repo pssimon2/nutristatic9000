@@ -93,6 +93,39 @@ const QUERIES = {
       ?d wdt:P31 wd:Q39367 .
       ?d rdfs:label ?label . FILTER(lang(?label) = "en")
     }`,
+  instruments: `
+    SELECT DISTINCT ?label WHERE {
+      # The subclass tree below "musical instrument": violins and vielles are
+      # types, not instances. An English Wikipedia article keeps it to the
+      # instruments a person may actually have heard of.
+      ?i wdt:P279* wd:Q34379 .
+      ?art schema:about ?i ;
+           schema:isPartOf <https://en.wikipedia.org/> .
+      ?i rdfs:label ?label . FILTER(lang(?label) = "en")
+    }`,
+  carmakers: `
+    SELECT DISTINCT ?label WHERE {
+      { ?m wdt:P31 wd:Q786820 . } UNION { ?m wdt:P31 wd:Q56065404 . }
+      ?art schema:about ?m ;
+           schema:isPartOf <https://en.wikipedia.org/> .
+      ?m rdfs:label ?label . FILTER(lang(?label) = "en")
+    }`,
+  sports: `
+    SELECT DISTINCT ?label WHERE {
+      # The subclass tree only: kinds of sport, not individual events — the
+      # instance closure drags in every named marathon.
+      ?s wdt:P279* wd:Q31629 .
+      ?art schema:about ?s ;
+           schema:isPartOf <https://en.wikipedia.org/> .
+      ?s rdfs:label ?label . FILTER(lang(?label) = "en")
+    }`,
+  currencies: `
+    SELECT DISTINCT ?label WHERE {
+      ?c wdt:P31 wd:Q8142 .
+      ?art schema:about ?c ;
+           schema:isPartOf <https://en.wikipedia.org/> .
+      ?c rdfs:label ?label . FILTER(lang(?label) = "en")
+    }`,
   presidents: `
     SELECT DISTINCT ?label WHERE {
       ?p p:P39 ?st . ?st ps:P39 wd:Q11696 .
@@ -124,6 +157,13 @@ async function sparql(query) {
   }
 }
 
+/**
+ * Class-tree lists (instruments, sports) leak digit-named oddities through
+ * the subclass closure — artillery "instruments", model numbers. A name with
+ * a digit in it is never the puzzle answer these lists exist for.
+ */
+const NO_DIGITS = new Set(["instruments", "carmakers", "sports", "currencies"]);
+
 async function buildList(name) {
   const labels = await sparql(QUERIES[name]);
   const seen = new Set();
@@ -133,6 +173,10 @@ async function buildList(name) {
     // identifier rather than a name (stray digits from Wikidata Q-labels).
     if (!e || e.length > MAX_ENTRY) continue;
     if (/^q\d+$/.test(e)) continue;
+    if (NO_DIGITS.has(name) && /\d/.test(e)) continue;
+    // "alpine skiing at the winter olympics" is an event article, not a
+    // sport; the phrasing gives it away.
+    if (name === "sports" && / at the | in the /.test(e)) continue;
     seen.add(e);
   }
   return [...seen].sort();
@@ -154,7 +198,8 @@ for (const name of names) {
 }
 
 if (only) {
-  console.log(out[only].join(" "));
+  // Comma-separated: entries may contain spaces.
+  console.log(out[only].join(","));
   process.exit(0);
 }
 
