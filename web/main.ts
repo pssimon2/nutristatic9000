@@ -6,6 +6,7 @@ import {
 } from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
 import { type SlotPlan, planSlots } from "../src/slot-plan.js";
+import { editNote } from "../src/edit-note.js";
 import { type Stats, formatStats } from "../src/stats.js";
 import { OutputTransform } from "../src/output.js";
 import { type Completion, completionsAt } from "../src/complete.js";
@@ -337,6 +338,8 @@ let extractSpec: ExtractSpec | null = null;
 // annotated with the shift that produced it. Without that the tool solves the
 // puzzle and throws the answer away.
 let caesarText: string | null = null;
+/** A lone edit over a bare word, for annotating what changed. */
+let editSpec: { kind: string; edits: number; word: string } | null = null;
 // Set when the query is wrapped in `{rank …:…}`: a window into the ranked
 // stream, so mid-frequency answers are reachable without scrolling.
 let rankSpec: RankSpec | null = null;
@@ -422,7 +425,7 @@ function renderResult(score: number, text: string, note?: string): void {
   } else {
     span.textContent = text;
   }
-  const tagText = note ?? shiftNote(text);
+  const tagText = note ?? shiftNote(text) ?? editNote(editSpec, text);
   if (tagText) {
     span.dataset.copy ??= text; // the note is annotation, not part of the answer
     const tag = document.createElement("span");
@@ -878,6 +881,7 @@ function startSearch(query: string): void {
   extractSpec = shape.extract;
   rankSpec = shape.rank;
   caesarText = shape.caesar;
+  editSpec = shape.edit;
   queryLiterals = shape.literals;
   // Built here rather than in resetResultCollapsing, which runs before the
   // wrappers are known and would hand it the previous search's specs.

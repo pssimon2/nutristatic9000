@@ -32,6 +32,17 @@ export interface QueryShape {
    */
   caesar: string | null;
   /**
+   * A lone edit construct over a bare literal — `{del1:beast}`, `{subst1:cargo}`
+   * — as the kind, how many edits, and the word. Only when the argument is a
+   * plain word: `{del1:{kind:instrument}}` has a set for an argument, and which
+   * member a result came from is not something the query text can say.
+   *
+   * Here for the same reason `caesar` is: what changed is derivable from the
+   * result and the query together, so the page can annotate each answer without
+   * the engine carrying provenance through the search.
+   */
+  edit: { kind: string; edits: number; word: string } | null;
+  /**
    * A *lone* `{near:…}`, with the neighbour count it asked for. Results are
    * ordered by closeness to this word, and that ordering has to use the same
    * list the pattern was built from — reading the word with a second regex
@@ -77,6 +88,9 @@ export function splitSlots(query: string): string[] {
 }
 
 const CAESAR = /\{\s*(?:cipher\.)?caesar\s*:([a-z ]+)\}/gi;
+
+/** `{del1:beast}`, `{subst2:cargo}`, `{edit<=2:cargo}` over a bare word. */
+const EDIT = /\{\s*(?:edit\.)?(del|add|subst|edit)\s*(?:<=)?\s*(\d*)\s*:\s*([a-z][a-z ]*)\}/gi;
 
 /**
  * Maximal literal runs in a pattern — plain letters, digits and spaces,
@@ -129,11 +143,25 @@ export function shapeOfQuery(query: string, minLiteralChars: number): QueryShape
         }
       : null;
 
+  EDIT.lastIndex = 0;
+  const edits = [...pattern.matchAll(EDIT)];
+  // One only, for the same reason as the caesar: two of them and an annotation
+  // cannot say which produced what.
+  const edit =
+    edits.length === 1
+      ? {
+          kind: edits[0][1].toLowerCase(),
+          edits: edits[0][2] === "" ? 1 : Number(edits[0][2]),
+          word: edits[0][3].trim(),
+        }
+      : null;
+
   return {
     pattern,
     extract,
     rank,
     caesar,
+    edit,
     near,
     literals: literalsOf(pattern, minLiteralChars),
   };
