@@ -70,7 +70,14 @@ for (const file of FILES) {
           `the deployment it is served from; use "./?q=" or "?q="`,
       );
     }
-    const target = decodeURIComponent(encoded).split(/\s+/).join(" ").trim();
+    // Only the `q` parameter, not everything after it. A query's own `&` — the
+    // intersection operator — is always written `%26` in these links, so a
+    // bare `&` (`&amp;` in the source) starts another parameter:
+    // `?q=<waterhegm>%26…&amp;index=demo.index` is one query and one index
+    // choice. Reading to the end of the href made that link report as
+    // searching "…&amp;index=demo.index" and fail.
+    const qParam = unescape(encoded).split("&")[0];
+    const target = decodeURIComponent(qParam).split(/\s+/).join(" ").trim();
     if (target !== label) {
       problems.push(`${file}: "${label}" actually searches "${target}"`);
     }
