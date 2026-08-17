@@ -261,6 +261,20 @@ to keep in sync. `npm run build` runs it automatically (via `postbuild`) and
 drops the file into `web/dist/`, so the served site's "Offline version" link
 resolves with no extra steps.
 
+## Searching as an MCP tool
+
+`mcp/server.ts` serves the engine over the Model Context Protocol, so an AI
+client can run searches as tool calls — `search`, `explain`, `indexes` and
+`syntax` (the grammar cheat sheet). It reads local index files from the
+directories given as arguments (or `NUTRI_INDEX_DIRS`), loads the side
+datasets on demand, and picks a `.rindex` reverse sidecar automatically for
+suffix-anchored queries. Register it with, e.g.:
+
+```sh
+claude mcp add nutristatic -- npx tsx /path/to/nutristatic9000/mcp/server.ts \
+  /path/to/nutristatic9000/web/public /path/to/index/files
+```
+
 ## Searching from the command line
 
 ```sh
