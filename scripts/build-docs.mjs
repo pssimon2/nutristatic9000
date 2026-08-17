@@ -29,7 +29,6 @@ const ORDER = [
   "spell",
   "shape",
   "match",
-  "out",
 ];
 
 const esc = (s) =>

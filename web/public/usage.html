@@ -147,28 +147,6 @@ crosswords; the search box applies the same folding to whatever you type.
 <p>This build adds features on top of the original Nutristatic. So far:</p>
 
 <ul>
-<li><b>Extraction — <tt>{at 3:expr}</tt></b>. Hunts rarely need the word, they
-need a letter from it. <tt><a href="./?q=%7Bat%203%3AA%7B7%7D%7D">{at
-3:A{7}}</a></tt> lists the third letter of each seven-letter match, with the
-match it came from beside it, so an extraction can be read straight off the
-screen instead of transcribed by hand. Positions are 1-based, count letters
-only (spaces are skipped, however the words fall), may be negative to count
-from the end (<tt>{at -1:...}</tt>), and may be a list
-(<tt>{at 3,5,7:...}</tt>).
-<br>A position may also name a word: <tt>2.3</tt> is the third letter of the
-second word, <tt>-1.1</tt> the first letter of the last word,
-<tt>{at 1.1,-1.1:A* A*}</tt> the initials. That is the case plain offsets
-cannot reach — when what precedes a word varies in length, the word starts at
-no fixed position.
-<br>The wrapper goes around the whole pattern rather than part of it, because
-it decides what is <em>shown</em>, not what matches: pulling a letter out of a
-sub-pattern would mean tracking which characters that sub-pattern consumed,
-and the automaton knows the language rather than the parse. In practice a
-fixed-length prefix makes an absolute position equivalent
-(<tt>the {at 1:A*}</tt> is <tt>{at 5:the A*}</tt>), and word positions cover
-the rest. It wraps the whole pattern; clicking a result
-copies the extracted letters rather than the word.
-
 <li><b>Letter-value arithmetic — <tt>{sum=100:expr}</tt>,
 <tt>{scrabble&gt;25:expr}</tt></b>. Constrains the total of a match's letter
 values: <tt>sum</tt> uses a=1…z=26, <tt>scrabble</tt> uses tile values. Write
@@ -294,28 +272,6 @@ search runs, so only the part of it your search reaches is ever built. The one
 place a limit remains is a negation wrapped in a quantifier, a union or a
 longer pattern — <tt>(!expr)*</tt> — where the complement has to be built out
 in full before the search starts; that says so when it happens.
-
-<li><b>Several slots at once — <tt>pattern ; pattern ; pattern</tt></b>. A hunt
-rarely has one slot: it has a dozen answers and an extraction that reads a
-letter from each, and stitching those together is work otherwise done by hand
-<em>between</em> queries. Separate patterns with <tt>;</tt> and they run in
-turn, one row each, with the letters they contribute assembled at the top —
-click that line to copy it.
-<tt><a href="./?q=%7Bat%201%3A%3Caaagmnr%3E%7D%20%3B%20%7Bat%202%3Asolar%20s_stem%7D%20%3B%20%7Bat%201%3AA%7B5%7D%26.%2Azz.%2A%7D">{at
-1:&lt;aaagmnr&gt;} ; {at 2:solar s_stem} ; {at 1:A{5}&amp;.*zz.*}</a></tt>
-gives <b>AOP</b>. The top answer is not always the right one, so every
-candidate in a row is clickable: pick a different one and the assembled
-letters follow it. Each slot is an ordinary query with its own <tt>{at …}</tt>,
-so anything above works inside one; slots without <tt>{at …}</tt> simply show
-their top matches side by side. When every slot wants the same letter you can
-write the wrapper once around the lot —
-<tt><a href="./?q=%7Bat%201%3A%3Caaagmnr%3E%20%3B%20solar%20s_stem%20%3B%20A%7B5%7D%26.%2Azz.%2A%7D">{at
-1:&lt;aaagmnr&gt; ; solar s_stem ; A{5}&amp;.*zz.*}</a></tt> gives
-<b>ASP</b> — and a slot that names its own position still wins. The whole set lives in the URL, so a
-part-solved grid is one link.
-<br>This is the batching half of multi-slot solving, not the constraint-solving
-half: the tool runs your slots and reads the extraction, it does not search for
-an assignment that satisfies a cross-slot constraint.
 
 <li><b>Rhyme and homophones — <tt>{rhyme:tree}</tt>, <tt>{homo:knight}</tt></b>.
 <tt><a href="./?q=%7Brhyme%3Anight%7D%26A%7B5%7D">{rhyme:night}&amp;A{5}</a></tt>
@@ -532,11 +488,6 @@ whole query; the rest compose anywhere.
 <tr><td><tt>match.stress</tt></td><td>a metrical stress shape, 1 strong 0 weak</td><td><tt><a href="./?q=%7Bstress%20010%3AA%7B8%7D%7D">{stress 010:A{8}}</a></tt></td></tr>
 <tr><td><tt>match.anagram</tt></td><td>rearranges a word, a list or whatever a pattern names</td><td><tt><a href="./?q=%7Banagram%20countries%3AA%7B6%7D%7D">{anagram countries:A{6}}</a></tt></td></tr>
 </table>
-<h3 class="grp">out<span class="gb"> — change what is shown rather than what matches</span></h3>
-<table class="ref">
-<tr><td><tt>out.at</tt></td><td>show the Nth letter of each match</td><td><tt><a href="./?q=%7Bat%203%3AA%7B7%7D%7D">{at 3:A{7}}</a></tt></td></tr>
-<tr><td><tt>out.rank</tt></td><td>a window into the ranked results</td><td><tt><a href="./?q=%7Brank%20200-2000%3AA%7B6%7D%7D">{rank 200-2000:A{6}}</a></tt></td></tr>
-</table>
 <!-- REFERENCE:END -->
 
 <li><b>“Why?” — how a match got there</b>. Every result carries a small
@@ -567,12 +518,12 @@ error that tells you the right one, rather than a silent reinterpretation.
 <li><b>cipher</b> — decode a literal that has been shifted or reflected: <tt>cipher.caesar</tt>, <tt>cipher.rot</tt>, <tt>cipher.rot13</tt>, <tt>cipher.atbash</tt>
 <li><b>spell</b> — spell the match some other way: <tt>spell.t9</tt>, <tt>spell.enum</tt>, <tt>spell.morse</tt>, <tt>spell.elements</tt>
 <li><b>shape</b> — restrict letters by how they look or where they are typed: <tt>shape.roman</tt>, <tt>shape.rot180</tt>, <tt>shape.mirror</tt>, <tt>shape.sevenseg</tt>, <tt>shape.holes</tt>, <tt>shape.row1</tt>, <tt>shape.row2</tt>, <tt>shape.row3</tt>, <tt>shape.ascending</tt>, <tt>shape.descending</tt>
-<li><b>match</b> — ask a question of each finished match: <tt>match.compound</tt>, <tt>match.palindrome</tt>, <tt>match.reversible</tt>, <tt>match.syllables</tt>, <tt>match.stress</tt>
-<li><b>out</b> — change what is shown rather than what matches: <tt>out.at</tt>, <tt>out.rank</tt>
+<li><b>match</b> — ask a question of each finished match: <tt>match.compound</tt>, <tt>match.palindrome</tt>, <tt>match.reversible</tt>, <tt>match.syllables</tt>, <tt>match.stress</tt>, <tt>match.anagram</tt>
 </ul>
 A construct whose name is its own group is written bare: <tt>{edit&lt;=2:…}</tt>,
-not <tt>{edit.edit&lt;=2:…}</tt>. The <b>match</b> and <b>out</b> families wrap
-the whole query; the rest compose anywhere.
+not <tt>{edit.edit&lt;=2:…}</tt>. Every family composes anywhere: a
+<b>match</b> construct written inside a pattern is checked on the span it
+covers.
 
 <li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing
@@ -608,14 +559,6 @@ single entry needs a trailing comma: <tt>{list:sigma,}</tt>), entries are
 normalised the same way — <tt>{list:New York,Los Angeles}</tt> works — and the
 whole thing travels in the URL like the rest of the query, with no settings to
 save.
-
-<li><b>Rank windows — <tt>{rank 200-2000:expr}</tt></b>. Hunt answers are
-often mid-frequency: real, but not the most common thing. Rather than
-scrolling past the head of the list,
-<tt><a href="./?q=%7Brank%20200-2000%3AA%7B5%7D%7D">{rank
-200-2000:A{5}}</a></tt> starts at rank 200. A bare
-<tt>{rank 200:...}</tt> runs from there to the end. Ranks count the engine's
-own frequency order, before any folding.
 
 <li><b>Repeated-phrase folding.</b> The index stores overlapping windows of
 every phrase, so one piece of text could previously fill the whole first

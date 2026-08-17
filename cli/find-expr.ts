@@ -12,20 +12,19 @@ import { finiteStrategy } from "../src/finite-strategy.js";
 import { derivedNote } from "../src/match-notes.js";
 import { FilterCapacityError } from "../src/expr-filter.js";
 import { cliOpenIndex } from "../src/node-io.js";
-import { applyExtract } from "../src/extract-spec.js";
 import fs from "node:fs";
 import { SessionContext } from "../src/session-context.js";
 import { providersFor } from "../src/data-providers.js";
 import { applyResultFilters } from "../src/result-predicate.js";
+import { type FilterSpec, parseFilterWrappers } from "../src/result-filter.js";
+import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { makeWordChecker } from "../src/index-words.js";
 import {
   SourceStats,
   emptyStats,
   formatStats,
 } from "../src/stats.js";
-import { formatPlan, planSlotQueries } from "../src/plan.js";
-import { OutputTransform } from "../src/output.js";
-import { type SlotPlan, planSlots } from "../src/slot-plan.js";
+import { formatPlan, planQuery } from "../src/plan.js";
 
 process.stdout.on("error", (e: NodeJS.ErrnoException) => {
   if (e.code === "EPIPE") process.exit(0);
@@ -34,11 +33,8 @@ process.stdout.on("error", (e: NodeJS.ErrnoException) => {
 
 const USAGE =
   "usage: find-expr [--max-steps N] [--stats] [--explain] input.index expression\n" +
-  "  N: step limit (default 1000000; 0 = unlimited), applied per slot\n" +
-  "  --walk: always walk the index, even where testing a list would do\n" +
-  "  expression: a pattern, or several separated by ';' — each runs in turn,\n" +
-  "    and if they say where their letters come from ({at 1:…}) the assembled\n" +
-  "    letters are printed after the last one";
+  "  N: step limit (default 1000000; 0 = unlimited)\n" +
+  "  --walk: always walk the index, even where testing a list would do";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -72,14 +68,18 @@ if (stray !== undefined || args.length !== 2) {
 }
 const [indexPath, expr] = args;
 
-// The browser understands wrappers the engine doesn't: {at …} and {rank …}
-// shape the output, {compound …}/{palindrome:…}/{reversible:…} ask the index
-// about finished matches, and ";" asks for several patterns at once. Handle
-// them here too, so the CLI and the site accept the same queries — planSlots
-// owns the whole peel, in the same order, for both.
-let slots: SlotPlan[];
+// The browser understands wrappers the engine doesn't: whole-query predicates
+// like {palindrome:…} are peeled here and checked per match, exactly as the
+// worker peels them on its side — so the CLI and the site accept the same
+// queries.
+let pattern: string;
+let filters: FilterSpec[];
+let shape: QueryShape;
 try {
-  slots = planSlots(expr, 12);
+  const peeled = parseFilterWrappers(expr.trim());
+  pattern = peeled.inner;
+  filters = peeled.specs;
+  shape = shapeOfQuery(pattern, 12);
 } catch (e) {
   console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
   process.exit(2);
@@ -87,8 +87,6 @@ try {
 
 // Compilation is synchronous, so load the pronouncing dictionary first when
 // the query needs it. Ships next to the web assets.
-// Checked against `expr`, not `pattern`: a {syllables …}/{stress …} wrapper
-// has already been stripped out of the latter.
 const ctx = new SessionContext();
 
 // One row per dataset (src/data-providers.ts); the CLI supplies only the part
@@ -116,10 +114,8 @@ for (const provider of providersFor(expr)) {
 if (wantExplain) {
   // Before the search, and on stderr: this describes what is about to run.
   try {
-    // One plan per slot: planning the whole string fails on the wrappers,
-    // which insist on covering what they wrap.
-    for (const plan of planSlotQueries(expr, ctx)) {
-      for (const line of formatPlan(plan)) console.error(`# ${line}`);
+    for (const line of formatPlan(planQuery(expr, ctx))) {
+      console.error(`# ${line}`);
     }
   } catch (e) {
     console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
@@ -130,10 +126,8 @@ if (wantExplain) {
 const reader = await cliOpenIndex(indexPath);
 const isWord = makeWordChecker(reader);
 
-/** The stats a slot's run accumulated, so several runs can be summarised. */
-interface SlotRun {
-  /** The top match, for the assembled extraction line. */
-  best: string | null;
+/** What the run accumulated, for the --stats summary. */
+interface Run {
   steps: number;
   emitted: number;
   frontierPeak: number;
@@ -142,22 +136,15 @@ interface SlotRun {
   predicatePassed: number;
   /** Set when the step limit stopped it rather than the search finishing. */
   hitLimit: boolean;
-  /** Set when this slot was answered by testing a list, not by walking. */
+  /** Set when this query was answered by testing a list, not by walking. */
   candidatesTested: number;
   indexLookups: number;
 }
 
-/**
- * Run one slot to the step limit, printing its results as they are found.
- *
- * The limit is per slot, matching the page: a reader who writes a dozen
- * patterns asked for a dozen searches, and making them share one budget would
- * mean the last few never ran.
- */
-async function runSlot(slot: SlotPlan): Promise<SlotRun> {
+async function runQuery(): Promise<Run> {
   let filter;
   try {
-    filter = compileQuery(slot.pattern, ctx);
+    filter = compileQuery(pattern, ctx);
   } catch (e) {
     if (e instanceof ParseError) {
       console.error(`error: ${e.message}`);
@@ -166,9 +153,7 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
     throw e;
   }
 
-  const output = new OutputTransform(slot.extract, slot.rank);
-  const run: SlotRun = {
-    best: null,
+  const run: Run = {
     steps: 0,
     emitted: 0,
     frontierPeak: 0,
@@ -180,19 +165,15 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
     indexLookups: 0,
   };
 
-  /**
-   * Apply the output wrappers to one match: null drops it, otherwise the line
-   * to print. Order matches the browser — corpus filter, then rank window,
-   * then extraction.
-   */
+  /** One match through the predicates: null drops it, else the line to print. */
   async function present(score: number, text: string): Promise<string | null> {
     let note = "";
-    if (slot.filters.length > 0) {
+    if (filters.length > 0) {
       ++run.predicateChecks;
       // Same rule as the browser (src/result-predicate.ts); only the
       // formatting differs — a line suffix here, a `note` field over
       // postMessage there.
-      const verdict = await applyResultFilters(slot.filters, text, ctx, isWord);
+      const verdict = await applyResultFilters(filters, text, ctx, isWord);
       if (!verdict.keep) return null;
       ++run.predicatePassed;
       if (verdict.notes.length > 0) note = `  ${verdict.notes.join("  ")}`;
@@ -201,22 +182,16 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
     // matched, the letter an edit changed. Shared with the page, which is the
     // point: these were written where they were first needed and so the CLI
     // showed none of them.
-    const derived = derivedNote(slot.shape, text);
+    const derived = derivedNote(shape, text);
     if (derived !== null) note = note === "" ? `  ${derived}` : `${note}  ${derived}`;
-    const shown = output.apply(text);
-    if (shown === null) return null;
-    // The first match to survive every wrapper is what this slot contributes.
-    run.best ??= text;
-    return shown.source === null
-      ? `${formatScore(score)} ${shown.text}${note}`
-      : `${formatScore(score)} ${shown.text}  (${shown.source})${note}`;
+    return `${formatScore(score)} ${text}${note}`;
   }
 
   // A query with one small finite conjunct is a list, and a list can be
   // tested rather than searched for — same answers, same order, same scores.
   // See src/finite-strategy.ts; --walk forces the search, for comparing them.
   if (!forceWalk) {
-    const tested = await finiteStrategy(reader, compileConjuncts(slot.pattern, ctx));
+    const tested = await finiteStrategy(reader, compileConjuncts(pattern, ctx));
     if (tested !== null) {
       run.candidatesTested = tested.candidates;
       run.indexLookups = tested.lookups;
@@ -257,44 +232,23 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
 }
 
 try {
-  const runs: SlotRun[] = [];
-  for (const slot of slots) {
-    // Only when there is more than one, so a plain query's output is byte for
-    // byte what it always was — anything piping this reads the result stream.
-    if (slots.length > 1) process.stdout.write(`# slot ${runs.length + 1}: ${slot.query}\n`);
-    runs.push(await runSlot(slot));
-  }
-
-  // The payoff line: what each slot contributes, in order. Only when a slot
-  // says where its letter comes from — otherwise there is nothing to assemble.
-  if (slots.length > 1 && slots.some((s) => s.extract)) {
-    const picked = slots.map((s, i) => {
-      const best = runs[i].best;
-      // "?" for a slot that found nothing: the line still lines up with the
-      // slots, and a gap is more useful than a shorter string.
-      if (!s.extract || best === null) return "?";
-      return applyExtract(s.extract, best) ?? "?";
-    });
-    process.stdout.write(`${picked.join("")}\n`);
-  }
+  const run = await runQuery();
 
   if (wantStats) {
     const src = reader.source as SourceStats;
     const s = emptyStats();
-    // Summed across slots: one query, one summary. The source counters are
-    // lifetime totals for the index, so they already cover every slot.
-    s.steps = runs.reduce((a, r) => a + r.steps, 0);
-    s.results = runs.reduce((a, r) => a + r.emitted, 0);
-    s.frontierPeak = Math.max(0, ...runs.map((r) => r.frontierPeak));
-    s.dfaStates = Math.max(0, ...runs.map((r) => r.dfaStates));
+    s.steps = run.steps;
+    s.results = run.emitted;
+    s.frontierPeak = run.frontierPeak;
+    s.dfaStates = run.dfaStates;
     s.bytesFetched = src.bytesFetched ?? 0;
     s.requests = src.requests ?? 0;
     s.chunkHits = src.chunkHits ?? 0;
     s.chunkMisses = src.chunkMisses ?? 0;
-    s.predicateChecks = runs.reduce((a, r) => a + r.predicateChecks, 0);
-    s.predicatePassed = runs.reduce((a, r) => a + r.predicatePassed, 0);
-    s.candidatesTested = runs.reduce((a, r) => a + r.candidatesTested, 0);
-    s.indexLookups = runs.reduce((a, r) => a + r.indexLookups, 0);
+    s.predicateChecks = run.predicateChecks;
+    s.predicatePassed = run.predicatePassed;
+    s.candidatesTested = run.candidatesTested;
+    s.indexLookups = run.indexLookups;
     // On stderr: stdout is the result stream, and a caller piping it should
     // not have to filter the summary back out.
     for (const line of formatStats(s)) console.error(`# ${line}`);

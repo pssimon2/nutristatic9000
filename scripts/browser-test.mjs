@@ -140,71 +140,22 @@ if (hiddenShare > 0.25) {
   throw new Error("collapsed on a literal the query requires");
 }
 
-// `{at N:…}` extraction: results render as the picked letters, with the match
-// they came from alongside, and copying yields the extraction not the word.
-await page.fill("#q", "{at 1:<aaagmnr>}");
-await page.click("input[type=submit]");
-await waitDone();
-const ex = await page.$eval("#results span.r", (e) => ({
-  picked: e.firstChild.textContent,
-  from: e.querySelector(".from")?.textContent?.trim(),
-}));
-console.log("extract {at 1}:", JSON.stringify(ex));
-if (ex.picked !== "a" || ex.from !== "anagram") throw new Error("bad extraction");
-await page.click("#results span.r");
-const exClip = await page.evaluate(() => navigator.clipboard.readText());
-if (exClip !== "a") throw new Error(`extract copy gave ${JSON.stringify(exClip)}`);
-// A position may name a word: first letter of the last word.
-await page.fill("#q", "{at -1.1:A* A{6}}");
-await page.click("input[type=submit]");
-await waitDone();
-const byWord = await page.$eval("#results span.r", (e) => ({
-  picked: e.firstChild.textContent,
-  from: e.querySelector(".from")?.textContent?.trim(),
-}));
-console.log("extract {at -1.1}:", JSON.stringify(byWord));
-if (byWord.picked !== byWord.from.split(" ").pop()[0]) {
-  throw new Error("word-relative extraction picked the wrong letter");
-}
-
-await page.fill("#q", "{at -1:<aaagmnr>}");
-await page.click("input[type=submit]");
-await waitDone();
-const last = await page.$eval("#results span.r", (e) => e.firstChild.textContent);
-console.log("extract {at -1}:", last);
-if (last !== "m") throw new Error("bad negative-position extraction");
-// A malformed wrapper explains itself rather than failing as pattern syntax.
-await page.fill("#q", "{at 0:A*}");
+// The output wrappers were removed from the language (2026-08-17): a query
+// using one errors as an unknown construct instead of half-working.
+await page.fill("#q", "{at 1:A*}");
 await page.click("input[type=submit]");
 await page.waitForFunction(() => document.getElementById("status").className === "error");
-console.log("extract error:", await page.textContent("#status"));
+const atErr = await page.textContent("#status");
+console.log("removed wrapper:", atErr.trim());
+if (!/no such constraint "at"/.test(atErr)) {
+  throw new Error(`expected an unknown-construct error, got: ${atErr}`);
+}
 // Leave a valid query behind: the download below re-runs whatever is in the
 // box, and a rejected one would never produce a "done".
 await page.fill("#q", "<aaagmnr>");
 await page.click("input[type=submit]");
 await waitDone();
 
-// `{rank N-M:…}` window: the same stream, offset. Uses a fixed-length pattern
-// so variant folding can't shift the indices.
-await page.fill("#q", "A{5}");
-await page.click("input[type=submit]");
-await waitDone();
-const head = await page.$$eval("#results span.r", (els) =>
-  els.slice(0, 12).map((e) => e.textContent),
-);
-await page.fill("#q", "{rank 10-12:A{5}}");
-await page.click("input[type=submit]");
-await waitDone();
-const window = await page.$$eval("#results span.r", (els) =>
-  els.map((e) => e.textContent),
-);
-console.log("rank 10-12:", JSON.stringify(window), "vs stream 10-12:", JSON.stringify(head.slice(9, 12)));
-if (window.length !== 3 || window[0] !== head[9] || window[2] !== head[11]) {
-  throw new Error("rank window did not match the ranked stream");
-}
-await page.fill("#q", "<aaagmnr>");
-await page.click("input[type=submit]");
-await waitDone();
 
 // Letter-value constraints run in the engine (and, being ordinary conjunct
 // NFAs, in the WASM kernel too).
@@ -342,72 +293,11 @@ if (shellKeys.some((k) => /phonetics|thesaurus|neighbours|categories|stress/.tes
   throw new Error("datasets leaked into the versioned shell cache");
 }
 
-// Multi-slot: several patterns at once, with their picked letters assembled.
-await page.fill("#q", "{at 1:<aaagmnr>} ; {at 2:solar s_stem} ; {at 1:A{5}&.*zz.*}");
-await page.click("input[type=submit]");
-await page.waitForFunction(
-  () => document.getElementById("after")?.textContent?.includes("slots"),
-  null,
-  { timeout: 90000 },
-);
-const extraction = await page.$eval("p.extraction", (e) => e.textContent);
-const slotRows = await page.$$eval("table.slots tr", (rs) =>
-  rs.map((r) => r.cells[1].textContent.trim()),
-);
-console.log("multi-slot:", JSON.stringify(extraction), slotRows.length, "slots");
-if (extraction !== "aop") throw new Error(`bad extraction: ${extraction}`);
-if (slotRows.length !== 3) throw new Error("wrong slot count");
-// The assembled letters copy as one string.
-await page.click("p.extraction");
-const exClip2 = await page.evaluate(() => navigator.clipboard.readText());
-if (exClip2 !== "aop") throw new Error(`extraction copy gave ${exClip2}`);
-
-// Choosing a different candidate re-reads the extraction from it.
-const second = await page.$$("table.slots tr:first-child span.cand");
-if (second.length < 2) throw new Error("slot offered no alternatives");
-const altText = (await second[1].textContent()).trim();
-await second[1].click();
-const altExtraction = await page.$eval("p.extraction", (e) => e.textContent);
-console.log(`chose "${altText}" -> extraction ${altExtraction}`);
-if (altExtraction === extraction) throw new Error("choice did not change extraction");
-if (altExtraction[0] !== altText[0]) {
-  throw new Error(`extraction ${altExtraction} does not start with ${altText}`);
-}
-
-// Slots without extraction just run the patterns and show the top matches.
+// Multi-slot queries were removed with the wrappers: a ";" is a syntax error.
 await page.fill("#q", "<aaagmnr> ; solar s_stem");
 await page.click("input[type=submit]");
-await page.waitForFunction(
-  () => document.getElementById("after")?.textContent?.includes("slots"),
-  null,
-  { timeout: 90000 },
-);
-if (await page.$("p.extraction")) throw new Error("extraction shown without {at}");
-const plainRows = await page.$$eval("table.slots tr", (rs) =>
-  rs.map((r) => r.cells[1].textContent.trim().split(" ")[0]),
-);
-console.log("slots without extraction:", JSON.stringify(plainRows));
-if (plainRows[0] !== "anagram") throw new Error("slot did not run");
-
-// One {at …} written around all the slots applies to each of them. Written
-// this way the semicolons sit inside the braces, which used to be split on
-// regardless — giving "{at 1:<aaagmnr>" and "A{5}&.*zz.*}", neither of which
-// parses. src/slot-plan.ts splits at the top level only.
-await page.fill("#q", "{at 1:<aaagmnr> ; solar s_stem ; A{5}&.*zz.*}");
-await page.click("input[type=submit]");
-await page.waitForFunction(
-  () => document.getElementById("after")?.textContent?.includes("slots"),
-  null,
-  { timeout: 90000 },
-);
-const outerRows = await page.$$eval("table.slots tr", (rs) => rs.length);
-const outerExtraction = await page.$eval("p.extraction", (e) => e.textContent);
-console.log("one wrapper over slots:", JSON.stringify(outerExtraction), outerRows, "slots");
-if (outerRows !== 3) throw new Error(`wrong slot count: ${outerRows}`);
-// The first letter of each slot's top match: anagram, solar system, pizza.
-if (outerExtraction !== "asp") {
-  throw new Error(`bad extraction from outer wrapper: ${outerExtraction}`);
-}
+await page.waitForFunction(() => document.getElementById("status").className === "error");
+console.log("removed slots:", (await page.textContent("#status")).trim());
 
 // A construct may carry its group prefix, and the dataset it needs has to be
 // fetched for that form too. Five of the six "does this query need it" tests
@@ -734,100 +624,6 @@ if (!kinds.some((t) => /^bird/.test(t))) {
   throw new Error(`kind completions do not match the prefix: ${kinds.join(", ")}`);
 }
 
-// A slot offers three candidates, so a respelling costs a real alternative:
-// "solar system" and "so lar system" are one answer written twice, and
-// `{at 2:…}` counts letters with the spaces removed, so both extract the same
-// letter. They collapse.
-await page.goto(base + "?index=./demo.index&q=" +
-  encodeURIComponent("{at 2:solar s_stem} ; {at 1:<aaagmnr>}"));
-await page.waitForFunction(() => document.querySelectorAll("span.cand").length > 0,
-  null, { timeout: 60000 });
-await page.waitForTimeout(2000);
-const slotCands = await page.$$eval("span.cand", (es) =>
-  es.map((e) => e.textContent.trim()));
-console.log("slot candidates:", slotCands.join(" | "));
-const slotLetters = slotCands.map((t) => t.replaceAll(" ", ""));
-if (new Set(slotLetters).size !== slotLetters.length) {
-  throw new Error(`two spellings of one answer both offered: ${slotCands.join(", ")}`);
-}
-// …and dropping them must not leave the picker short. Both slots here have
-// plenty of distinct answers, so both should offer the full three: fetching
-// exactly three and then discarding respellings is how this went wrong.
-if (slotCands.length !== 6) {
-  throw new Error(`expected three candidates per slot, got ${slotCands.length}: ${slotCands.join(", ")}`);
-}
-
-// …but when the extraction counts *words*, the split is the answer:
-// `{at 2.1:…}` takes the first letter of the second word, which is "s" of
-// "system" one way and "l" of "lar" the other. Both must stay.
-await page.goto(base + "?index=./demo.index&q=" +
-  encodeURIComponent("{at 2.1:solar s_stem} ; {at 1:A{4}}"));
-await page.waitForFunction(() => document.querySelectorAll("span.cand").length > 0,
-  null, { timeout: 60000 });
-await page.waitForTimeout(2000);
-const wordCands = await page.$$eval("span.cand", (es) =>
-  es.map((e) => e.textContent.trim()));
-console.log("word-position candidates:", wordCands.join(" | "));
-if (!wordCands.some((t) => /\s/.test(t.trim()) && t.replace(/\s+/g, "") === "solarsystem" && t !== "solar system")) {
-  throw new Error(`respelling dropped where the word split changes the answer: ${wordCands.join(", ")}`);
-}
-
-// An empty slot has to say *why* it is empty. "no match" is a claim about the
-// corpus, and only an exhausted search supports it — a slot that ran out of
-// budget searched part of the index and stopped, and slots share one budget
-// now, so the later ones reach that far often.
-await page.goto(base + "?index=./demo.index&q=" +
-  encodeURIComponent('{at 1:"qqzzxxjjv"} ; {at 1:A{5}&A{6}} ; {at 1:A{4}}'));
-await page.waitForFunction(() => /slots\./.test(document.body.textContent),
-  null, { timeout: 90000 });
-await page.waitForTimeout(1500);
-const emptySlotRows = await page.$$eval("table.slots tr", (trs) =>
-  trs.map((t) => t.textContent.replace(/\s+/g, " ").trim()));
-console.log("slot outcomes:", emptySlotRows.map((r) => r.slice(0, 34)).join(" / "));
-// Searched to the end and found nothing: the corpus really has none.
-if (!/no match/.test(emptySlotRows[0])) {
-  throw new Error(`an exhausted empty slot should say "no match": ${emptySlotRows[0]}`);
-}
-// Contradictory, so no search happened at all.
-if (!/cannot match anything/.test(emptySlotRows[1])) {
-  throw new Error(`an impossible slot should say so: ${emptySlotRows[1]}`);
-}
-if (/no match/.test(emptySlotRows[1])) {
-  throw new Error(`an impossible slot must not claim the corpus was searched: ${emptySlotRows[1]}`);
-}
-
-// Slots share one budget, so a later slot can stop with answers still to find
-// and the page offers to push the ones that came up short. A small ?comp
-// makes that state reproducible: the searches stop on the step limit rather
-// than on anything about the corpus.
-await page.goto(base + "?index=./demo.index&comp=400&q=" +
-  encodeURIComponent("{at 1:A{6}&.*zzz.*} ; {at 1:A{7}&.*qq.*}"));
-const slotsSettled = async () => {
-  await page.waitForFunction(
-    () => /slots\./.test(document.getElementById("after").textContent),
-    null, { timeout: 90000 });
-  await page.waitForTimeout(1200);
-};
-await slotsSettled();
-const slotsBefore = await page.$$eval("table.slots tr", (t) =>
-  t.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
-console.log("slots before retry:", slotsBefore.map((r) => r.slice(0, 30)).join(" / "));
-const further = await page.$("#after button:has-text('further')");
-if (!further) throw new Error("no offer to push the slots that ran short");
-
-await further.click();
-await page.waitForTimeout(500);
-await slotsSettled();
-const slotsAfter = await page.$$eval("table.slots tr", (t) =>
-  t.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
-console.log("slots after retry: ", slotsAfter.map((r) => r.slice(0, 30)).join(" / "));
-// The retry must not cost answers already found — neither in the slots it
-// re-runs nor in the ones it leaves alone.
-for (let i = 0; i < slotsBefore.length; ++i) {
-  if (/no match|nothing found|cannot match/.test(slotsAfter[i])) {
-    throw new Error(`retry emptied a slot that had answers: ${slotsBefore[i]} -> ${slotsAfter[i]}`);
-  }
-}
 
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.

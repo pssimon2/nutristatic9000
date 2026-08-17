@@ -16,13 +16,12 @@
 //               search, and span-verify asks the question of the span its
 //               node covers. Wrapping the whole query remains the cheap path
 //               — peeled textually, no reparse per match.
-//   transform — changes what is printed, so it wraps the whole query
 //
 // This is the seed of the construct registry (roadmap C4): the compile
 // functions and per-construct docs join it there. Grouping for the UI hangs
 // off the same table.
 
-export type ConstructLevel = "automaton" | "predicate" | "transform";
+export type ConstructLevel = "automaton" | "predicate";
 
 /**
  * The group a construct belongs to, and the prefix you may write for it:
@@ -42,8 +41,7 @@ export type ConstructGroup =
   | "cipher"
   | "spell"
   | "shape"
-  | "match"
-  | "out";
+  | "match";
 
 export interface ConstructInfo {
   name: string;
@@ -65,7 +63,6 @@ export const GROUP_BLURB: Record<ConstructGroup, string> = {
   spell: "spell the match some other way",
   shape: "restrict letters by how they look or where they are typed",
   match: "ask a question of each finished match",
-  out: "change what is shown rather than what matches",
 };
 
 /**
@@ -136,10 +133,6 @@ const GROUPS: Array<
     ["syllables", "how many syllables, by pronunciation", "{syllables=3:A{7}}"],
     ["stress", "a metrical stress shape, 1 strong 0 weak", "{stress 010:A{8}}"],
     ["anagram", "rearranges a word, a list or whatever a pattern names", "{anagram countries:A{6}}"],
-  ]],
-  ["out", "transform", [
-    ["at", "show the Nth letter of each match", "{at 3:A{7}}"],
-    ["rank", "a window into the ranked results", "{rank 200-2000:A{6}}"],
   ]],
 ];
 
@@ -266,17 +259,15 @@ export function resolveConstruct(
 }
 
 /**
- * How to say where a construct belongs, for the error a solver gets when they
- * nest one that cannot be nested. Since predicates learned to nest, only the
- * transforms can still be misplaced — but the predicate wording is kept
- * truthful in case a caller shows it.
+ * How to say what a construct does, for an error that names it. Every level
+ * composes now, so nothing is "misplaced" any more; kept for callers that
+ * want the one-line description of how a predicate runs.
  */
 export function levelAdvice(info: ConstructInfo): string {
-  return info.level === "predicate"
-    ? `{${info.name} …} is checked on finished matches — write it around the ` +
-        `part it should hold of: {${info.name} …:that part}`
-    : `{${info.name} …} changes what is shown, so it has to wrap the whole ` +
-        `query — try {${info.name} …:your pattern}`;
+  return (
+    `{${info.name} …} is checked on finished matches — write it around the ` +
+    `part it should hold of: {${info.name} …:that part}`
+  );
 }
 
 /**

@@ -53,7 +53,7 @@ describe("the catalogue", () => {
   });
 
   it("partitions the names by level and by group", () => {
-    const byLevel = (["automaton", "predicate", "transform"] as const).flatMap(
+    const byLevel = (["automaton", "predicate"] as const).flatMap(
       namesAtLevel,
     );
     expect(byLevel.sort()).toEqual(CONSTRUCTS.map((c) => c.name).sort());
@@ -165,9 +165,8 @@ describe("suggestions and misplacement", () => {
     // A malformed spec still explains itself at compile time, where the
     // reader is.
     expect(errorOf("A{4} {compound 9:A{9}}")).toMatch(/2 to 5 pieces/);
-    // Transforms still wrap the whole query: they change what is shown, and a
-    // span has nothing to show.
-    expect(errorOf("{at 1:A*}")).toMatch(/changes what is shown/);
+    // The output wrappers were removed from the language altogether.
+    expect(errorOf("{at 1:A*}")).toMatch(/no such constraint "at"/);
   });
 });
 

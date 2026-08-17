@@ -35,13 +35,11 @@ describe("every construct that exists can be built", () => {
   });
 
   it("does not have rows for the other levels", () => {
-    // Predicates and transforms are applied to finished matches, not
-    // intersected with the pattern, so a row here would mean one of them had
-    // been wired into the automaton path by mistake.
-    for (const level of ["predicate", "transform"] as const) {
-      for (const name of namesAtLevel(level)) {
-        expect(CONSTRUCTS[name], `${name} is a ${level}`).toBeUndefined();
-      }
+    // Predicates are applied to finished matches, not intersected with the
+    // pattern, so a row here would mean one had been wired into the automaton
+    // path by mistake.
+    for (const name of namesAtLevel("predicate")) {
+      expect(CONSTRUCTS[name], `${name} is a predicate`).toBeUndefined();
     }
   });
 });

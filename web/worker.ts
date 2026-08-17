@@ -29,7 +29,7 @@ import {
 import type { Filter } from "../src/expr-filter.js";
 import { conflictText } from "../src/emptiness.js";
 import { explainMatch } from "../src/explain.js";
-import { formatPlan, planSlotQueries } from "../src/plan.js";
+import { formatPlan, planQuery } from "../src/plan.js";
 import type {
   InMsg,
   OpenMsg,
@@ -69,11 +69,6 @@ import {
 } from "../src/result-filter.js";
 import { compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
-import {
-  ExtractError,
-  parseExtract,
-  parseRank,
-} from "../src/extract-spec.js";
 import { SearchSession } from "../src/search-session.js";
 import {
   WasmCapacityError,
@@ -1264,22 +1259,16 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         const text = msg.query.trim();
         if (text !== "") {
           try {
-            // Peel what the engine never sees, in the same order the page
-            // and the worker peel it, so a wrapper mistake is reported too.
-            let inner = text;
-            const at = parseExtract(inner);
-            if (at) inner = at.inner;
-            const ranked = parseRank(inner);
-            if (ranked) inner = ranked.inner;
-            inner = parseFilterWrappers(inner).inner;
-            compileQuery(inner, ctx);
+            // Peel what the engine never sees — the whole-query predicate
+            // wrappers — so a wrapper mistake is reported too.
+            compileQuery(parseFilterWrappers(text).inner, ctx);
           } catch (e) {
             if (e instanceof ParseError && !e.dataMissing) {
               // `rest` is the tail the parser could not consume, so the
               // offset is however much it did consume.
               const at = Math.max(0, msg.query.length - e.rest.length);
               error = { detail: e.message, at };
-            } else if (e instanceof FilterError || e instanceof ExtractError) {
+            } else if (e instanceof FilterError) {
               error = { detail: (e as Error).message, at: 0 };
             }
           }
@@ -1290,7 +1279,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
       case "plan": {
         let lines: string[] = [];
         try {
-          lines = planSlotQueries(msg.query, ctx).flatMap((p) => formatPlan(p));
+          lines = formatPlan(planQuery(msg.query, ctx));
         } catch (e) {
           lines = [`cannot plan: ${e instanceof Error ? e.message : String(e)}`];
         }

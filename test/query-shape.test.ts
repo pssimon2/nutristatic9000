@@ -6,61 +6,9 @@
 // how a rule ends up with two slightly different meanings.
 
 import { describe, expect, it } from "vitest";
-import { ExtractError } from "../src/extract-spec.js";
-import {
-  literalsOf,
-  shapeOfQuery,
-  splitSlots,
-} from "../src/query-shape.js";
+import { literalsOf, shapeOfQuery } from "../src/query-shape.js";
 
 const shape = (q: string) => shapeOfQuery(q, 12);
-
-describe("splitSlots", () => {
-  it("splits on semicolons and trims", () => {
-    expect(splitSlots("A{5} ; B{3};C*")).toEqual(["A{5}", "B{3}", "C*"]);
-  });
-
-  it("drops empty slots rather than searching for nothing", () => {
-    expect(splitSlots("A{5};;  ;B{3}")).toEqual(["A{5}", "B{3}"]);
-    expect(splitSlots("   ")).toEqual([]);
-  });
-
-  it("leaves a single query alone", () => {
-    expect(splitSlots("solar s_stem")).toEqual(["solar s_stem"]);
-  });
-});
-
-describe("peeling the output wrappers", () => {
-  it("returns the pattern untouched when there are none", () => {
-    const s = shape("A{5}&C*");
-    expect(s.pattern).toBe("A{5}&C*");
-    expect(s.extract).toBeNull();
-    expect(s.rank).toBeNull();
-  });
-
-  it("peels {at …} and reports the spec", () => {
-    const s = shape("{at 3:A{7}}");
-    expect(s.pattern).toBe("A{7}");
-    expect(s.extract).not.toBeNull();
-  });
-
-  it("peels {rank …}", () => {
-    const s = shape("{rank 200-2000:A{6}}");
-    expect(s.pattern).toBe("A{6}");
-    expect(s.rank).toEqual({ from: 200, to: 2000 });
-  });
-
-  it("peels both, outermost first", () => {
-    const s = shape("{at 1:{rank 2-3:A{4}}}");
-    expect(s.pattern).toBe("A{4}");
-    expect(s.extract).not.toBeNull();
-    expect(s.rank).not.toBeNull();
-  });
-
-  it("throws on a malformed wrapper rather than searching for it", () => {
-    expect(() => shape("{rank nonsense:A*}")).toThrow(ExtractError);
-  });
-});
 
 describe("the annotatable caesar", () => {
   it("reports the ciphertext of a lone unknown-shift caesar", () => {
@@ -79,9 +27,6 @@ describe("the annotatable caesar", () => {
     expect(shape("{rot13:uryyb}").caesar).toBeNull();
   });
 
-  it("looks at the peeled pattern, not the wrapper", () => {
-    expect(shape("{at 1:{caesar:kdhv}}").caesar).toBe("kdhv");
-  });
 });
 
 describe("the ordering {near}", () => {
@@ -109,12 +54,6 @@ describe("the ordering {near}", () => {
     expect(shape("A{4}").near).toBeNull();
   });
 
-  it("looks past the wrappers", () => {
-    expect(shape("{rank 1-9:{near 12:king}}").near).toEqual({
-      word: "king",
-      limit: 12,
-    });
-  });
 });
 
 describe("literalsOf", () => {

@@ -10,7 +10,6 @@
 // and at most one index lookup.
 
 import { mentionsConstruct, namesAtLevel, resolveConstruct } from "./constructs.js";
-import { splitSlots } from "./query-shape.js";
 
 export type FilterSpec =
   | { kind: "compound"; pieces: number }
@@ -91,13 +90,8 @@ export function parseFilterWrappers(
   }
   // Whatever predicates remain are *inside* the pattern — beside a neighbour,
   // under a quantifier, in an anagram part. The search runs on their hulls;
-  // this filter re-verifies each match exactly, spans and all. Not for a
-  // multi-slot string: each slot adds its own after the split.
-  if (
-    inner !== "" &&
-    splitSlots(inner).length === 1 &&
-    mentionsConstruct(inner, NAMES)
-  ) {
+  // this filter re-verifies each match exactly, spans and all.
+  if (inner !== "" && mentionsConstruct(inner, NAMES)) {
     specs.push({ kind: "where", pattern: inner });
   }
   return { specs, inner };

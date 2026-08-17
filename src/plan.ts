@@ -17,8 +17,7 @@ import { compileConjuncts } from "./find-expr.js";
 import { makeFilter } from "./expr-filter.js";
 import { SessionContext } from "./session-context.js";
 import { topLevelConjuncts } from "./explain.js";
-import { ParseError } from "./parse-error.js";
-import { type SlotPlan, planSlots } from "./slot-plan.js";
+import { type FilterSpec, parseFilterWrappers } from "./result-filter.js";
 import { providersFor } from "./data-providers.js";
 import { testPlan } from "./finite-strategy.js";
 
@@ -43,9 +42,7 @@ export interface ConjunctPlan {
 }
 
 export interface QueryPlan {
-  /** The slot as written, when the query has more than one. */
-  slot: string | null;
-  /** The pattern the engine sees, wrappers peeled. */
+  /** The pattern the engine sees, predicate wrappers peeled. */
   pattern: string;
   conjuncts: ConjunctPlan[];
   /** One conjunct compiles to a plain lazy DFA; several to a lazy product. */
@@ -55,8 +52,6 @@ export interface QueryPlan {
    * made them stack: `{palindrome:{syllables=1:A{3}}}` is two.
    */
   predicates: string[];
-  /** Output wrappers, outermost first. */
-  transforms: string[];
   /** Side datasets this query needs loaded before it can compile. */
   dataNeeds: string[];
   /**
@@ -171,45 +166,18 @@ function dataNeedsOf(query: string): string[] {
 }
 
 /** Analyse a query without searching it. Throws what compiling would throw. */
-/**
- * Plan every slot of a query.
- *
- * A query may be several patterns separated by `;`, and each is its own
- * search with its own conjuncts and its own cost — so each gets its own plan.
- * Planning the whole string instead fails outright: the output wrappers insist
- * on covering what they wrap, so `{at 1:A{5}};{at 2:B{6}}` came back as
- * *{at …} must wrap the whole pattern* rather than as two plans.
- */
-export function planSlotQueries(
-  query: string,
-  ctx: SessionContext,
-): QueryPlan[] {
-  const slots = planSlots(query, 12);
-  return slots.map((slot) => planOneSlot(slot, ctx, slots.length > 1));
-}
-
-/**
- * Plan a single-slot query.
- *
- * Kept for callers that know they have one; it is `planSlotQueries` with the
- * first plan taken, and throws the same way if the query does not parse.
- */
 export function planQuery(query: string, ctx: SessionContext): QueryPlan {
-  const plans = planSlotQueries(query, ctx);
-  if (plans.length === 0) throw new ParseError(query);
-  return plans[0];
+  const peeled = parseFilterWrappers(query.trim());
+  return planPattern(peeled.inner, peeled.specs, ctx, query.trim());
 }
 
-function planOneSlot(
-  slot: SlotPlan,
+function planPattern(
+  pattern: string,
+  filters: FilterSpec[],
   ctx: SessionContext,
-  named: boolean,
+  /** As written, wrappers and all: what the data sniffers read. */
+  query: string,
 ): QueryPlan {
-  const transforms: string[] = [];
-  if (slot.extract) transforms.push("at");
-  if (slot.rank) transforms.push("rank");
-
-  const pattern = slot.pattern;
   const compiled = compileConjuncts(pattern, ctx);
   // The textual split lines up with the compiled conjuncts only when the query
   // is a plain intersection; anything else (a union, a construct expanding to
@@ -232,7 +200,6 @@ function planOneSlot(
 
   const test = testPlan(compiled);
   return {
-    slot: named ? slot.query : null,
     pattern,
     conjuncts,
     filterKind:
@@ -241,9 +208,8 @@ function planOneSlot(
         : compiled.length === 1
           ? "single"
           : "product",
-    predicates: slot.filters.map((f) => f.kind),
-    transforms,
-    dataNeeds: dataNeedsOf(slot.query),
+    predicates: filters.map((f) => f.kind),
+    dataNeeds: dataNeedsOf(query),
     strategy:
       test === null
         ? { kind: "walk" }
@@ -254,7 +220,6 @@ function planOneSlot(
 /** The plan as lines a person can read. */
 export function formatPlan(plan: QueryPlan): string[] {
   const out: string[] = [];
-  if (plan.slot !== null) out.push(`slot: ${plan.slot}`);
   out.push(`pattern: ${plan.pattern}`);
   out.push(
     `${plan.conjuncts.length} conjunct${plan.conjuncts.length === 1 ? "" : "s"}` +
@@ -278,9 +243,6 @@ export function formatPlan(plan: QueryPlan): string[] {
             "every predicate checked on the span it covers"
         : `predicate: ${predicate} (checked per match, not searched)`,
     );
-  }
-  if (plan.transforms.length > 0) {
-    out.push(`transforms: ${plan.transforms.join(", ")}`);
   }
   if (plan.dataNeeds.length > 0) {
     out.push(`needs: ${plan.dataNeeds.join(", ")}`);

@@ -18,7 +18,7 @@
 import * as fs from "node:fs";
 
 const { SessionContext } = await import("../src/session-context.js");
-const { planSlots } = await import("../src/slot-plan.js");
+const { parseFilterWrappers } = await import("../src/result-filter.js");
 const { compileQuery } = await import("../src/find-expr.js");
 const { applyResultFilters } = await import("../src/result-predicate.js");
 const { parsePhonetics } = await import("../src/phonetics.js");
@@ -36,16 +36,13 @@ ctx.stress = parseStress(read("stress.txt"));
 /** Does this query work, and if not, what does it say? */
 async function tryQuery(q) {
   try {
-    const slots = planSlots(q, 12);
-    if (slots.length === 0) return { ok: false, why: "no slots" };
-    for (const s of slots) compileQuery(s.pattern, ctx);
-    for (const s of slots) {
-      // One match is enough to make a predicate resolve its argument.
-      if (s.filters.length > 0) {
-        await applyResultFilters(s.filters, "level", ctx, () => false);
-      }
+    const { specs, inner } = parseFilterWrappers(q.trim());
+    compileQuery(inner, ctx);
+    // One match is enough to make a predicate resolve its argument.
+    if (specs.length > 0) {
+      await applyResultFilters(specs, "level", ctx, () => false);
     }
-    return { ok: true, slots };
+    return { ok: true, specs, inner };
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     return { ok: false, why: m.split("\n")[0] };
@@ -60,14 +57,10 @@ if (probes.length > 0) {
       console.log(`${q}\n   NO  ${r.why}`);
       continue;
     }
-    console.log(`${q}\n   ok  ${r.slots.length} slot(s)`);
-    for (const s of r.slots) {
-      console.log(
-        `       pattern ${JSON.stringify(s.pattern).padEnd(14)}` +
-          ` predicates [${s.filters.map((f) => f.kind).join(",")}]` +
-          `${s.extract ? " at" : ""}${s.rank ? " rank" : ""}`,
-      );
-    }
+    console.log(
+      `${q}\n   ok  pattern ${JSON.stringify(r.inner).padEnd(14)}` +
+        ` predicates [${r.specs.map((f) => f.kind).join(",")}]`,
+    );
   }
   process.exit(0);
 }
@@ -85,8 +78,6 @@ const SUBJECTS = [
   ["{palindrome:A{5}}", "predicate"],
   ["{compound 2:A{9}}", "predicate"],
   ["{anagram countries:A{5}}", "predicate"],
-  ["{at 1:A{5}}", "transform"],
-  ["{rank 1-9:A{5}}", "transform"],
 ];
 
 /** Every syntactic position something can be written in. */
@@ -102,8 +93,6 @@ const POSITIONS = [
   ["`{del1:X}`", (x) => `{del1:${x}}`],
   ["`{anagram X:A*}`", (x) => `{anagram ${x}:A*}`],
   ["`{palindrome:X}`", (x) => `{palindrome:${x}}`],
-  ["`{at 1:X}`", (x) => `{at 1:${x}}`],
-  ["`X;A{3}`", (x) => `${x};A{3}`],
 ];
 
 console.log(`| | ${POSITIONS.map(([n]) => n).join(" | ")} |`);

@@ -11,7 +11,6 @@ import { parseWikiLists } from "../src/word-lists.js";
 import { compileQuery } from "../src/find-expr.js";
 import { CONSTRUCTS } from "../src/constructs.js";
 import { parseFilterWrapper } from "../src/result-filter.js";
-import { parseExtract, parseRank } from "../src/extract-spec.js";
 import { SessionContext } from "../src/session-context.js";
 
 const lists = parseWikiLists("romandeities\tRoman deities\tjuno,mars,venus\n");
@@ -117,19 +116,13 @@ describe("every completion is something the engine accepts", () => {
 
   it("accepts the offered example for every construct, at its own level", () => {
     // A menu that suggests what the parser rejects is worse than no menu. The
-    // level matters: a predicate or an output wrapper is peeled off before the
-    // engine ever sees it, so compiling one directly is *meant* to fail.
+    // level matters: a whole-query predicate is peeled off before the engine
+    // sees it, so it goes through the wrapper parser instead.
     for (const c of CONSTRUCTS) {
       let err: unknown = null;
       try {
         if (c.level === "automaton") compileQuery(c.example, ctx);
-        else if (c.level === "predicate") {
-          expect(parseFilterWrapper(c.example), c.name).not.toBeNull();
-        } else {
-          const wrapped =
-            c.name === "at" ? parseExtract(c.example) : parseRank(c.example);
-          expect(wrapped, c.name).not.toBeNull();
-        }
+        else expect(parseFilterWrapper(c.example), c.name).not.toBeNull();
       } catch (e) {
         err = e;
       }

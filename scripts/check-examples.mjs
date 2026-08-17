@@ -35,9 +35,8 @@ import { IndexReader } from "../src/index-reader.js";
 import { SearchSession } from "../src/search-session.js";
 import { SessionContext } from "../src/session-context.js";
 import { makeWordChecker } from "../src/index-words.js";
-import { planSlots } from "../src/slot-plan.js";
+import { parseFilterWrappers } from "../src/result-filter.js";
 import { applyResultFilters } from "../src/result-predicate.js";
-import { OutputTransform } from "../src/output.js";
 import { parsePhonetics } from "../src/phonetics.js";
 import { parseThesaurus } from "../src/thesaurus.js";
 import { parseCategories } from "../src/categories.js";
@@ -116,26 +115,11 @@ function pageExamples() {
 
 /** Run one example the way the page does, and return its first few answers. */
 async function answersFor(query) {
-  // The same planner both front ends use, so a documented multi-slot query is
-  // checked as the page reads it — including a wrapper written around all the
-  // slots, which is not something splitting on ";" by hand can see.
-  const slots = planSlots(query, 12);
-  if (slots.length > 1) {
-    // Several searches; the example works if every slot does.
-    const per = await Promise.all(slots.map((s) => runSlot(s)));
-    return per.every((a) => a.length > 0) ? per.flat() : [];
-  }
-  return runSlot(slots[0]);
-}
-
-/** One planned slot, run as the page runs it. */
-async function runSlot(slot) {
-  const shaped = { extract: slot.extract, rank: slot.rank };
-  const specs = slot.filters;
-  const inner = slot.pattern;
+  // The same peel both front ends use, so a documented query is checked as
+  // the page reads it.
+  const { specs, inner } = parseFilterWrappers(query.trim());
   const reader = await IndexReader.open(new MemorySource(data));
   const isWord = makeWordChecker(reader);
-  const out = new OutputTransform(shaped.extract, shaped.rank);
   const session = new SearchSession(reader, inner, ctx);
 
   const candidates = [];
@@ -149,8 +133,7 @@ async function runSlot(slot) {
       const verdict = await applyResultFilters(specs, text, ctx, isWord);
       if (!verdict.keep) continue;
     }
-    const shown = out.apply(text);
-    if (shown) kept.push(shown.text);
+    kept.push(text);
     if (kept.length >= 3) break;
   }
   return kept;

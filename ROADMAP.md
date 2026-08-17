@@ -336,7 +336,7 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Still open: splitting `value-constraint.ts` (713 lines) into per-feature
   modules under `src/engine/language/constructs/`, which wants S4's directory
   reshape; and `dataNeeds` on the rows, which C6 needs.
-- [~] **C5. Slots first-class.** *(planner and CLI done 2026-08-17; the
+- [x] **C5. Slots first-class.** **[REMOVED 2026-08-17: `{at}`, `{rank}` and multi-slot `;` were taken out of the language entirely — judged not useful in practice. This entry is history, not work.]** *(planner and CLI done 2026-08-17; the
   grammar-level `;` of C2 is not.)* `src/slot-plan.ts` `planSlots` is the one
   place a query becomes slots: it splits, peels each slot's output wrappers
   and predicates, and returns a `SlotPlan` per slot. `main.ts` consumes it
@@ -789,7 +789,7 @@ Goal: mechanical, low-risk changes that everything later depends on.
   where-it-applies test rather than a cost model, which is the right shape
   while there are two strategies.
 
-- [x] **C9. A shorter stall for a slot than for a query.** *(Added 2026-08-17,
+- [x] **C9. A shorter stall for a slot than for a query.** **[REMOVED 2026-08-17: `{at}`, `{rank}` and multi-slot `;` were taken out of the language entirely — judged not useful in practice. This entry is history, not work.]** *(Added 2026-08-17,
   not in the original plan.)* A slot shows three candidates in a picker, not a
   page of results, and the head sidecar has almost always supplied those before
   the index is touched at all — so the six-second stall cap (C8) was being spent
@@ -904,8 +904,10 @@ Goal: mechanical, low-risk changes that everything later depends on.
   arguments, where the span belongs to the pre-edit string the match no
   longer contains. Test: span-verify.test.ts; grammar.test.ts asserts the
   composability table.
-- [ ] **M3. Scoped extraction.** `{at}` on a subexpression ("3rd letter of
-  the second word/piece").
+- [x] **M3. Scoped extraction.** *(closed 2026-08-17: removed by design.)*
+  `{at}` was removed from the language altogether — the user judged
+  extraction, rank windows and slots not useful — so there is no `{at}` to
+  scope. The span machinery it would have used exists (M1) and serves M4.
 - [ ] **M4. Captures + relations.** Named captures and relational
   predicates over spans: `{eq:a,b}`, `{rev:a,b}`, `{shift13:a,b}` —
   semordnilaps, "first and last 3 letters agree", cipher-pair words.
@@ -932,6 +934,14 @@ Goal: mechanical, low-risk changes that everything later depends on.
   which is fine while both are strings and will not be once M1's spans exist.
 
 ## Phase J — Cross-slot solving & piping
+
+**[CLOSED 2026-08-17: removed by design.]** Multi-slot queries were removed
+from the language (with `{at}`/`{rank}`), so there are no slots to join,
+constrain, share resources across, or pipe between. J1–J3 are void. J4's
+query-piping half that does not need slots ("a query's result stream as the
+word-list input of another") remains conceivable as a construct, but nothing
+below is planned.
+
 
 - [ ] **J1. Slot candidate lists + best-first join.** Slots stream scored
   candidates; a lazy cross-product join (Frontier heap, priority = score

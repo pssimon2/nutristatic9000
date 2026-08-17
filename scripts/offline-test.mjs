@@ -66,10 +66,13 @@ for (const [query, expected] of [
   }
 }
 
-// Output wrappers are applied in the page, so they work here too.
-const extracted = await run("{at 1:<aaagmnr>}");
-console.log(`  {at 1:…} -> ${JSON.stringify(extracted.results)}`);
-if (extracted.results[0] !== "a") throw new Error("extraction failed offline");
+// The output wrappers were removed from the language: the offline build must
+// refuse them the same way the site does.
+const removed = await run("{at 1:<aaagmnr>}");
+console.log(`  {at 1:…} -> ${removed.error || JSON.stringify(removed.results)}`);
+if (!/no such constraint "at"/.test(removed.error ?? "")) {
+  throw new Error("a removed wrapper should error as an unknown construct");
+}
 
 // The side datasets cannot be fetched from a file:// page. That must be said
 // plainly rather than failing as a pattern error.

@@ -1,15 +1,7 @@
-import {
-  ExtractError,
-  type ExtractSpec,
-  type RankSpec,
-  applyExtract,
-} from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
-import { type SlotPlan, planSlots } from "../src/slot-plan.js";
-import type { QueryShape } from "../src/query-shape.js";
+import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { derivedNote } from "../src/match-notes.js";
 import { type Stats, formatStats } from "../src/stats.js";
-import { OutputTransform } from "../src/output.js";
 import { type Completion, completionsAt } from "../src/complete.js";
 import type { WikiLists } from "../src/word-lists.js";
 
@@ -53,22 +45,6 @@ const RANGE_TIME_MS = 20000; //               …or ~20 s, whichever comes first
  */
 const RANGE_STALL_MS = 6000;
 
-/**
- * The same, per slot in a multi-slot query.
- *
- * Shorter, because the arithmetic is different: a slot shows three candidates
- * in a picker, not a page of results, and the head sidecar has almost always
- * supplied those before the index is touched at all. What the walk adds after
- * that is a fourth candidate nobody has room for — and a hunt is a dozen
- * searches, so every second of stall is paid twelve times.
- *
- * Measured on the deployed index, a twelve-slot hunt took 21.4 s with the
- * six-second cap, of which two slots — a `{palindrome:…}` and an `A{7}&.*zz.*`
- * — spent thirteen seconds between them adding nothing. A slot that stopped
- * early still offers "search the unfinished slots harder", which restores the
- * full budget and no stall cap at all.
- */
-const SLOT_STALL_MS = 2000;
 const RANGE_STEP_CEILING = 8000000;
 const PER_RUN_RESULTS = 1000;
 
@@ -332,9 +308,6 @@ let lastConflict: string[] | null = null;
 // not evidence of repetition: `.*administration.*` must not collapse its own
 // matches into one.
 let queryLiterals: string[] = [];
-// Set when the query is wrapped in `{at …:…}`: results render as the picked
-// letters rather than the whole match.
-let extractSpec: ExtractSpec | null = null;
 // The ciphertext of a lone unknown-shift `{caesar:…}`: each result is
 // annotated with the shift that produced it. Without that the tool solves the
 // puzzle and throws the answer away.
@@ -344,15 +317,6 @@ let extractSpec: ExtractSpec | null = null;
  * it was becoming.
  */
 let queryShape: QueryShape | null = null;
-// Set when the query is wrapped in `{rank …:…}`: a window into the ranked
-// stream, so mid-frequency answers are reachable without scrolling.
-let rankSpec: RankSpec | null = null;
-/**
- * The rank window and {at}, shared with the CLI; rebuilt per search. Starts as
- * a no-wrapper transform rather than null, so a result arriving before one is
- * built is shown rather than silently dropped.
- */
-let output = new OutputTransform(null, null);
 let pageResults: Array<{ score: number; text: string; note?: string }> = [];
 let hiddenVariants = 0;
 const shownRuns = new Set<string>(); // substantial word-runs inside shown texts
@@ -399,18 +363,7 @@ function renderResult(score: number, text: string, note?: string): void {
   const span = document.createElement("span");
   span.className = "r";
   span.style.fontSize = `${fontSize(score)}em`;
-  const picked = extractSpec ? applyExtract(extractSpec, text) : null;
-  if (extractSpec) {
-    if (picked === null) return; // match too short for these positions
-    span.textContent = picked;
-    span.dataset.copy = picked; // copy the extraction, not the source word
-    const from = document.createElement("span");
-    from.className = "from";
-    from.textContent = ` ${text}`;
-    span.append(from);
-  } else {
-    span.textContent = text;
-  }
+  span.textContent = text;
   const tagText = note ?? (queryShape && derivedNote(queryShape, text));
   if (tagText) {
     span.dataset.copy ??= text; // the note is annotation, not part of the answer
@@ -430,10 +383,6 @@ function renderResult(score: number, text: string, note?: string): void {
 }
 
 function addResult(score: number, text: string, note?: string): void {
-  // The rank window and {at} are applied by the shared transform, so the
-  // browser and the CLI cannot disagree about which result is rank N.
-  const shown = output.apply(text);
-  if (!shown) return;
   pageResults.push({ score, text, note });
   if (collapseVariants && isVariantOfShown(text)) {
     ++hiddenVariants;
@@ -473,17 +422,8 @@ function resetResultCollapsing(): void {
 // until used: no extra chrome, just the cursor, the title hint, and a brief
 // flash on the word itself.
 resultsEl.addEventListener("click", (ev) => {
-  const cand = (ev.target as HTMLElement | null)?.closest?.("span.cand");
-  if (cand && slots) {
-    const slot = slots[+(cand as HTMLElement).dataset.slot!];
-    if (slot) {
-      slot.chosen = +(cand as HTMLElement).dataset.cand!;
-      renderSlots();
-    }
-    return;
-  }
   const span = (ev.target as HTMLElement | null)?.closest?.(
-    "span.r, p.extraction",
+    "span.r",
   );
   if (!span || !resultsEl.contains(span)) return;
   // Don't hijack a drag-selection of the text.
@@ -581,296 +521,19 @@ function firstRunBudget(): ReturnType<typeof runBudget> & { stallMs: number } {
   return { ...runBudget(), stallMs: indexMode === "range" ? RANGE_STALL_MS : 0 };
 }
 
-// Multi-slot: several patterns in one query, separated by ";". A hunt rarely
-// has one slot — it has twelve answers and an extraction that reads a letter
-// from each — and that is work solvers currently do by hand *between*
-// queries. Each slot is an ordinary query (its own {at …} and all), run in
-// turn, with the picked letters assembled into the answer string.
-interface Slot {
-  query: string;
-  /** What the planner made of it: the pattern to search and its wrappers. */
-  plan: SlotPlan;
-  extract: ExtractSpec | null;
-  results: Array<{ score: number; text: string }>;
-  /** Which candidate feeds the extraction; the top one until told otherwise. */
-  chosen: number;
-  done: boolean;
-  /** How the slot's search ended, which decides what an empty slot means. */
-  status: string | null;
-}
-let slots: Slot[] | null = null;
-let slotIndex = 0;
-/**
- * Bytes fetched so far by this multi-slot query, across every slot.
- *
- * The range-mode budget is per *run*, and each slot is its own run, so a
- * three-slot query fetched 169 MB against a 64 MB cap and a twelve-slot one —
- * the size the usage guide describes as typical for a hunt — could fetch more
- * than downloading the whole index. What the reader asked for is one query;
- * it should cost about what one query costs.
- */
-let slotBytesSpent = 0;
-/** The source's lifetime byte count when this multi-slot query began. */
-let slotBytesAtStart = 0;
-/** Last lifetime byte count the worker reported, for the subtraction above. */
-let lastFetchedBytes = 0;
-/** True while re-running slots the reader asked to push further. */
-let slotRetry = false;
-const slotsEl = document.createElement("div");
-
-function slotLetters(slot: Slot): string | null {
-  const pick = slot.results[slot.chosen];
-  if (!slot.extract || !pick) return null;
-  return applyExtract(slot.extract, pick.text);
-}
-
-function renderSlots(): void {
-  const done = slots!.every((s) => s.done);
-  slotsEl.textContent = "";
-
-  // The payoff line: the letters each slot contributes, in order.
-  const picked = slots!.map((s) => slotLetters(s) ?? (s.done ? "?" : "·"));
-  if (slots!.some((s) => s.extract)) {
-    const line = document.createElement("p");
-    line.className = "extraction";
-    line.textContent = picked.join("");
-    line.title = "click to copy";
-    line.dataset.copy = picked.join("");
-    slotsEl.append(line);
-  }
-
-  const table = document.createElement("table");
-  table.className = "slots";
-  slots!.forEach((slot, i) => {
-    const row = document.createElement("tr");
-    const q = document.createElement("td");
-    q.className = "slotq";
-    q.textContent = slot.query;
-    const answer = document.createElement("td");
-    if (!slot.done && i === slotIndex) {
-      answer.textContent = "searching…";
-      answer.className = "from";
-    } else if (slot.results.length === 0) {
-      // "no match" is a claim about the corpus, and only one of these endings
-      // supports it. A slot that ran out of budget searched part of the index
-      // and stopped; saying nothing is there would send the reader off to
-      // rewrite a slot that may have been right all along. Slots share one
-      // budget now, so the later ones reach this far more often.
-      answer.textContent = !slot.done
-        ? ""
-        : slot.status === "exhausted"
-          ? "no match"
-          : slot.status === "empty"
-            ? "cannot match anything"
-            : slot.status === "complex"
-              ? "too complex to search"
-              : "nothing found in the budget";
-      answer.className = "from";
-    } else {
-      const letters = slotLetters(slot);
-      const chosen = slot.results[slot.chosen] ?? slot.results[0];
-      const lead = document.createElement("span");
-      lead.className = "r";
-      lead.textContent = letters ?? chosen.text;
-      lead.dataset.copy = letters ?? chosen.text;
-      answer.append(lead);
-      // The top answer is not always the right one, so every candidate can be
-      // chosen; the extraction above follows the choice.
-      for (let c = 0; c < slot.results.length; ++c) {
-        const cand = document.createElement("span");
-        cand.className = c === slot.chosen ? "cand chosen" : "cand";
-        cand.textContent = ` ${slot.results[c].text}`;
-        cand.dataset.slot = String(i);
-        cand.dataset.cand = String(c);
-        if (slot.results.length > 1) cand.title = "use this answer";
-        answer.append(cand);
-      }
-    }
-    row.append(q, answer);
-    table.append(row);
-  });
-  slotsEl.append(table);
-  if (!resultsEl.contains(slotsEl)) resultsEl.append(slotsEl);
-  if (done) setStatus("");
-}
-
-/** Run the next unfinished slot, or finish. */
-function runNextSlot(): void {
-  if (!slots) return;
-  // Skip what is already answered: a retry moves through the same list and
-  // must not search a slot that finished.
-  while (slotIndex < slots.length && slots[slotIndex].done) ++slotIndex;
-  if (slotIndex >= slots.length) {
-    renderSlots();
-    afterEl.textContent = `${slots.length} slots. `;
-    // Slots share one budget, so a later one can run out with answers still
-    // to find. Single-slot searches have always offered to try harder; this
-    // is the same offer, for the slots that need it.
-    const short = slots.filter(needsMoreBudget);
-    if (short.length > 0) {
-      // Lead with the download where there is one, as the single-slot path
-      // does: pushing several slots further costs a budget each, and a hunt
-      // asks the same slots more than once, so the one-off transfer is very
-      // often the cheaper of the two — and it makes every later slot instant
-      // rather than buying one more page of this one.
-      if (!dlFull.hidden) {
-        afterEl.append(
-          actionButton(
-            `Download it once (${fmtSize(downloadBytes)}) for instant results »`,
-            startFullDownload,
-          ),
-          document.createElement("br"),
-        );
-      }
-      afterEl.append(
-        actionButton(
-          `or search ${short.length} unfinished slot${short.length === 1 ? "" : "s"} further »`,
-          retryUnfinishedSlots,
-        ),
-      );
-    }
-    return;
-  }
-  const slot = slots[slotIndex];
-  renderSlots();
-  postToWorker({
-    type: "search",
-    query: slot.plan.shape.pattern,
-    // Resolved here: the page knows its own base, the worker script does not.
-    // The version is part of the URL because the side datasets are cached
-    // permanently — without it, a rebuilt dataset would never reach anyone who
-    // had already fetched the old one.
-    phoneticsUrl: dataUrl("phonetics.txt"),
-    thesaurusUrl: dataUrl("thesaurus.txt"),
-    neighboursUrl: dataUrl("neighbours.bin"),
-    categoriesUrl: dataUrl("categories.txt"),
-    stressUrl: dataUrl("stress.txt"),
-    listsUrl: dataUrl("lists.txt"),
-    headUrl: headUrl(),
-    // The picker shows three candidates, and asking for exactly three left it
-    // short: respellings of one answer ("solar system", "so lar system")
-    // arrive in a run right behind it and are dropped, so three fetched could
-    // become one offered. Fetch enough to survive that; the extra results are
-    // cheap, since they come from a walk that has already found the first.
-    maxResults: 12,
-    ...slotBudget(),
-  });
-}
-
-/**
- * What this slot may spend: whatever the query has left.
- *
- * Never zero, or a later slot could not run at all — a floor of an eighth
- * means twelve slots still finish, the last few on a thin allowance, which is
- * the right way round: the early slots are the ones whose answers the reader
- * is most likely to be choosing between.
- */
-function slotBudget(): ReturnType<typeof firstRunBudget> {
-  const budget = firstRunBudget();
-  if (budget.byteBudget === 0) return budget; // local index: no byte cost
-  if (slotRetry) return budget; // asked for: a full budget for each slot
-  const left = RANGE_BYTE_BUDGET - slotBytesSpent;
-  return {
-    ...budget,
-    byteBudget: Math.max(Math.floor(RANGE_BYTE_BUDGET / 8), left),
-    stallMs: SLOT_STALL_MS,
-  };
-}
-
-/**
- * Worth spending more on: it stopped on the budget, and there is still room
- * in the picker. A slot that already offers three candidates has nowhere to
- * put a fourth, so re-running it would buy the reader nothing.
- */
-function needsMoreBudget(slot: Slot): boolean {
-  return slot.status === "limit" && slot.results.length < 3;
-}
-
-/** Re-run the slots that ran out of budget, with a budget each. */
-function retryUnfinishedSlots(): void {
-  if (!slots) return;
-  // A fresh allowance because the reader asked for it, which is the same
-  // contract "Try harder" has always had on a single-slot search.
-  slotBytesSpent = 0;
-  slotBytesAtStart = lastFetchedBytes;
-  // A budget each this time, not a shared one. Sharing exists so that asking
-  // for a dozen slots does not silently cost a dozen queries; this is the
-  // reader asking, having been told which slots came up short, and repeating
-  // the same shared allowance would just reproduce the same stopping point.
-  slotRetry = true;
-  // Locally there is no byte budget to widen — the limit is steps — so the
-  // same reasoning applies to those: re-running with the budget that already
-  // ran out stops in the same place. `tryHarder` doubles it for a single-slot
-  // search; this is that, for slots.
-  if (indexMode !== "range") currentComp *= 2;
-  for (const slot of slots) {
-    if (!needsMoreBudget(slot)) continue;
-    slot.done = false;
-    slot.status = null;
-    slot.results = [];
-    slot.chosen = 0;
-  }
-  slotIndex = 0;
-  afterEl.textContent = "";
-  runNextSlot();
-}
-
-function startMultiSlot(planned: SlotPlan[]): void {
-  resultsEl.textContent = "";
-  afterEl.textContent = "";
-  resultCount = 0;
-  slots = planned.map((p) => ({
-    query: p.query,
-    plan: p,
-    extract: p.extract,
-    results: [],
-    chosen: 0,
-    done: false,
-    status: null,
-  }));
-  slotIndex = 0;
-  slotBytesSpent = 0;
-  slotRetry = false;
-  slotBytesAtStart = lastFetchedBytes;
-  currentComp =
-    parseInt(new URLSearchParams(location.search).get("comp") || "", 10) ||
-    MAX_COMPUTATION;
-  setStatus("searching…");
-  runNextSlot();
-}
-
 function startSearch(query: string): void {
-  // One place decides what the slots are, and the CLI reads it too — see
-  // src/slot-plan.ts. Transliterated first, so a slot written with umlauts
-  // splits and peels the same as one written without.
-  let planned: SlotPlan[];
-  try {
-    planned = planSlots(transliterate(query), MIN_OVERLAP_CHARS);
-  } catch (e) {
-    setStatus(e instanceof ExtractError ? e.message : String(e), true);
-    return;
-  }
-  if (planned.length > 1) {
-    startMultiSlot(planned);
-    return;
-  }
-  slots = null;
+  // Transliterated first, so a query written with umlauts compiles the same
+  // as one written without. The predicate wrappers stay in the pattern: the
+  // worker peels those on its side — it is the side that can ask the index
+  // whether a piece is a word.
+  const shape = shapeOfQuery(transliterate(query), MIN_OVERLAP_CHARS);
+  const pattern = shape.pattern;
   resultsEl.textContent = "";
   afterEl.textContent = "";
   resultCount = 0;
   resetResultCollapsing();
-  // `{at …:…}` is an output wrapper, already stripped by the planner; the
-  // predicate wrappers are not, because the worker peels those on its side —
-  // it is the side that can ask the index whether a piece is a word.
-  const { shape } = planned[0];
-  const pattern = shape.pattern;
-  extractSpec = shape.extract;
-  rankSpec = shape.rank;
   queryShape = shape;
   queryLiterals = shape.literals;
-  // Built here rather than in resetResultCollapsing, which runs before the
-  // wrappers are known and would hand it the previous search's specs.
-  output = new OutputTransform(extractSpec, rankSpec);
   // Local step budget from the live URL's comp (not the load-time snapshot) so
   // back/forward through raised-budget entries picks up the right value.
   currentComp =
@@ -891,11 +554,7 @@ function startSearch(query: string): void {
     stressUrl: dataUrl("stress.txt"),
     listsUrl: dataUrl("lists.txt"),
     headUrl: headUrl(),
-    // A rank window has to be reached before it can be shown; ask the engine
-    // for enough results to cover it (bounded, so a huge "to" can't run away).
-    maxResults: rankSpec
-      ? Math.min(Math.max(rankSpec.to, rankSpec.from + PER_RUN_RESULTS), 20000)
-      : PER_RUN_RESULTS,
+    maxResults: PER_RUN_RESULTS,
     ...firstRunBudget(),
   });
 }
@@ -1069,30 +728,6 @@ worker.onmessage = (ev: MessageEvent<OutMsg>) => {
       break;
     }
     case "result":
-      if (slots) {
-        const slot = slots[slotIndex];
-        if (slot && slot.results.length < 3) {
-          // "solar system" and "so lar system" are one answer written twice,
-          // and there is room for three candidates: a respelling costs a real
-          // alternative. `{at 3:…}` counts letters with the spaces taken out,
-          // so the two extract the same letter and one of them is waste.
-          //
-          // Not when the extraction counts *words*, though — `{at 1.1:…}`
-          // takes the first letter of the first word, which is "s" of "solar"
-          // one way and "s" of "so" the other. There the split is the answer,
-          // so both belong in the list.
-          const byWord =
-            slot.extract?.positions.some((p) => typeof p !== "number") ?? false;
-          const letters = msg.text.replaceAll(" ", "");
-          const respelling =
-            !byWord &&
-            slot.results.some((r) => r.text.replaceAll(" ", "") === letters);
-          if (!respelling) {
-            slot.results.push({ score: msg.score, text: msg.text });
-          }
-        }
-        break;
-      }
       addResult(msg.score, msg.text, msg.note);
       break;
     case "progress":
@@ -1149,24 +784,8 @@ worker.onmessage = (ev: MessageEvent<OutMsg>) => {
         // once the run settles rather than raced against it.
         postToWorker({ type: "plan", query: qInput.value.trim() });
       }
-      if (typeof msg.fetched === "number") lastFetchedBytes = msg.fetched;
       if (msg.engine === "wasm" && !indexInfo.textContent!.includes("WASM")) {
         indexInfo.textContent += " · WASM engine";
-      }
-      if (slots) {
-        const slot = slots[slotIndex];
-        if (slot) {
-          slot.done = true;
-          slot.status = msg.status;
-        }
-        // `fetched` is the source's lifetime total, so the difference is what
-        // this slot cost.
-        if (typeof msg.fetched === "number") {
-          slotBytesSpent = Math.max(slotBytesSpent, msg.fetched - slotBytesAtStart);
-        }
-        ++slotIndex;
-        runNextSlot();
-        break;
       }
       lastDoneStatus = msg.status;
       lastConflict = msg.conflict;

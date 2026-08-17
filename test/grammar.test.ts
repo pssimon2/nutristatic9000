@@ -12,7 +12,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import { SessionContext } from "../src/session-context.js";
-import { planSlots } from "../src/slot-plan.js";
+import { parseFilterWrappers } from "../src/result-filter.js";
 import { compileQuery } from "../src/find-expr.js";
 import { applyResultFilters } from "../src/result-predicate.js";
 import { parsePhonetics } from "../src/phonetics.js";
@@ -31,18 +31,15 @@ beforeAll(() => {
   ctx.stress = parseStress(read("stress.txt"));
 }, 120000);
 
-/** The whole front-end pipeline: split, peel, compile, run the predicates. */
+/** The whole front-end pipeline: peel, compile, run the predicates. */
 async function works(query: string): Promise<boolean> {
   try {
-    const slots = planSlots(query, 12);
-    if (slots.length === 0) return false;
-    for (const s of slots) compileQuery(s.pattern, ctx);
-    for (const s of slots) {
-      // A predicate resolves its argument lazily, so it has to be run: compiling
-      // alone reported `{anagram {palindrome:A{5}}:A*}` as working.
-      if (s.filters.length > 0) {
-        await applyResultFilters(s.filters, "level", ctx, (() => false) as never);
-      }
+    const { specs, inner } = parseFilterWrappers(query.trim());
+    compileQuery(inner, ctx);
+    // A predicate resolves its argument lazily, so it has to be run: compiling
+    // alone reported `{anagram {palindrome:A{5}}:A*}` as working.
+    if (specs.length > 0) {
+      await applyResultFilters(specs, "level", ctx, (() => false) as never);
     }
     return true;
   } catch {
@@ -145,51 +142,34 @@ describe("a predicate composes like an atom, checked on the span it covers", () 
     expect(await works("{palindrome:{palindrome:A{5}}}")).toBe(false);
   });
 
-  it("goes inside a transform, not outside one", async () => {
-    expect(await works("{at 1:{palindrome:A{5}}}")).toBe(true);
-    expect(await works("{palindrome:{at 1:A{5}}}")).toBe(false);
-  });
 });
 
-describe("the transforms are a chain, outermost first", () => {
-  it("puts at outside rank", async () => {
-    expect(await works("{at 1:{rank 1-9:A{5}}}")).toBe(true);
-    expect(await works("{rank 1-9:{at 1:A{5}}}")).toBe(false);
+describe("the removed output wrappers and slots stay removed", () => {
+  // {at …}, {rank …} and the ";" separator were taken out of the language
+  // (2026-08-17): not useful in practice, and the only constructs that could
+  // not compose. A query using them is an ordinary unknown-construct or
+  // syntax error, not something half-supported.
+  it("refuses the output wrappers as unknown constructs", async () => {
+    expect(await works("{at 1:A{5}}")).toBe(false);
+    expect(await works("{rank 1-9:A{5}}")).toBe(false);
   });
 
-  it("refuses either of them inside a pattern", async () => {
-    for (const [where, wrap] of PATTERN_POSITIONS) {
-      expect(await works(wrap("{at 1:A{5}}")), `at ${where}`).toBe(false);
-      expect(await works(wrap("{rank 1-9:A{5}}")), `rank ${where}`).toBe(false);
-    }
-  }, 120000);
-});
-
-describe("both kinds of wrapper distribute over slots", () => {
-  it("applies one written around all of them to each", async () => {
-    expect(await works("{at 1:A{5};A{6}}")).toBe(true);
-    expect(await works("{palindrome:A{5};A{6}}")).toBe(true);
-    expect(await works("{at 1:{palindrome:A{5};A{6}}}")).toBe(true);
-  });
-
-  it("takes a wrapper per slot too", async () => {
-    expect(await works("{at 1:A{5}};{at 2:A{6}}")).toBe(true);
-    expect(await works("{palindrome:A{5}};{compound 2:A{9}}")).toBe(true);
+  it("refuses a semicolon anywhere", async () => {
+    expect(await works("A{5};A{6}")).toBe(false);
+    expect(await works("{palindrome:A{5};A{6}}")).toBe(false);
   });
 });
 
 // The catalogue and the skeleton have to agree about which level each construct
 // is at, or the error a reader gets names the wrong rule.
 describe("every construct is at the level the catalogue claims", () => {
-  it("has three levels and nothing else", () => {
+  it("has two levels and nothing else", () => {
     const counts = {
       automaton: [...namesAtLevel("automaton")].length,
       predicate: [...namesAtLevel("predicate")].length,
-      transform: [...namesAtLevel("transform")].length,
     };
     expect(counts.automaton).toBeGreaterThan(30);
     expect(counts.predicate).toBeGreaterThan(4);
-    expect(counts.transform).toBe(2);
   });
 
   it("accepts every predicate in a pattern position, not just the ones above", async () => {
