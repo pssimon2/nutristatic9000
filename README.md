@@ -42,6 +42,18 @@ Deployment notes specific to this fork:
   the index what each entry is worth. Against the index it was built from:
   `OK: 596 of 20000 entries checked, all present with matching scores`. Against
   a different one: `STALE: 350 missing, 249 mis-scored of 599 checked`.
+- **A freshly built index gets prepared, not copied.** An index does not go out
+  alone: without a `.idxz` sidecar range mode fetches the raw file, and without a
+  `.head` every query that sifts finished matches falls back to a walk over the
+  network. `scripts/prepare-index.mjs` builds all three and verifies the pair
+  before anything leaves the machine:
+
+      npx tsx scripts/prepare-index.mjs data/enwiki-ns0.index en-wiki-ns0
+
+  It deliberately does not upload. The indexes are served from the site root and
+  shared between deployments, so replacing one changes every page pointing at it
+  — which is why a rebuild should go up under a *new* name first, with only this
+  deployment's picker moved to it, rather than swapped in place.
 
 ## Added so far
 
