@@ -26,7 +26,12 @@ import {
   headWordChecker,
   parseHeadIndex,
 } from "../src/head-index.js";
-import type { Filter } from "../src/expr-filter.js";
+import {
+  type Filter,
+  FilterCache,
+  fingerprintConjunct,
+  makeFilter,
+} from "../src/expr-filter.js";
 import { conflictText } from "../src/emptiness.js";
 import { explainMatch } from "../src/explain.js";
 import { formatPlan, planQuery } from "../src/plan.js";
@@ -67,7 +72,7 @@ import {
   type FilterSpec,
   parseFilterWrappers,
 } from "../src/result-filter.js";
-import { compileQuery } from "../src/find-expr.js";
+import { compileConjuncts, compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
 import { SearchSession } from "../src/search-session.js";
 import {
@@ -154,6 +159,57 @@ let wordChecker: WordCheck | null = null;
 // The pronouncing dictionary is ~400 KB over the wire and only some queries
 // need it, so it is fetched the first time one does and kept thereafter.
 const extraLoads = new Map<string, Promise<void>>();
+
+// ---- A4 + A3: reuse across queries in one session ----
+/**
+ * Per-conjunct lazy-DFA cache (A4): a changed query reuses the filters it
+ * shares with earlier ones, warm state tables and all.
+ */
+const filterCache = new FilterCache();
+
+/** One finished query, kept for refinement (A3). */
+interface FinishedRun {
+  /** Conjunct fingerprints + predicate signature: the run's identity. */
+  sig: string;
+  fps: Set<string>;
+  specsSig: string;
+  results: Array<{ score: number; text: string; note?: string }>;
+}
+/**
+ * The last few completed runs (A3). A new query whose conjuncts are a
+ * superset of a cached run's — the iterate-on-anagram loop — answers its
+ * first paint by filtering the cached results through only the *added*
+ * conjuncts, then the real search fills the tail. Cleared when the index
+ * changes: results from another corpus are not answers here.
+ */
+const recentRuns: FinishedRun[] = [];
+const MAX_RECENT_RUNS = 8;
+const MAX_STORED_RESULTS = 1500;
+/** What the current query has posted so far, to be recorded on done. */
+let runCollected: Array<{ score: number; text: string; note?: string }> = [];
+let runFps: Set<string> | null = null;
+let runSpecsSig = "";
+
+/** Remember the finished query for refinement; replaces an identical rerun. */
+function recordRun(): void {
+  if (runFps === null || runCollected.length === 0) return;
+  const sig = `${[...runFps].sort().join("|")}#${runSpecsSig}`;
+  const results = runCollected.slice(0, MAX_STORED_RESULTS);
+  const at = recentRuns.findIndex((r) => r.sig === sig);
+  if (at !== -1) recentRuns.splice(at, 1);
+  recentRuns.push({ sig, fps: runFps, specsSig: runSpecsSig, results });
+  if (recentRuns.length > MAX_RECENT_RUNS) recentRuns.shift();
+}
+
+/** Does the filter accept this exact string? */
+function acceptsText(filter: Filter, text: string): boolean {
+  let state = filter.startState;
+  for (let i = 0; i < text.length; ++i) {
+    state = filter.transition(state, text.charCodeAt(i));
+    if (state < 0) return false;
+  }
+  return filter.isAccepting(state);
+}
 
 /**
  * The side data this worker's queries compile against. One worker is one
@@ -259,6 +315,7 @@ async function serveFromHead(
   headOffset = page.next;
   for (const hit of page.results) {
     emitted.add(hit.text);
+    runCollected.push({ score: hit.score, text: hit.text, note: hit.note });
     post({
       type: "result",
       score: hit.score,
@@ -271,6 +328,7 @@ async function serveFromHead(
   if (posted < maxResults) return "partial";
   // A full page from the head, and the next page can come from it too: report
   // it the way a finished run is reported so the page's own flow continues.
+  recordRun();
   post({
     type: "done",
     status: "results",
@@ -902,6 +960,7 @@ async function runSession(
     // run matches candidates the whole time and shows none of them, and from
     // the reader's side that is a search that has stopped producing.
     limiter?.noteResult();
+    runCollected.push({ score: r.score, text: r.text });
     post({ type: "result", score: r.score, text: r.text });
   };
   const flushPending = async (): Promise<void> => {
@@ -931,6 +990,11 @@ async function runSession(
       );
       if (!verdict.keep) continue;
       if (active instanceof SearchSession) ++active.predicatePassed;
+      runCollected.push({
+        score: r.score,
+        text: r.text,
+        ...(verdict.notes.length === 0 ? {} : { note: verdict.notes.join("  ") }),
+      });
       post({
         type: "result",
         score: r.score,
@@ -943,7 +1007,21 @@ async function runSession(
   try {
     let status;
     try {
-      status = await active.run(maxSteps, maxResults, emit, onProgress, yieldCheck, shouldStop);
+      // Anything already on screen — the head's page, or A3's refinement
+      // paint — will be re-found by the walk. Suppress the duplicates and
+      // widen the budget by exactly that many, the same arithmetic the WASM
+      // replay below uses, so suppression cannot eat the new page.
+      const preEmitted = emitted.size;
+      status = await active.run(
+        maxSteps,
+        maxResults + preEmitted,
+        (r) => {
+          if (!emitted.has(r.text)) emit(r);
+        },
+        onProgress,
+        yieldCheck,
+        shouldStop,
+      );
     } catch (e) {
       if (
         !(active instanceof WasmSession) ||
@@ -963,6 +1041,7 @@ async function runSession(
       searchStepBase += active.steps;
       const js = new SearchSession(reader, currentQuery, ctx, undefined, {
         prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
+        filterCache,
       });
       session = js;
       active = js;
@@ -983,6 +1062,7 @@ async function runSession(
     if (token !== runToken) return;
     await flushPending();
     if (token !== runToken) return;
+    recordRun();
     post({
       type: "done",
       status, // "limit" (step budget), "results" (page full), "exhausted"
@@ -1026,10 +1106,15 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
     switch (msg.type) {
       case "open":
         ++runToken;
+        // Another corpus: cached results are not answers here.
+        recentRuns.length = 0;
+        runFps = null;
         await openIndex(msg.url, msg.early);
         break;
       case "open-file":
         ++runToken;
+        recentRuns.length = 0;
+        runFps = null;
         await openFile(msg.file);
         break;
       case "search": {
@@ -1091,6 +1176,53 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         headOffset = 0;
         searchStepBase = 0; // fresh query: no discarded-engine steps yet
         session = null;
+        runCollected = [];
+        runFps = null;
+        runSpecsSig = JSON.stringify(resultFilters);
+        // A3: a cached run whose conjuncts are a subset of this query's, with
+        // the same predicates, answers the first paint instantly — its
+        // results filtered through only the conjuncts this query *added*.
+        // The search then runs as normal and fills the tail; everything
+        // posted here is in `emitted`, so nothing shows twice. Skipped for
+        // `{near:…}` ordering, whose stream is not in score order.
+        if (!nearOrder) {
+          try {
+            const conjuncts = compileConjuncts(currentQuery, ctx);
+            const fps = conjuncts.map(fingerprintConjunct);
+            runFps = new Set(fps);
+            for (let e = recentRuns.length - 1; e >= 0; --e) {
+              const prev = recentRuns[e];
+              if (prev.specsSig !== runSpecsSig) continue;
+              if (![...prev.fps].every((f) => runFps!.has(f))) continue;
+              const extras = conjuncts.filter((c, i) => !prev.fps.has(fps[i]));
+              const refineFilter =
+                extras.length > 0 ? makeFilter(extras, filterCache) : null;
+              let posted = 0;
+              for (const r of prev.results) {
+                if (posted >= msg.maxResults) break;
+                if (
+                  refineFilter !== null &&
+                  !acceptsText(refineFilter, `${r.text} `)
+                ) {
+                  continue;
+                }
+                emitted.add(r.text);
+                runCollected.push(r);
+                post({
+                  type: "result",
+                  score: r.score,
+                  text: r.text,
+                  ...(r.note === undefined ? {} : { note: r.note }),
+                });
+                ++posted;
+              }
+              break;
+            }
+          } catch {
+            // Not compilable here (dataset still loading, or a syntax error):
+            // the real search path reports it properly in a moment.
+          }
+        }
 
         // The head of the index answers first, when there is one. It holds the
         // top entries in exactly the order the search emits them, so its
@@ -1142,6 +1274,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           try {
             session = new SearchSession(reader, currentQuery, ctx, undefined, {
               prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
+              filterCache,
             });
           } catch (e) {
             if (e instanceof ParseError) {
@@ -1187,6 +1320,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           }
           session = new SearchSession(reader, currentQuery, ctx, undefined, {
             prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
+            filterCache,
           });
         }
         // Duplicate continue for the session that's already running: that

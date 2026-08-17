@@ -365,6 +365,76 @@ export class ProductFilter implements Filter {
   }
 }
 
+/**
+ * A structural fingerprint of a conjunct's NFA (A4's "conjunct identity").
+ *
+ * Two parses of the same query fragment build byte-identical NFAs — same
+ * construction sequence, same arc order, same finals insertion order — so
+ * hashing the structure gives a stable key without holding the structure.
+ * Two independent 32-bit hashes plus the state and arc counts make an
+ * accidental collision (which would silently reuse the wrong filter)
+ * astronomically unlikely; a *miss* on structurally equal but
+ * differently-built NFAs merely skips the cache.
+ */
+export function fingerprintConjunct(c: Conjunct): string {
+  const negated = isNegated(c);
+  const nfa = negated ? c.not : c;
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  const mix = (v: number): void => {
+    h1 = Math.imul(h1 ^ v, 0x01000193);
+    h2 = Math.imul(h2 ^ v, 0x85ebca6b);
+    h2 ^= h2 >>> 13;
+  };
+  mix(nfa.start);
+  for (const f of nfa.finals) mix(f);
+  let arcs = 0;
+  for (let s = 0; s < nfa.arcs.length; ++s) {
+    mix(~s);
+    for (const a of nfa.arcs[s]) {
+      mix(a.label);
+      mix(a.to);
+      ++arcs;
+    }
+  }
+  return `${negated ? "!" : ""}${nfa.arcs.length}:${arcs}:${h1 >>> 0}:${h2 >>> 0}`;
+}
+
+/**
+ * A small LRU of per-conjunct filters (A4), owned by whoever lives long
+ * enough to profit — the worker keeps one per session. A changed query
+ * rebuilds its lazy DFAs from zero even when conjuncts are shared with the
+ * previous query; with the cache, `<huge-anagram>&newthing` reuses the
+ * anagram filters it built seconds ago, warm state tables and all. Safe to
+ * share because a filter's only mutation is memoisation: its language never
+ * changes, and the MAX_STATES budget it carries is a property of the
+ * automaton either way.
+ */
+export class FilterCache {
+  private readonly map = new Map<string, Filter>();
+
+  constructor(private readonly limit = 24) {}
+
+  /** The filter for this conjunct, built once per fingerprint. */
+  filterFor(c: Conjunct): Filter {
+    const key = fingerprintConjunct(c);
+    const hit = this.map.get(key);
+    if (hit !== undefined) {
+      // A Map iterates in insertion order; re-inserting keeps LRU order.
+      this.map.delete(key);
+      this.map.set(key, hit);
+      return hit;
+    }
+    const built = conjunctFilter(c);
+    this.map.set(key, built);
+    if (this.map.size > this.limit) {
+      const oldest = this.map.keys().next().value as string;
+      this.map.delete(oldest);
+    }
+    return built;
+  }
+}
+
 /** The lazy filter deciding one conjunct's language. */
 export function conjunctFilter(c: Conjunct): Filter {
   return isNegated(c)
@@ -373,7 +443,9 @@ export function conjunctFilter(c: Conjunct): Filter {
 }
 
 /** Build the appropriate filter for a conjunct list. */
-export function makeFilter(conjuncts: Conjunct[]): Filter {
-  if (conjuncts.length === 1) return conjunctFilter(conjuncts[0]);
-  return new ProductFilter(conjuncts.map(conjunctFilter));
+export function makeFilter(conjuncts: Conjunct[], cache?: FilterCache): Filter {
+  const one = (c: Conjunct): Filter =>
+    cache ? cache.filterFor(c) : conjunctFilter(c);
+  if (conjuncts.length === 1) return one(conjuncts[0]);
+  return new ProductFilter(conjuncts.map(one));
 }

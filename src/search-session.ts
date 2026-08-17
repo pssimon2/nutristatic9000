@@ -13,7 +13,7 @@ import {
 } from "./finite-strategy.js";
 import { SessionContext } from "./session-context.js";
 import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
-import { Filter, FilterCapacityError } from "./expr-filter.js";
+import { Filter, FilterCache, FilterCapacityError } from "./expr-filter.js";
 import { Emptiness, languageEmptiness } from "./emptiness.js";
 import { SourceStats, Stats, emptyStats } from "./stats.js";
 
@@ -66,6 +66,11 @@ export class SearchSession {
        * way to run both is how that stays true.
        */
       forceWalk?: boolean;
+      /**
+       * A per-conjunct filter cache (A4) owned by the caller, so a session's
+       * shared conjuncts reuse the lazy DFAs a previous query built.
+       */
+      filterCache?: FilterCache;
     } = {},
   ) {
     this.forceWalk = opts.forceWalk === true;
@@ -76,7 +81,9 @@ export class SearchSession {
     this.conjuncts =
       typeof query === "string" ? compileConjuncts(query, ctx) : null;
     this.filter =
-      this.conjuncts === null ? (query as Filter) : makeFilter(this.conjuncts);
+      this.conjuncts === null
+        ? (query as Filter)
+        : makeFilter(this.conjuncts, opts.filterCache);
     this.reader = reader;
     this.source = reader.source as SourceStats;
     this.driver = makeDriver(reader, this.filter, restart, opts);

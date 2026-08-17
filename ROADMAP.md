@@ -850,16 +850,25 @@ Goal: mechanical, low-risk changes that everything later depends on.
   1,234,566 → 1,688, and the run *finishes* in 14k steps where the plain
   walk hit the million-step limit — the documented cost being the tail
   (2,857 results against 109,675).
-- [ ] **A3. Refinement caching.** Cache last N result sets per session
-  keyed by conjunct fingerprint. On a new query, detect refinement
-  (old conjunct set ⊆ new, via `equivalent()` from `automata.ts:572`):
-  filter cached results instantly for first paint, then run the real
-  search to fill the tail. Huge for the iterate-on-anagram loop.
-- [ ] **A4. Conjunct-level filter cache.** A changed query rebuilds every
-  lazy DFA from zero even when conjuncts are shared with the previous
-  query. Cache `ExprFilter`s keyed by conjunct NFA identity (stable once
-  the Plan makes conjuncts values); `<huge-anagram>&newthing` reuses the
-  anagram filters it built seconds ago.
+- [x] **A3. Refinement caching.** *(done 2026-08-17.)* The worker keeps the
+  last 8 completed runs keyed by conjunct fingerprints + predicate
+  signature. A new query whose conjunct set is a superset of a cached
+  run's, with the same predicates, paints instantly: the cached results are
+  filtered through only the *added* conjuncts, then the real search fills
+  the tail with everything pre-painted suppressed (same arithmetic as the
+  WASM replay). NOT via `equivalent()` as the item specified — that
+  determinizes and minimizes exactly the heavy anagram conjuncts the lazy
+  engine exists to avoid materializing (see the A3/A4 contradiction note);
+  A4's structural fingerprint keys both. Cleared on index switch.
+- [x] **A4. Conjunct-level filter cache.** *(done 2026-08-17.)*
+  `FilterCache` in expr-filter.ts, an LRU of 24 per-conjunct filters keyed
+  by a structural NFA fingerprint (two 32-bit hashes + state/arc counts —
+  a collision would reuse the wrong filter, so the key is belt and braces;
+  a miss merely skips the cache). Safe to share because a filter's only
+  mutation is memoisation. Owned by the worker per session; SearchSession
+  takes it as an option; `<huge-anagram>&newthing` reuses the anagram
+  filters it built seconds ago, warm state tables and all.
+  test/filter-cache.test.ts pins identity, LRU, and answer-equivalence.
 
 ## Phase W — Weighted search (scores as a composable dimension)
 
