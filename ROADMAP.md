@@ -904,9 +904,24 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Post-match only (no automaton blowup); planner may invert cheap sides
   (enumerate candidates for one capture, synthesize a second-stage
   search for the other).
-- [ ] **M5. Unified result notes.** The per-match annotations (caesar
-  shift matched, compound cuts, stress shape, reversal) become one
-  span/metadata mechanism instead of ad-hoc plumbing per feature.
+- [~] **M5. Unified result notes.** *(the derived half, done 2026-08-17.)*
+  There were two kinds of annotation and only one of them was shared. A
+  predicate produces its own — the compound cuts, the reversal, the syllable
+  count, the anagram source — and that travels with the verdict through
+  `applyResultFilters`, so both front ends have always shown it. The other kind
+  is derived afterwards from the query and the answer together, needs nothing
+  carried through the search, and so was written where it was first needed: in
+  the page.
+  The CLI therefore showed none of it. `{caesar:kdhv}` printed "pima" and "slpd"
+  with no shift beside them, and `{del1:beast}` printed "best" and "east" with no
+  "beast −a", while the page showed both — one rule, two front ends, one of
+  which quietly did less. `src/match-notes.ts` `derivedNote(shape, text)` is that
+  rule, and both call it; the CLI prints `pima caesar +5` and `best beast −a`
+  now. `main.ts` lost its private `shiftNote` and its field-per-note, keeping one
+  `QueryShape` instead.
+  Still open: the two mechanisms are not *one* mechanism. A predicate's note
+  still arrives on the verdict and a derived note is computed at render time,
+  which is fine while both are strings and will not be once M1's spans exist.
 
 ## Phase J — Cross-slot solving & piping
 

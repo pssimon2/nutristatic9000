@@ -6,7 +6,8 @@ import {
 } from "../src/extract-spec.js";
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
 import { type SlotPlan, planSlots } from "../src/slot-plan.js";
-import { editNote } from "../src/edit-note.js";
+import type { QueryShape } from "../src/query-shape.js";
+import { derivedNote } from "../src/match-notes.js";
 import { type Stats, formatStats } from "../src/stats.js";
 import { OutputTransform } from "../src/output.js";
 import { type Completion, completionsAt } from "../src/complete.js";
@@ -337,9 +338,12 @@ let extractSpec: ExtractSpec | null = null;
 // The ciphertext of a lone unknown-shift `{caesar:…}`: each result is
 // annotated with the shift that produced it. Without that the tool solves the
 // puzzle and throws the answer away.
-let caesarText: string | null = null;
-/** A lone edit over a bare word, for annotating what changed. */
-let editSpec: { kind: string; edits: number; word: string } | null = null;
+/**
+ * The current query's shape, for the notes derived from it — see
+ * src/match-notes.ts. One field rather than one per kind of note, which is what
+ * it was becoming.
+ */
+let queryShape: QueryShape | null = null;
 // Set when the query is wrapped in `{rank …:…}`: a window into the ranked
 // stream, so mid-frequency answers are reachable without scrolling.
 let rankSpec: RankSpec | null = null;
@@ -391,24 +395,6 @@ function isVariantOfShown(text: string): boolean {
   return false;
 }
 
-/** Which Caesar shift maps the query's ciphertext to `text`, if consistent. */
-function shiftNote(text: string): string | null {
-  if (caesarText === null) return null;
-  const got = text.replace(/ /g, "");
-  const src = caesarText.replace(/ /g, "");
-  if (got.length !== src.length) return null;
-  let shift: number | null = null;
-  for (let i = 0; i < got.length; ++i) {
-    const a = got.charCodeAt(i) - 97;
-    const b = src.charCodeAt(i) - 97;
-    if (a < 0 || a > 25 || b < 0 || b > 25) return null;
-    const s = (a - b + 26) % 26;
-    if (shift === null) shift = s;
-    else if (shift !== s) return null;
-  }
-  return shift === null ? null : `caesar +${shift}`;
-}
-
 function renderResult(score: number, text: string, note?: string): void {
   const span = document.createElement("span");
   span.className = "r";
@@ -425,7 +411,7 @@ function renderResult(score: number, text: string, note?: string): void {
   } else {
     span.textContent = text;
   }
-  const tagText = note ?? shiftNote(text) ?? editNote(editSpec, text);
+  const tagText = note ?? (queryShape && derivedNote(queryShape, text));
   if (tagText) {
     span.dataset.copy ??= text; // the note is annotation, not part of the answer
     const tag = document.createElement("span");
@@ -880,8 +866,7 @@ function startSearch(query: string): void {
   const pattern = shape.pattern;
   extractSpec = shape.extract;
   rankSpec = shape.rank;
-  caesarText = shape.caesar;
-  editSpec = shape.edit;
+  queryShape = shape;
   queryLiterals = shape.literals;
   // Built here rather than in resetResultCollapsing, which runs before the
   // wrappers are known and would hand it the previous search's specs.

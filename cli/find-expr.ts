@@ -9,6 +9,7 @@ import {
   ParseError,
 } from "../src/find-expr.js";
 import { finiteStrategy } from "../src/finite-strategy.js";
+import { derivedNote } from "../src/match-notes.js";
 import { FilterCapacityError } from "../src/expr-filter.js";
 import { cliOpenIndex } from "../src/node-io.js";
 import { applyExtract } from "../src/extract-spec.js";
@@ -196,6 +197,12 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
       ++run.predicatePassed;
       if (verdict.notes.length > 0) note = `  ${verdict.notes.join("  ")}`;
     }
+    // Derived from the query and the answer together — the Caesar shift that
+    // matched, the letter an edit changed. Shared with the page, which is the
+    // point: these were written where they were first needed and so the CLI
+    // showed none of them.
+    const derived = derivedNote(slot.shape, text);
+    if (derived !== null) note = note === "" ? `  ${derived}` : `${note}  ${derived}`;
     const shown = output.apply(text);
     if (shown === null) return null;
     // The first match to survive every wrapper is what this slot contributes.
