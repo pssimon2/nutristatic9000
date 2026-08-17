@@ -22,6 +22,7 @@ import {
   searchHeadIndex,
 } from "../src/head-index.js";
 import { parseFilterWrappers } from "../src/result-filter.js";
+import { probeCount } from "../src/index-probe.js";
 import {
   COMPOUND_PIECE_FLOOR,
   REVERSAL_FLOOR,
@@ -321,4 +322,41 @@ describe("the head as the word oracle", () => {
     const fromHead = headWordChecker(head, reader.count(), () => false);
     expect(fromHead(phrase as string, REVERSAL_FLOOR)).toBe(false);
   });
+});
+
+// A head belongs to one index, and only that one.
+//
+// The site serves the head *as* the first page of a search and never touches
+// the index on that path — so a head left behind by an index rebuild goes on
+// answering with entries the index no longer has, at scores it no longer has,
+// with nothing able to notice. scripts/check-head.mjs is the guard; this is
+// the property it checks.
+describe("a head matches the index it was built from", () => {
+  it("has every entry, at the score the index gives it", async () => {
+    // A spread rather than all 60,000: the point is to catch a mismatched
+    // pair, which shows in the first handful.
+    const at = [0, 1, 2, 3, 10, 100, 1000, 10000, head.text.length - 1];
+    for (const i of at) {
+      const text = head.text[i];
+      const count = await probeCount(reader, text);
+      expect(count, `${JSON.stringify(text)} at ${i} is not in the index`)
+        .toBeGreaterThan(0);
+      // Five significant digits, so relative — see the note at the top.
+      expect(
+        Math.abs(count - head.score[i]) / count,
+        `${text}: head ${head.score[i]} vs index ${count}`,
+      ).toBeLessThan(1e-4);
+    }
+  }, 60000);
+
+  it("would not match an index it was not built from", async () => {
+    // The failure the guard exists for, made concrete: an entry no index of
+    // this corpus contains has to come back as absent, not as zero-ish.
+    expect(await probeCount(reader, "qqzzxxjjv")).toBe(0);
+    // And a score from a different corpus disagrees by orders of magnitude,
+    // not by rounding — which is why the comparison is relative and tight.
+    const theirs = 1.2343e8; // "and" in the English Wikipedia head
+    const ours = await probeCount(reader, "and");
+    expect(Math.abs(ours - theirs) / ours).toBeGreaterThan(1e-4);
+  }, 60000);
 });

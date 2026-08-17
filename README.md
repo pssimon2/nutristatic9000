@@ -30,6 +30,18 @@ Deployment notes specific to this fork:
   `{palindrome:A{5}}` goes from half a second to twenty and finds nothing — so
   a deploy that forgets it fails quietly. `?debug=1` says "answered from the
   head of the index" when it is being used, which is the quickest way to tell.
+- **A head belongs to one index. Rebuild the index, rebuild the head.** The
+  head is served *as* the first page of a search and that path never touches
+  the index, so a head left behind by an index rebuild goes on answering with
+  entries the index no longer contains, at scores it no longer has, and nothing
+  can notice. Check a pair before deploying it:
+
+      npm run check-head -- data/en-wiki.index web/dist/en-wiki.head
+
+  It samples the head — the top, the bottom, and a spread between — and asks
+  the index what each entry is worth. Against the index it was built from:
+  `OK: 596 of 20000 entries checked, all present with matching scores`. Against
+  a different one: `STALE: 350 missing, 249 mis-scored of 599 checked`.
 
 ## Added so far
 
