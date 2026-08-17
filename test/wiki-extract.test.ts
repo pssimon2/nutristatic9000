@@ -252,3 +252,40 @@ describe("tables with one cell per line", () => {
     ).toEqual(["bagel", "baguette", "brioche"]);
   });
 });
+
+// A row whose name is not a link gives nothing, rather than its next column.
+describe("rows with an unlinked name", () => {
+  it("does not fall through to the next cell", () => {
+    // This is where "france" came from after "baghrir": the name cell was
+    // plain text, so the scan went on to the place-of-origin column.
+    expect(
+      entriesFrom([
+        "{|",
+        "|-",
+        "| [[Bagel]]",
+        "| [[Poland]]",
+        "|-",
+        "| Baghrir",
+        "| [[France]]",
+        "|}",
+      ]),
+    ).toEqual(["bagel"]);
+  });
+
+  it("still skips a leading cell that is not a name at all", () => {
+    // A rank number or a flag template is not the name and must not use the
+    // row up.
+    expect(
+      entriesFrom([
+        "{|",
+        "|-",
+        "| 1",
+        "| [[Bagel]]",
+        "|-",
+        "| {{flagicon|FR}}",
+        "| [[Baguette]]",
+        "|}",
+      ]),
+    ).toEqual(["bagel", "baguette"]);
+  });
+});

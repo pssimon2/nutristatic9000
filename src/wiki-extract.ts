@@ -145,11 +145,15 @@ export function entriesFrom(
     }
     const isCell = t.startsWith("|") && !/^\|[-+}]/.test(t);
     if (isCell && rowTaken) continue;
+    // The name is the first cell with words in it. A leading cell of digits, a
+    // flag icon or a colour swatch is not a name and does not use the row up;
+    // a leading cell of plain unlinked text *is* the name, and a row whose name
+    // is not a link has no entry to give — falling through to the next cell is
+    // how the breads list acquired "france" after "baghrir" and "yeast bread"
+    // after "barm cake", from rows whose name happened to be unlinked.
+    if (isCell && /[a-z]/i.test(t.replace(/^\|+/, ""))) rowTaken = true;
     const raw = entryLink(line);
     if (raw === null) continue;
-    // Set before the length filters: a row whose first cell is a link this
-    // rejects must not fall through to its second column.
-    if (isCell) rowTaken = true;
     // "Ada (programming language)" is ADA; the qualifier is Wikipedia's, not
     // part of the name.
     const e = normalizeEntry(raw.replace(/\s*\([^)]*\)\s*$/, ""));
