@@ -4,18 +4,23 @@ Instructions for an implementation agent. Work items are grouped in phases;
 within a phase, items are ordered so each lands green on its own. Every item
 has an ID for tracking — check them off as they ship.
 
-**Status (2026-08-17, end of the completion sweep):** every phase except X
-and the heavy tail of F is resolved — done, done-with-a-changed-design, or
-closed with a written reason. Landed today: M1–M4 (spans, nested predicates,
-captures + relations), the removal of `{at}`/`{rank}`/slots (C5/C9/M3/J
-closed by that decision), A2–A4 (score floor, filter cache, refinement),
-W1–W3 (weighted search; W4 declined with arithmetic), F1 and F3 (manifest,
-remote lists). Still genuinely open: **X1–X3** (parallel sharding — see the
-partition caveat on X1 before starting), **F2** (per-language data packs —
-needs foreign datasets built), **F5**
-(multi-index merged search), **F6** (generalized alphabet — sequence last),
-**F7** (reverse-index sidecar), **F8** (library packaging), and the deliberately-unbuilt
-halves noted inline (T2 latency budgets, P5/P6, A1, W4).
+**Status (2026-08-17, end of the completion sweep, second pass):** every
+phase is resolved — done, done-with-a-changed-design, or closed with a
+written reason — except two items that genuinely need decisions this
+codebase cannot make for itself. Landed across the sweep: M1–M4, the
+removal of `{at}`/`{rank}`/slots (C5/C9/M3/J closed by that decision),
+A2–A4, W1–W3 (W4 declined with arithmetic), F1/F3/F4 (manifest, remote
+lists, construct packs), F5 (engine + CLI; web shape documented), F7
+(reverse sidecar, exact by construction, 52× on `.*tion`; planner
+auto-pick open), F8 (surface declared), E13 (multi-pin, closed), X1
+(driver primitive + CLI threads; web orchestration blocked on the
+environment: SharedArrayBuffer needs X3's COOP/COEP server change, OPFS
+sync handles are exclusive). Genuinely open: **F2** (per-language data
+packs — needs foreign datasets built and languages chosen), **F6**
+(generalized alphabet — invasive by design, sequence last), the X-phase
+web orchestration behind its environmental gates, and the
+deliberately-unbuilt halves noted inline (T2 latency budgets, P5/P6, A1,
+W4, F5-web, F7-planner).
 
 ## Ground rules (read first, apply to every item)
 
