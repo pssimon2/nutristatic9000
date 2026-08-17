@@ -650,6 +650,22 @@ function parseAnagram(
     parts.push({ expr: optimize(piece.materialize()), count: 1 });
   }
 
+  // An anagram of one thing is that thing, which is never what someone meant
+  // by writing it. `<{del1:{list:countries}}>` returned exactly what
+  // `{del1:{list:countries}}` returns, with nothing to say the angle brackets
+  // had done nothing — the reader is left thinking the anagram was applied.
+  // `<…>` permutes the parts *written between the brackets*, so `<aaagmnr>` is
+  // seven of them; there is no way to permute the letters of something matched
+  // rather than spelled out.
+  if (parts.length < 2) {
+    throw new ParseError(
+      s.slice(i - 1, p + 1),
+      "an anagram needs at least two parts to rearrange — <…> permutes what " +
+        "you write between the brackets, so <aaagmnr> is seven letters, and " +
+        "<one-thing> is just that thing. There is no way to anagram whatever " +
+        "a pattern happens to match; spell the letters out.",
+    );
+  }
   collapseIdentical(parts);
   box.and = makeAnagramConjuncts(parts);
   return p;

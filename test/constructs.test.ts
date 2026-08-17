@@ -226,3 +226,23 @@ describe("an argument that is present but empty", () => {
     expect(err).toMatch(/\{list:greek\}/);
   });
 });
+
+// An anagram of one thing is that thing.
+//
+// `<{del1:{list:countries}}>` returned exactly what the inner construct
+// returns, with nothing to say the brackets had done nothing — `<…>` permutes
+// the parts *written* between them, and one part cannot be rearranged. Silently
+// answering the un-anagrammed query is the worst of the options.
+describe("an anagram with nothing to rearrange", () => {
+  it("says so rather than returning the inner query", () => {
+    expect(() => compileQuery("<{list:greek}>", ctx)).toThrow(/at least two parts/);
+    expect(() => compileQuery("<a>", ctx)).toThrow(/at least two parts/);
+  });
+
+  it("still accepts a real anagram", () => {
+    expect(() => compileQuery("<aaagmnr>", ctx)).not.toThrow();
+    expect(() => compileQuery("<abc>", ctx)).not.toThrow();
+    // Two parts, one of them a construct: legitimate, and still allowed.
+    expect(() => compileQuery("<a{2}b>", ctx)).not.toThrow();
+  });
+});
