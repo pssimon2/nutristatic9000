@@ -107,7 +107,7 @@ describe("an automaton construct is an atom and behaves like one", () => {
   }, 120000);
 });
 
-describe("a predicate wraps the whole pattern and nothing less", () => {
+describe("a predicate composes like an atom, checked on the span it covers", () => {
   const PREDICATES = [
     "{palindrome:A{5}}",
     "{compound 2:A{9}}",
@@ -116,13 +116,25 @@ describe("a predicate wraps the whole pattern and nothing less", () => {
   ];
 
   for (const predicate of PREDICATES) {
-    it(`is refused inside a pattern: ${predicate}`, async () => {
+    it(`is accepted inside a pattern: ${predicate}`, async () => {
       expect(await works(predicate), `${predicate} alone`).toBe(true);
       for (const [where, wrap] of PATTERN_POSITIONS) {
-        expect(await works(wrap(predicate)), `${predicate} ${where}`).toBe(false);
+        // The one exception: an edit's argument is not part of the match, so
+        // there is no span to ask the predicate of.
+        const expected = where !== "an edit's argument";
+        expect(await works(wrap(predicate)), `${predicate} ${where}`).toBe(
+          expected,
+        );
       }
+      // And it quantifies — a construct is one atom, so its quantifier slot
+      // is free.
+      expect(await works(`${predicate}?`), `${predicate} quantified`).toBe(true);
     }, 120000);
   }
+
+  it("is refused inside an edit with a message that says why", async () => {
+    expect(await works("{del1:{palindrome:A{5}}}")).toBe(false);
+  });
 
   it("stacks with a different predicate", async () => {
     expect(await works("{palindrome:{compound 2:A{9}}}")).toBe(true);
@@ -180,7 +192,7 @@ describe("every construct is at the level the catalogue claims", () => {
     expect(counts.transform).toBe(2);
   });
 
-  it("refuses every predicate in a pattern position, not just the ones above", async () => {
+  it("accepts every predicate in a pattern position, not just the ones above", async () => {
     // Generated from the catalogue, so a new predicate is covered the day it is
     // added rather than the day someone remembers to list it here.
     for (const name of namesAtLevel("predicate")) {
@@ -194,7 +206,7 @@ describe("every construct is at the level the catalogue claims", () => {
               : name === "anagram"
                 ? "{anagram countries:A{5}}"
                 : `{${name}:A{5}}`;
-      expect(await works(`A{4}&${spec}`), `${spec} intersected`).toBe(false);
+      expect(await works(`A{4}&${spec}`), `${spec} intersected`).toBe(true);
     }
   }, 120000);
 });

@@ -272,7 +272,12 @@ export function formatPlan(plan: QueryPlan): string[] {
     );
   });
   for (const predicate of plan.predicates) {
-    out.push(`predicate: ${predicate} (checked per match, not searched)`);
+    out.push(
+      predicate === "where"
+        ? "predicate: nested in the pattern — each match re-parsed, " +
+            "every predicate checked on the span it covers"
+        : `predicate: ${predicate} (checked per match, not searched)`,
+    );
   }
   if (plan.transforms.length > 0) {
     out.push(`transforms: ${plan.transforms.join(", ")}`);

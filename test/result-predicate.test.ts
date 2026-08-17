@@ -250,11 +250,14 @@ describe("stacked filters", () => {
     );
   });
 
-  it("requires the wrapper to close the whole query", () => {
-    // Only `endsWith("}")` was checked, so this parsed as one wrapper whose
-    // inner pattern was `A}{bank:xyz` and failed pointing at the wrong thing.
-    expect(() => parseFilterWrappers("{palindrome:A}{bank:xyz}")).toThrow(
-      /must wrap the whole pattern/,
-    );
+  it("reads a wrapper that does not close the whole query as nested", () => {
+    // This used to be refused with `must wrap the whole pattern`. Now the
+    // palindrome is simply part of the pattern: nothing is peeled, and a
+    // `where` filter re-verifies each match against the pattern as written.
+    const { specs, inner } = parseFilterWrappers("{palindrome:A}{bank:xyz}");
+    expect(inner).toBe("{palindrome:A}{bank:xyz}");
+    expect(specs).toEqual([
+      { kind: "where", pattern: "{palindrome:A}{bank:xyz}" },
+    ]);
   });
 });

@@ -155,12 +155,18 @@ describe("suggestions and misplacement", () => {
     expect(suggestConstruct("zzzzzzzz")).toBeNull();
   });
 
-  it("says where a real construct belongs instead of denying it exists", () => {
-    // The old message was `no such constraint "syllables"` — for a construct
-    // that works one position away.
-    const e = errorOf("A{4} {syllables=3:A{7}}");
-    expect(e).toMatch(/wrap the whole query/);
-    expect(e).not.toMatch(/no such constraint/);
+  it("compiles a predicate in a pattern position as its hull", () => {
+    // The old message was `no such constraint "syllables"`, then `has to wrap
+    // the whole query`. Now the position is simply legal: the predicate's
+    // argument compiles into the search, and span-verify checks the predicate
+    // per match.
+    expect(errorOf("A{4} {syllables=3:A{7}}")).toBeNull();
+    expect(errorOf("A{4}&{palindrome:A{4}}")).toBeNull();
+    // A malformed spec still explains itself at compile time, where the
+    // reader is.
+    expect(errorOf("A{4} {compound 9:A{9}}")).toMatch(/2 to 5 pieces/);
+    // Transforms still wrap the whole query: they change what is shown, and a
+    // span has nothing to show.
     expect(errorOf("{at 1:A*}")).toMatch(/changes what is shown/);
   });
 });

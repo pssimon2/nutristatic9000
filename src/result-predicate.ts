@@ -19,6 +19,10 @@ import { compileConjuncts } from "./find-expr.js";
 import { innerNfa } from "./conjunct.js";
 import { enumerateLanguage } from "./finite-strategy.js";
 import { makeFilter } from "./expr-filter.js";
+import { parsePatternAst } from "./expr-parse.js";
+import { mentionsConstruct, namesAtLevel } from "./constructs.js";
+import type { PatternAst } from "./pattern-ast.js";
+import { PredicateCheck, verifyMatch } from "./span-verify.js";
 import {
   FilterSpec,
   isPalindrome,
@@ -93,10 +97,60 @@ export async function applyResultFilter(
       return { keep: true, note: `← ${back}` };
     }
     case "anagram": {
-      const entry = anagramOf(filter.list, text, ctx);
+      const entry = await anagramOf(filter.list, text, ctx, checkWith(ctx, isWord));
       return entry === null ? DROP : { keep: true, note: `← ${entry}` };
     }
+    case "where": {
+      // The pattern carries predicates inside it. The search ran on their
+      // hulls; here the match is parsed against the pattern exactly, each
+      // predicate asked of the span its node covers.
+      const verdict = await verifyMatch(
+        whereAst(filter.pattern, ctx),
+        text.trim(),
+        checkWith(ctx, isWord),
+      );
+      if (!verdict.keep) return DROP;
+      return {
+        keep: true,
+        note: verdict.notes.length === 0 ? null : verdict.notes.join("  "),
+      };
+    }
   }
+}
+
+/** One predicate on one span, for the verifier: this module, called back. */
+function checkWith(ctx: SessionContext, isWord: WordCheck): PredicateCheck {
+  return (spec, span) => applyResultFilter(spec, span, ctx, isWord);
+}
+
+const PREDICATE_NAMES = namesAtLevel("predicate");
+
+/** Per-session parsed patterns for `where`, by pattern text. */
+const WHERE_ASTS = new WeakMap<SessionContext, Map<string, PatternAst>>();
+
+/**
+ * The pattern's tree, parsed once per session and pattern.
+ *
+ * A parse failure here is unusual — the same pattern compiled before the
+ * search began, with the same context — so it is reported like the anagram
+ * argument's failures: once per candidate, as the reason, never cached.
+ */
+function whereAst(pattern: string, ctx: SessionContext): PatternAst {
+  let perCtx = WHERE_ASTS.get(ctx);
+  if (perCtx === undefined) {
+    perCtx = new Map();
+    WHERE_ASTS.set(ctx, perCtx);
+  }
+  const cached = perCtx.get(pattern);
+  if (cached !== undefined) return cached;
+  let ast: PatternAst;
+  try {
+    ast = parsePatternAst(pattern, ctx);
+  } catch (e) {
+    throw new FilterError(e instanceof Error ? e.message : String(e));
+  }
+  perCtx.set(pattern, ast);
+  return ast;
 }
 
 /**
@@ -110,14 +164,15 @@ export async function applyResultFilter(
  * The keyed index is built once per list and kept on the context, because a
  * predicate runs per candidate and a query sifts thousands.
  */
-function anagramOf(
+async function anagramOf(
   list: string,
   text: string,
   ctx: SessionContext,
-): string | null {
+  check: PredicateCheck,
+): Promise<string | null> {
   const mine = letters(text);
   const key = mine.split("").sort().join("");
-  const entries = anagramKeys(list, ctx)?.get(key);
+  const entries = (await anagramKeys(list, ctx, check))?.get(key);
   if (entries === undefined) return null;
   // Not the entry itself: every list member trivially rearranges to itself, and
   // "canada ← canada" is not an answer. Same rule as `{reversible:…}`, which
@@ -132,10 +187,11 @@ function anagramOf(
  * A list of entries rather than one, because two members can share a key —
  * and if one of them is the match itself, the other is the answer.
  */
-function anagramKeys(
+async function anagramKeys(
   list: string,
   ctx: SessionContext,
-): Map<string, string[]> | null {
+  check: PredicateCheck,
+): Promise<Map<string, string[]> | null> {
   const name = listKey(list);
   // Kept beside the context rather than on it: `DataKey` is `keyof
   // SessionContext`, so a field there would make this look like a seventh side
@@ -157,7 +213,7 @@ function anagramKeys(
   // Failing that the argument is a pattern, and its language is the set to
   // rearrange — which is what makes `{anagram {kind:bird}:A{6}}` work, and
   // `{anagram beast:A*}`, and anything else that can be listed out.
-  const entries = named ?? enumeratedSet(list, ctx);
+  const entries = named ?? (await enumeratedSet(list, ctx, check));
   if (entries === null) {
     // Deliberately not cached. Caching the failure made this say its piece once
     // and then drop every later candidate in silence, so a second run of the
@@ -199,14 +255,24 @@ function wordListLike(spec: string): boolean {
   return /^[a-z0-9 ]+$/i.test(spec.trim());
 }
 
-function enumeratedSet(pattern: string, ctx: SessionContext): string[] | null {
+async function enumeratedSet(
+  pattern: string,
+  ctx: SessionContext,
+  check: PredicateCheck,
+): Promise<string[] | null> {
   // Quoted first, because the argument is a set of *words* to rearrange. An
   // unquoted atom carries an optional-space self-loop — that is what lets
   // `solar s_stem` match "solar system" — so the language of a bare `cargo` is
   // "cargo", "c argo", "c  argo" and on forever, and `{anagram cargo:A*}` was
   // refused for being unbounded. Quoting makes it the five letters it looks
   // like. Falls back to the query as written, in case quoting is what fails.
-  let conjuncts = compiled(`"${pattern}"`, ctx) ?? compiled(pattern, ctx);
+  const quoted = `"${pattern}"`;
+  let asWritten = false;
+  let conjuncts = compiled(quoted, ctx);
+  if (conjuncts === null) {
+    conjuncts = compiled(pattern, ctx);
+    asWritten = true;
+  }
   if (conjuncts === null) return null;
   // An intersection is listed out by listing its smallest finite part and
   // keeping what the rest accept. Requiring a single conjunct refused
@@ -232,9 +298,24 @@ function enumeratedSet(pattern: string, ctx: SessionContext): string[] | null {
   // entries are compared without it.
   const trimmed = best.strings.map((t) => t.replace(/ $/, ""));
   const rest = conjuncts.filter((_, i) => i !== best!.at);
-  if (rest.length === 0) return trimmed;
-  const filter = makeFilter(rest);
-  return trimmed.filter((t) => accepts(filter, `${t} `));
+  let survivors = trimmed;
+  if (rest.length > 0) {
+    const filter = makeFilter(rest);
+    survivors = trimmed.filter((t) => accepts(filter, `${t} `));
+  }
+  // An argument may itself carry predicates — `{anagram {palindrome:A{4}}:…}`
+  // rearranges four-letter palindromes. What was enumerated above is the
+  // argument's hull; each entry is verified against the argument exactly, the
+  // same way a match is verified against a pattern.
+  if (mentionsConstruct(pattern, PREDICATE_NAMES)) {
+    const ast = whereAst(asWritten ? pattern : quoted, ctx);
+    const kept: string[] = [];
+    for (const t of survivors) {
+      if ((await verifyMatch(ast, t, check)).keep) kept.push(t);
+    }
+    survivors = kept;
+  }
+  return survivors;
 }
 
 /** Does the filter accept this exact string? */

@@ -888,14 +888,22 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase M — Match reconstruction, captures, relations
 
-- [ ] **M1. Span reconstruction.** After a result arrives, re-parse the
-  ≤~40-char match text against the pattern AST (matching a short concrete
-  string against small NFAs = regex captures; trivial cost per result).
-  Produce spans for every AST node, handling ambiguity as "any consistent
-  parse".
-- [ ] **M2. Predicates on subexpressions.** `{palindrome:A{5}} {kind:bird}`
-  — predicate attaches to its AST node, tests its span; accept if any
-  consistent assignment satisfies all predicates.
+- [x] **M1. Span reconstruction.** *(done 2026-08-17.)* `parsePatternAst`
+  (expr-parse.ts) records the pattern as a tree alongside compilation —
+  predicate-free subtrees collapse to their compiled conjuncts, so the
+  verifier and the search share one definition of the language — and
+  `span-verify.ts` evaluates a match against it as memoised sets of end
+  positions per (node, start). Ambiguity is "any consistent parse".
+- [x] **M2. Predicates on subexpressions.** *(done 2026-08-17.)*
+  `{palindrome:A{5}} {kind:bird}` works, and so does every other position:
+  intersected, alternated, quantified, negated, inside an anagram part,
+  inside another predicate, and as an `{anagram …}` argument. A nested
+  predicate compiles to its argument's automaton (its hull) for the search;
+  the `where` result filter re-parses each match and asks each predicate of
+  the span its node covers. The one refusal left is inside `{del…}`-family
+  arguments, where the span belongs to the pre-edit string the match no
+  longer contains. Test: span-verify.test.ts; grammar.test.ts asserts the
+  composability table.
 - [ ] **M3. Scoped extraction.** `{at}` on a subexpression ("3rd letter of
   the second word/piece").
 - [ ] **M4. Captures + relations.** Named captures and relational

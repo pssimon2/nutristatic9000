@@ -8,12 +8,15 @@
 // "syllables"* — for a construct that plainly exists, and works when it wraps
 // the whole query — and a typo of it got no suggestion at all.
 //
-// Level is what a construct does, and it is why a construct can be real and
-// still wrong where you put it:
+// Level is what a construct *does*, not where it may be written:
 //
-//   automaton — intersects with the pattern, so it can appear anywhere
-//   predicate — asked of a finished match, so it has to wrap the whole query
-//   transform — changes what is printed, so it wraps the whole query too
+//   automaton — intersects with the pattern; appears anywhere
+//   predicate — asked of each finished match. Also appears anywhere: nested,
+//               it contributes its argument's automaton (its hull) to the
+//               search, and span-verify asks the question of the span its
+//               node covers. Wrapping the whole query remains the cheap path
+//               — peeled textually, no reparse per match.
+//   transform — changes what is printed, so it wraps the whole query
 //
 // This is the seed of the construct registry (roadmap C4): the compile
 // functions and per-construct docs join it there. Grouping for the UI hangs
@@ -264,12 +267,14 @@ export function resolveConstruct(
 
 /**
  * How to say where a construct belongs, for the error a solver gets when they
- * nest one that cannot be nested.
+ * nest one that cannot be nested. Since predicates learned to nest, only the
+ * transforms can still be misplaced — but the predicate wording is kept
+ * truthful in case a caller shows it.
  */
 export function levelAdvice(info: ConstructInfo): string {
   return info.level === "predicate"
-    ? `{${info.name} …} is checked on finished matches, so it has to wrap the ` +
-        `whole query — try {${info.name} …:your pattern}`
+    ? `{${info.name} …} is checked on finished matches — write it around the ` +
+        `part it should hold of: {${info.name} …:that part}`
     : `{${info.name} …} changes what is shown, so it has to wrap the whole ` +
         `query — try {${info.name} …:your pattern}`;
 }

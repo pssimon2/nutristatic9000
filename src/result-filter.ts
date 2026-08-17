@@ -9,7 +9,8 @@
 // in tandem — but checked per candidate, both are a single string operation
 // and at most one index lookup.
 
-import { namesAtLevel, resolveConstruct } from "./constructs.js";
+import { mentionsConstruct, namesAtLevel, resolveConstruct } from "./constructs.js";
+import { splitSlots } from "./query-shape.js";
 
 export type FilterSpec =
   | { kind: "compound"; pieces: number }
@@ -17,7 +18,15 @@ export type FilterSpec =
   | { kind: "reversible" }
   | { kind: "syllables"; lo: number; hi: number }
   | { kind: "stress"; shape: string }
-  | { kind: "anagram"; list: string };
+  | { kind: "anagram"; list: string }
+  /**
+   * The pattern carries predicates *inside* it — `{palindrome:A{5}} {kind:bird}`
+   * — so each finished match is parsed against the pattern again, exactly, with
+   * every nested predicate asked of the span its node covers. The search runs
+   * on the predicates' hulls (their arguments' automata); this filter is what
+   * makes the hull's over-approximation honest. See span-verify.ts.
+   */
+  | { kind: "where"; pattern: string };
 
 export class FilterError extends Error {}
 
@@ -71,7 +80,7 @@ export function parseFilterWrappers(
   let inner = query.trim();
   for (;;) {
     const peeled = parseFilterWrapper(inner);
-    if (!peeled) return { specs, inner };
+    if (!peeled) break;
     // Two of the same filter is a contradiction or a redundancy, never a
     // question anyone means to ask.
     if (specs.some((s) => s.kind === peeled.spec.kind)) {
@@ -80,6 +89,18 @@ export function parseFilterWrappers(
     specs.push(peeled.spec);
     inner = peeled.inner;
   }
+  // Whatever predicates remain are *inside* the pattern — beside a neighbour,
+  // under a quantifier, in an anagram part. The search runs on their hulls;
+  // this filter re-verifies each match exactly, spans and all. Not for a
+  // multi-slot string: each slot adds its own after the split.
+  if (
+    inner !== "" &&
+    splitSlots(inner).length === 1 &&
+    mentionsConstruct(inner, NAMES)
+  ) {
+    specs.push({ kind: "where", pattern: inner });
+  }
+  return { specs, inner };
 }
 
 export function parseFilterWrapper(
@@ -118,14 +139,27 @@ export function parseFilterWrapper(
   // ends in "}" let `{palindrome:A}{bank:xyz}` through as one wrapper whose
   // inner pattern was `A}{bank:xyz`, which then failed as a pattern error
   // pointing at the wrong thing.
+  //
+  // A wrapper that does not cover the whole query is not an error any more:
+  // it is a predicate *inside* the pattern, and the pattern parser reads it
+  // where it stands. Returning null hands it over.
   const close = matchingBrace(q, 0);
-  if (close !== q.length - 1) {
-    throw new FilterError(`{${name} …} must wrap the whole pattern`);
-  }
+  if (close !== q.length - 1) return null;
   const inner = q.slice(m[0].length, close).trim();
   if (inner === "") throw new FilterError(`{${name} …} needs a pattern`);
-  const arg = m[2].trim();
+  return { spec: parseFilterSpec(name, m[2].trim()), inner };
+}
 
+/**
+ * The spec of a predicate construct — what sits between its name and the
+ * colon — as a FilterSpec, or a FilterError saying what is wrong with it.
+ *
+ * One function because the same construct is now written in two places: as a
+ * wrapper around the whole query (peeled here) and nested inside a pattern
+ * (parsed by expr-parse, verified by span-verify). Both must agree on what
+ * `{compound 2}` or `{syllables>=3}` means, so both call this.
+ */
+export function parseFilterSpec(name: string, arg: string): FilterSpec {
   if (name === "compound") {
     const n = /^=?\s*(\d+)$/.exec(arg);
     const pieces = n ? parseInt(n[1], 10) : NaN;
@@ -134,7 +168,7 @@ export function parseFilterWrapper(
     if (!(pieces >= 2 && pieces <= 5)) {
       throw new FilterError("{compound N:…} takes 2 to 5 pieces");
     }
-    return { spec: { kind: "compound", pieces }, inner };
+    return { kind: "compound", pieces };
   }
   if (name === "anagram") {
     // `<…>` rearranges the letters you write between the brackets, so it cannot
@@ -146,7 +180,7 @@ export function parseFilterWrapper(
         "{anagram …} needs a list to rearrange — e.g. {anagram countries:A{6}}",
       );
     }
-    return { spec: { kind: "anagram", list: arg }, inner };
+    return { kind: "anagram", list: arg };
   }
   if (name === "syllables") {
     // Same comparisons the counting constraints take.
@@ -166,7 +200,7 @@ export function parseFilterWrapper(
     };
     const [lo, hi] = ranges[m[1] ?? ""];
     if (hi < lo) throw new FilterError(`empty range (${lo}-${hi})`);
-    return { spec: { kind: "syllables", lo, hi }, inner };
+    return { kind: "syllables", lo, hi };
   }
   if (name === "stress") {
     if (!/^[012]+$/.test(arg)) {
@@ -175,8 +209,8 @@ export function parseFilterWrapper(
           "e.g. {stress:100:…} for a dactyl",
       );
     }
-    return { spec: { kind: "stress", shape: arg }, inner };
+    return { kind: "stress", shape: arg };
   }
   if (arg !== "") throw new FilterError(`{${name}:…} takes no argument`);
-  return { spec: { kind: name as "palindrome" | "reversible" }, inner };
+  return { kind: name as "palindrome" | "reversible" };
 }
