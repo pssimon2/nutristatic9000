@@ -22,8 +22,8 @@
 
 import { EPSILON, Nfa } from "./automata.js";
 import { isNegated } from "./conjunct.js";
-import type { FilterSpec } from "./result-filter.js";
-import type { PatternAst } from "./pattern-ast.js";
+import { type FilterSpec, letters } from "./result-filter.js";
+import { type PatternAst, hasCap } from "./pattern-ast.js";
 
 /**
  * One predicate, asked of one span. Injected rather than imported: the
@@ -212,6 +212,279 @@ export async function verifyMatch(
           out.set(j, verdict.note === null ? notes : [...notes, verdict.note]);
         }
         return out;
+      }
+      case "cap":
+        // Transparent here: only a relation consults the binding, and a
+        // relation evaluates its subtree with `walk` below.
+        return ends(node.inner, i);
+      case "rel": {
+        const out: Ends = new Map();
+        for (const entry of await walk(node.inner, i)) {
+          const note = relHolds(node, entry.bind);
+          if (note === false) continue;
+          if (!out.has(entry.end)) {
+            out.set(
+              entry.end,
+              note === null ? entry.notes : [...entry.notes, note],
+            );
+          }
+        }
+        return out;
+      }
+    }
+  };
+
+  /** A capture's bindings along one parse: name → the raw span text. */
+  type Bindings = Map<string, string> | null;
+  interface Entry {
+    end: number;
+    notes: string[];
+    bind: Bindings;
+  }
+
+  /** Two parses' bindings joined; undefined when they contradict. */
+  const mergeBind = (a: Bindings, b: Bindings): Bindings | undefined => {
+    if (a === null || a.size === 0) return b;
+    if (b === null || b.size === 0) return a;
+    const out = new Map(a);
+    for (const [k, v] of b) {
+      const had = out.get(k);
+      if (had !== undefined && letters(had) !== letters(v)) return undefined;
+      out.set(k, v);
+    }
+    return out;
+  };
+
+  const entryKey = (e: Entry): string =>
+    `${e.end}|${e.bind === null ? "" : [...e.bind].sort().join(" ")}`;
+
+  /** Push an entry unless an equivalent one is already there. */
+  const addEntry = (list: Entry[], seen: Set<string>, e: Entry): void => {
+    const k = entryKey(e);
+    if (seen.has(k)) return;
+    seen.add(k);
+    list.push(e);
+  };
+
+  /**
+   * Like `ends`, but each way of parsing [i, end) that differs in what it
+   * captured is its own entry. Only run where a capture actually sits — the
+   * capture-free ground below stays on the memoised `ends` path.
+   */
+  const walk = async (node: PatternAst, i: number): Promise<Entry[]> => {
+    if (!hasCap(node)) {
+      const out: Entry[] = [];
+      for (const [end, notes] of await ends(node, i)) {
+        out.push({ end, notes, bind: null });
+      }
+      return out;
+    }
+    const out: Entry[] = [];
+    const seen = new Set<string>();
+    switch (node.t) {
+      case "cap": {
+        for (const e of await walk(node.inner, i)) {
+          const bound = mergeBind(
+            e.bind,
+            new Map([[node.name, text.slice(i, e.end)]]),
+          );
+          if (bound === undefined) continue;
+          addEntry(out, seen, { end: e.end, notes: e.notes, bind: bound });
+        }
+        return out;
+      }
+      case "seq": {
+        let frontier: Entry[] = [{ end: i, notes: [], bind: null }];
+        for (const part of node.parts) {
+          const next: Entry[] = [];
+          const nextSeen = new Set<string>();
+          for (const from of frontier) {
+            for (const e of await walk(part, from.end)) {
+              const bound = mergeBind(from.bind, e.bind);
+              if (bound === undefined) continue;
+              addEntry(next, nextSeen, {
+                end: e.end,
+                notes: from.notes.concat(e.notes),
+                bind: bound,
+              });
+            }
+          }
+          frontier = next;
+          if (frontier.length === 0) break;
+        }
+        return frontier;
+      }
+      case "alt": {
+        for (const part of node.parts) {
+          for (const e of await walk(part, i)) addEntry(out, seen, e);
+        }
+        return out;
+      }
+      case "and": {
+        let joined: Entry[] | null = null;
+        for (const part of node.parts) {
+          const mine = await walk(part, i);
+          if (joined === null) {
+            joined = mine;
+            continue;
+          }
+          const next: Entry[] = [];
+          const nextSeen = new Set<string>();
+          for (const a of joined) {
+            for (const b of mine) {
+              if (a.end !== b.end) continue;
+              const bound = mergeBind(a.bind, b.bind);
+              if (bound === undefined) continue;
+              addEntry(next, nextSeen, {
+                end: a.end,
+                notes: a.notes.concat(b.notes),
+                bind: bound,
+              });
+            }
+          }
+          joined = next;
+          if (joined.length === 0) break;
+        }
+        return joined ?? [];
+      }
+      case "rep": {
+        const cap = Math.min(node.max, node.min + (n - i) + 2);
+        if (node.min === 0) addEntry(out, seen, { end: i, notes: [], bind: null });
+        let frontier: Entry[] = [{ end: i, notes: [], bind: null }];
+        for (let k = 1; k <= cap; ++k) {
+          const next: Entry[] = [];
+          const nextSeen = new Set<string>();
+          for (const from of frontier) {
+            for (const e of await walk(node.inner, from.end)) {
+              const bound = mergeBind(from.bind, e.bind);
+              if (bound === undefined) continue;
+              addEntry(next, nextSeen, {
+                end: e.end,
+                notes: from.notes.concat(e.notes),
+                bind: bound,
+              });
+            }
+          }
+          frontier = next;
+          if (frontier.length === 0) break;
+          if (k >= node.min) {
+            let grew = false;
+            for (const e of frontier) {
+              const key = entryKey(e);
+              if (!seen.has(key)) grew = true;
+              addEntry(out, seen, e);
+            }
+            if (!grew && k > node.min) break;
+          }
+        }
+        return out;
+      }
+      case "anagram": {
+        const parts = node.parts;
+        const go = async (pos: number, counts: number[]): Promise<Entry[]> => {
+          if (counts.every((c) => c === 0)) {
+            return [{ end: pos, notes: [], bind: null }];
+          }
+          const mine: Entry[] = [];
+          const mineSeen = new Set<string>();
+          for (let pi = 0; pi < parts.length; ++pi) {
+            if (counts[pi] === 0) continue;
+            const remaining = counts.slice();
+            --remaining[pi];
+            for (const e of await walk(parts[pi].ast, pos)) {
+              for (const rest of await go(e.end, remaining)) {
+                const bound = mergeBind(e.bind, rest.bind);
+                if (bound === undefined) continue;
+                addEntry(mine, mineSeen, {
+                  end: rest.end,
+                  notes: e.notes.concat(rest.notes),
+                  bind: bound,
+                });
+              }
+            }
+          }
+          return mine;
+        };
+        return go(i, parts.map((p) => p.count));
+      }
+      case "pred": {
+        for (const e of await walk(node.inner, i)) {
+          const verdict = await check(node.spec, text.slice(i, e.end));
+          if (!verdict.keep) continue;
+          addEntry(out, seen, {
+            end: e.end,
+            notes: verdict.note === null ? e.notes : [...e.notes, verdict.note],
+            bind: e.bind,
+          });
+        }
+        return out;
+      }
+      case "rel": {
+        for (const e of await walk(node.inner, i)) {
+          const note = relHolds(node, e.bind);
+          if (note === false) continue;
+          addEntry(out, seen, {
+            end: e.end,
+            notes: note === null ? e.notes : [...e.notes, note],
+            bind: e.bind,
+          });
+        }
+        return out;
+      }
+      case "not":
+      case "nfa":
+        // hasCap is false for nfa, and a binding cannot escape a complement
+        // ("no parse exists" has no witness) — both answered by `ends`.
+        for (const [end, notes] of await ends(node, i)) {
+          out.push({ end, notes, bind: null });
+        }
+        return out;
+    }
+  };
+
+  /**
+   * Does the relation hold of these bindings? `false` when it does not;
+   * otherwise the note to attach (the matched shift), or null for none.
+   */
+  const relHolds = (
+    node: Extract<PatternAst, { t: "rel" }>,
+    bind: Bindings,
+  ): string | null | false => {
+    const a = bind?.get(node.names[0]);
+    const b = bind?.get(node.names[1]);
+    if (a === undefined || b === undefined) return false;
+    const la = letters(a);
+    const lb = letters(b);
+    if (la.length === 0 || la.length !== lb.length) return false;
+    switch (node.op) {
+      case "eq":
+        return la === lb ? null : false;
+      case "rev":
+        return [...la].reverse().join("") === lb ? null : false;
+      case "shift": {
+        let shift = node.shift;
+        for (let k = 0; k < la.length; ++k) {
+          const ca = la.charCodeAt(k);
+          const cb = lb.charCodeAt(k);
+          const aIsLetter = ca >= 0x61 && ca <= 0x7a;
+          const bIsLetter = cb >= 0x61 && cb <= 0x7a;
+          if (!aIsLetter || !bIsLetter) {
+            // Digits survive a Caesar shift unchanged.
+            if (ca !== cb) return false;
+            continue;
+          }
+          const d = (cb - ca + 26) % 26;
+          if (shift === null) {
+            if (d === 0) return false; // "some shift" means a real one
+            shift = d;
+          } else if (d !== shift) {
+            return false;
+          }
+        }
+        // All digits: nothing was shifted, so nothing related them.
+        if (shift === null) return false;
+        // The matched shift is the answer for the unknown-shift form.
+        return node.shift === null ? `shift +${shift}` : null;
       }
     }
   };

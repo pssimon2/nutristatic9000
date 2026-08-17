@@ -133,8 +133,23 @@ const GROUPS: Array<
     ["syllables", "how many syllables, by pronunciation", "{syllables=3:A{7}}"],
     ["stress", "a metrical stress shape, 1 strong 0 weak", "{stress 010:A{8}}"],
     ["anagram", "rearranges a word, a list or whatever a pattern names", "{anagram countries:A{6}}"],
+    ["eq", "two parts named with {=a:…} read the same", "{eq a,b:{=a:A{2,4}} {=b:A{2,4}}}"],
+    ["rev", "one named part is the other reversed", "{rev a,b:{=a:A{2,4}} {=b:A{2,4}}}"],
+    ["shift", "one named part is the other Caesar-shifted", "{shift13 a,b:{=a:A{3}} {=b:A{3}}}"],
   ]],
 ];
+
+/**
+ * The relational predicates: they constrain named spans (`{=a:…}`) inside the
+ * pattern they wrap, so unlike every other predicate they cannot be peeled
+ * off and asked of the match text alone — the verifier evaluates them with
+ * the parse in hand. The wrapper parser skips them for that reason.
+ */
+export const RELATION_NAMES = ["eq", "rev", "shift"] as const;
+
+export function isRelationName(name: string): boolean {
+  return (RELATION_NAMES as readonly string[]).includes(name);
+}
 
 export const CONSTRUCTS: ConstructInfo[] = GROUPS.flatMap(
   ([group, level, rows]) =>
@@ -291,7 +306,10 @@ export function levelAdvice(info: ConstructInfo): string {
  */
 export function mentionsConstruct(query: string, names: string[]): boolean {
   const alt = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  return new RegExp(`\\{\\s*(?:[a-z]+\\.)?(?:${alt})\\b`, "i").test(query);
+  // Not \b: a name may be followed by spec digits ("{shift13 a,b:…}",
+  // "{del1:…}"), and a digit is a word character, so \b missed exactly those.
+  // A letter would make it a longer name; anything else starts the spec.
+  return new RegExp(`\\{\\s*(?:[a-z]+\\.)?(?:${alt})(?![a-z])`, "i").test(query);
 }
 
 /** Closest known construct name, when it's close enough to be a typo. */

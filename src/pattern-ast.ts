@@ -30,14 +30,29 @@ export type PatternAst =
   /** A `<…>` anagram: `parts` in any order, each used `count` times. */
   | { t: "anagram"; parts: Array<{ ast: PatternAst; count: number }> }
   /** A predicate over the span its inner pattern covers. */
-  | { t: "pred"; spec: FilterSpec; inner: PatternAst };
+  | { t: "pred"; spec: FilterSpec; inner: PatternAst }
+  /** `{=name:…}`: the span its inner covers, remembered under a name. */
+  | { t: "cap"; name: string; inner: PatternAst }
+  /**
+   * A relation over named spans inside `inner`: `{rev a,b:…}` holds when the
+   * span captured as `a`, reversed, reads as the span captured as `b`.
+   * `shift` is a Caesar relation; null means "some consistent shift".
+   */
+  | { t: "rel"; op: "eq" | "rev" | "shift"; shift: number | null;
+      names: [string, string]; inner: PatternAst };
 
-/** Does any node below (or at) this one carry a predicate? */
+/**
+ * Does any node below (or at) this one need the verifier — a predicate, a
+ * relation, or a capture a relation may consult? Structure is kept exactly
+ * where this is true; everything else collapses to its compiled conjuncts.
+ */
 export function hasPred(ast: PatternAst): boolean {
   switch (ast.t) {
     case "nfa":
       return false;
     case "pred":
+    case "rel":
+    case "cap":
       return true;
     case "not":
     case "rep":
@@ -46,5 +61,24 @@ export function hasPred(ast: PatternAst): boolean {
       return ast.parts.some((p) => hasPred(p.ast));
     default:
       return ast.parts.some(hasPred);
+  }
+}
+
+/** Does any node below (or at) this one bind a capture? */
+export function hasCap(ast: PatternAst): boolean {
+  switch (ast.t) {
+    case "nfa":
+      return false;
+    case "cap":
+      return true;
+    case "pred":
+    case "rel":
+    case "not":
+    case "rep":
+      return hasCap(ast.inner);
+    case "anagram":
+      return ast.parts.some((p) => hasCap(p.ast));
+    default:
+      return ast.parts.some(hasCap);
   }
 }

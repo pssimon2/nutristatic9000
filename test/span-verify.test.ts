@@ -104,6 +104,52 @@ describe("an anagram argument may itself carry a predicate", () => {
   });
 });
 
+describe("captures and relations", () => {
+  it("holds when the named spans satisfy the relation", async () => {
+    const q = "{rev a,b:{=a:A{2,4}} {=b:A{2,4}}}";
+    expect((await verdict(q, "trap part")).keep).toBe(true);
+    expect((await verdict(q, "trap door")).keep).toBe(false);
+  });
+
+  it("reads the same span assignment across both captures", async () => {
+    const q = "{eq a,b:{=a:A{2,4}} {=b:A{2,4}}}";
+    expect((await verdict(q, "that that")).keep).toBe(true);
+    expect((await verdict(q, "that this")).keep).toBe(false);
+  });
+
+  it("reports the matched shift for the unknown-shift form", async () => {
+    const q = "{shift a,b:{=a:A{3}} {=b:A{3}}}";
+    const v = await verdict(q, "irk vex");
+    expect(v.keep).toBe(true);
+    expect(v.notes).toContain("shift +13");
+    expect((await verdict(q, "irk irk")).keep).toBe(false);
+  });
+
+  it("pins the shift when one is written", async () => {
+    const q = "{shift13 a,b:{=a:A{3}} {=b:A{3}}}";
+    expect((await verdict(q, "irk vex")).keep).toBe(true);
+    expect((await verdict(q, "irk wfy")).keep).toBe(false); // that's +14
+  });
+
+  it("composes with ordinary predicates", async () => {
+    // The reversed pair, and the whole thing must also be a palindrome-free…
+    // rather: the second span must itself satisfy a nested predicate.
+    const q = "{rev a,b:{=a:A{4}} {palindrome:{=b:A{4}}}}";
+    // "abba" reversed is "abba", and "abba" is a palindrome.
+    expect((await verdict(q, "abba abba")).keep).toBe(true);
+    // "trap"/"part": reversed ✓ but "part" is no palindrome.
+    expect((await verdict(q, "trap part")).keep).toBe(false);
+  });
+
+  it("refuses a relation whose name is never captured", async () => {
+    // The peel routes relations to the pattern parser, so the error surfaces
+    // when the pattern compiles — here, on first verification.
+    await expect(verdict("{rev a,b:{=a:A{3}} A{3}}", "cat tac")).rejects.toThrow(
+      /nothing inside is captured as \{=b:…\}/,
+    );
+  });
+});
+
 describe("what does not compose says why", () => {
   it("still refuses the same wrapper twice", () => {
     expect(() => parseFilterWrappers("{palindrome:{palindrome:A{5}}}")).toThrow(

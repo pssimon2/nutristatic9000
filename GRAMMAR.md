@@ -45,6 +45,7 @@ A{6}&{palindrome:A*}              six letters and a palindrome
 !{palindrome:A*}                  anything that is not one
 <{palindrome:A{4}}de>             an anagram piece
 {palindrome:{reversible:A{3}}tab} predicates at different depths
+{rev a,b:{=a:A{4}} {=b:A{4}}}     relations over named spans (§3a)
 ```
 
 The mechanism is **hull + verify**. For the search, a predicate contributes
@@ -110,7 +111,7 @@ unbounded until the argument was compiled quoted.
 
 ## 3. Constructs
 
-44 of them, all spelled `{name spec:argument}`, all grouped and all documented
+47 of them, all spelled `{name spec:argument}`, all grouped and all documented
 in the generated reference at `/usage.html#reference`. A construct's *level*
 says how it runs — intersected into the search, or checked on finished
 matches — and its *argument kind* says what may appear inside it. Neither
@@ -130,6 +131,20 @@ introduces the pattern they wrap: `{compound 2:…}` and `{anagram countries:…
 A predicate's spec is validated by the same `parseFilterSpec` whether it wraps
 the query or sits nested, so `{compound 9:…}` says "2 to 5 pieces" in both
 places.
+
+### 3a. Captures and relations
+
+`{=name:PATTERN}` is an atom that matches whatever its pattern matches and
+remembers the span under the name. The three relations — `{eq a,b:…}`,
+`{rev a,b:…}`, `{shift a,b:…}` (or `{shift13 a,b:…}` to pin the shift) — are
+predicates whose spec names two captures inside the pattern they wrap. They
+are the one kind of predicate the wrapper peel deliberately does *not* peel:
+their verdict needs the parse, not just the match text, so the verifier
+evaluates the wrapped subtree with bindings in hand (`walk` in
+span-verify.ts) and accepts a match when *some* consistent span assignment
+satisfies every relation. A relation naming a capture that does not exist in
+its pattern is a compile error, not a silent false. Unknown-shift `{shift}`
+reports the shift that matched, the way `{caesar:…}` always has.
 
 ---
 

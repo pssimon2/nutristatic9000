@@ -908,12 +908,16 @@ Goal: mechanical, low-risk changes that everything later depends on.
   `{at}` was removed from the language altogether — the user judged
   extraction, rank windows and slots not useful — so there is no `{at}` to
   scope. The span machinery it would have used exists (M1) and serves M4.
-- [ ] **M4. Captures + relations.** Named captures and relational
-  predicates over spans: `{eq:a,b}`, `{rev:a,b}`, `{shift13:a,b}` —
-  semordnilaps, "first and last 3 letters agree", cipher-pair words.
-  Post-match only (no automaton blowup); planner may invert cheap sides
-  (enumerate candidates for one capture, synthesize a second-stage
-  search for the other).
+- [x] **M4. Captures + relations.** *(done 2026-08-17.)* `{=a:…}` names a
+  span; `{eq a,b:…}`, `{rev a,b:…}`, `{shift a,b:…}`/`{shift13 a,b:…}` relate
+  two names. Post-match only, exactly as specified: captures compile to their
+  hulls, and span-verify gains a binding-aware `walk` used only where a
+  capture sits — capture-free ground stays on the memoised path. Unknown
+  shift reports the shift that matched. On en-wiki,
+  `{rev a,b:{=a:A{3,5}} {=b:A{3,5}}}` answers "saw was", "era are",
+  "and dna". Not done: the planner inversion (enumerate one capture,
+  synthesize a second-stage search) — nothing needs it until a relation is
+  the only bound on the query.
 - [~] **M5. Unified result notes.** *(the derived half, done 2026-08-17.)*
   There were two kinds of annotation and only one of them was shared. A
   predicate produces its own — the compound cuts, the reversal, the syllable

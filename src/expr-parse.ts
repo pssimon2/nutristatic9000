@@ -42,6 +42,7 @@ import { PatternAst, hasPred } from "./pattern-ast.js";
 import {
   findConstruct,
   foldName,
+  isRelationName,
   levelAdvice,
   mentionsConstruct,
   namesAtLevel,
@@ -447,6 +448,26 @@ function parseAtom(
     const p = parseAnagram(s, i + 1, box, quoted, ctx);
     if (p === null || s[p] !== ">") return null;
     return p + 1;
+  } else if (s[i] === "{" && s[i + 1] === "=") {
+    // `{=name:…}`: a capture. Matches whatever its pattern matches; the span
+    // it covers is remembered under the name, for a relation ({eq…}, {rev…},
+    // {shift…}) wrapping it to consult. Transparent to the search.
+    const head = /^\{=([a-z][a-z0-9]*):/.exec(s.slice(i));
+    if (!head) {
+      throw new ParseError(
+        constructText(s, i),
+        "{=name:…} names the span a pattern covers — a short lower-case " +
+          "name, then the pattern: {=a:A{3}}",
+      );
+    }
+    const innerBox = new Box();
+    const p = parseExprBox(s, i + head[0].length, innerBox, quoted, ctx);
+    if (p === null || s[p] !== "}") return null;
+    box.and = innerBox.and;
+    if (collectAst) {
+      box.ast = { t: "cap", name: head[1], inner: astOf(innerBox) };
+    }
+    return p + 1;
   } else if (s[i] === "{") {
     // A brace at atom position is a named constraint; as a quantifier it can
     // only follow an atom, so there is no ambiguity with `A{4,8}`.
@@ -634,14 +655,50 @@ function parseNestedPredicate(
     bareConstruct(s, i);
     return null;
   }
-  let spec;
-  try {
-    spec = parseFilterSpec(bare, s.slice(i + head[0].length, colon).trim());
-  } catch (e) {
-    if (e instanceof FilterError) {
-      throw new ParseError(constructText(s, i), e.message);
+  const specText = s.slice(i + head[0].length, colon).trim();
+  // A relation names two captures inside the pattern it wraps. Parsed apart
+  // from the FilterSpec predicates: its verdict needs the parse, not just the
+  // match text, so it becomes its own AST node.
+  let rel: { op: "eq" | "rev" | "shift"; shift: number | null;
+             names: [string, string] } | null = null;
+  if (isRelationName(bare)) {
+    const m = /^(\d+)?\s*([a-z][a-z0-9]*)\s*,\s*([a-z][a-z0-9]*)$/.exec(specText);
+    if (!m || (bare !== "shift" && m[1] !== undefined)) {
+      throw new ParseError(
+        constructText(s, i),
+        `{${bare} …} takes two capture names — {${bare}${
+          bare === "shift" ? "13" : ""
+        } a,b:{=a:A{3}} {=b:A{3}}}`,
+      );
     }
-    throw e;
+    const shift = m[1] === undefined ? null : parseInt(m[1], 10);
+    if (shift !== null && (shift < 1 || shift > 25)) {
+      throw new ParseError(constructText(s, i), "a shift is 1 to 25");
+    }
+    rel = { op: bare as "eq" | "rev" | "shift", shift, names: [m[2], m[3]] };
+    // Both names must be bound somewhere inside — an unbound name would make
+    // the relation quietly false for every match.
+    const wrapped = s.slice(colon + 1, matchingClose(s, i));
+    for (const name of rel.names) {
+      if (!wrapped.includes(`{=${name}:`)) {
+        throw new ParseError(
+          constructText(s, i),
+          `{${bare} …} names "${name}", but nothing inside is captured as ` +
+            `{=${name}:…}`,
+        );
+      }
+    }
+  }
+  let spec = null;
+  if (rel === null) {
+    try {
+      spec = parseFilterSpec(bare, specText);
+    } catch (e) {
+      if (e instanceof FilterError) {
+        throw new ParseError(constructText(s, i), e.message);
+      }
+      throw e;
+    }
   }
   const innerBox = new Box();
   const p = parseExprBox(s, colon + 1, innerBox, quoted, ctx);
@@ -650,7 +707,11 @@ function parseNestedPredicate(
     throw new ParseError(constructText(s, i), `{${bare} …} needs a pattern`);
   }
   box.and = innerBox.and;
-  if (collectAst) box.ast = { t: "pred", spec, inner: astOf(innerBox) };
+  if (collectAst) {
+    box.ast = rel
+      ? { t: "rel", ...rel, inner: astOf(innerBox) }
+      : { t: "pred", spec: spec!, inner: astOf(innerBox) };
+  }
   return p + 1;
 }
 

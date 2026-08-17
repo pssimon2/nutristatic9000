@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { completionsAt, tokenAt } from "../src/complete.js";
 import { parseWikiLists } from "../src/word-lists.js";
 import { compileQuery } from "../src/find-expr.js";
-import { CONSTRUCTS } from "../src/constructs.js";
+import { CONSTRUCTS, isRelationName } from "../src/constructs.js";
 import { parseFilterWrapper } from "../src/result-filter.js";
 import { SessionContext } from "../src/session-context.js";
 
@@ -117,12 +117,14 @@ describe("every completion is something the engine accepts", () => {
   it("accepts the offered example for every construct, at its own level", () => {
     // A menu that suggests what the parser rejects is worse than no menu. The
     // level matters: a whole-query predicate is peeled off before the engine
-    // sees it, so it goes through the wrapper parser instead.
+    // sees it, so it goes through the wrapper parser instead — except the
+    // relations, which the peel deliberately hands to the pattern parser.
     for (const c of CONSTRUCTS) {
       let err: unknown = null;
       try {
-        if (c.level === "automaton") compileQuery(c.example, ctx);
-        else expect(parseFilterWrapper(c.example), c.name).not.toBeNull();
+        if (c.level === "automaton" || isRelationName(c.name)) {
+          compileQuery(c.example, ctx);
+        } else expect(parseFilterWrapper(c.example), c.name).not.toBeNull();
       } catch (e) {
         err = e;
       }

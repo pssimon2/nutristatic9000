@@ -9,7 +9,12 @@
 // in tandem — but checked per candidate, both are a single string operation
 // and at most one index lookup.
 
-import { mentionsConstruct, namesAtLevel, resolveConstruct } from "./constructs.js";
+import {
+  isRelationName,
+  mentionsConstruct,
+  namesAtLevel,
+  resolveConstruct,
+} from "./constructs.js";
 
 export type FilterSpec =
   | { kind: "compound"; pieces: number }
@@ -129,6 +134,10 @@ export function parseFilterWrapper(
   }
   const name = token.slice(token.lastIndexOf(".") + 1);
   if (!NAMES.includes(name)) return null;
+  // A relation constrains named spans inside the pattern it wraps, so it
+  // cannot be peeled and asked of the match text alone: the pattern parser
+  // reads it where it stands and the verifier evaluates it with the parse.
+  if (isRelationName(name)) return null;
   // The closing brace must be *this* wrapper's. Checking only that the query
   // ends in "}" let `{palindrome:A}{bank:xyz}` through as one wrapper whose
   // inner pattern was `A}{bank:xyz`, which then failed as a pattern error

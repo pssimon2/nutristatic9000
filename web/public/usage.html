@@ -147,6 +147,18 @@ crosswords; the search box applies the same folding to whatever you type.
 <p>This build adds features on top of the original Nutristatic. So far:</p>
 
 <ul>
+<li><b>Captures and relations — <tt>{=a:…}</tt>, <tt>{eq a,b:…}</tt>,
+<tt>{rev a,b:…}</tt>, <tt>{shift a,b:…}</tt></b>. Name the span a pattern
+covers with <tt>{=name:…}</tt>, then relate two names: <tt>eq</tt> says they
+read the same, <tt>rev</tt> that one is the other reversed, <tt>shift</tt>
+that one is the other Caesar-shifted (<tt>shift13</tt> pins the shift; bare
+<tt>shift</tt> finds any, and reports the one that matched).
+<tt><a href="./?q=%7Brev%20a%2Cb%3A%7B%3Da%3AA%7B3%2C5%7D%7D%20%7B%3Db%3AA%7B3%2C5%7D%7D%7D">{rev a,b:{=a:A{3,5}} {=b:A{3,5}}}</a></tt>
+finds "saw was", "era are" and "and dna" — semordnilap pairs the corpus
+actually contains. Captures are transparent to the search; the relation is
+checked on each finished match, against the spans some consistent parse
+assigns. Relations nest anywhere a predicate does.
+
 <li><b>Letter-value arithmetic — <tt>{sum=100:expr}</tt>,
 <tt>{scrabble&gt;25:expr}</tt></b>. Constrains the total of a match's letter
 values: <tt>sum</tt> uses a=1…z=26, <tt>scrabble</tt> uses tile values. Write
@@ -487,6 +499,9 @@ whole query; the rest compose anywhere.
 <tr><td><tt>match.syllables</tt></td><td>how many syllables, by pronunciation</td><td><tt><a href="./?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt></td></tr>
 <tr><td><tt>match.stress</tt></td><td>a metrical stress shape, 1 strong 0 weak</td><td><tt><a href="./?q=%7Bstress%20010%3AA%7B8%7D%7D">{stress 010:A{8}}</a></tt></td></tr>
 <tr><td><tt>match.anagram</tt></td><td>rearranges a word, a list or whatever a pattern names</td><td><tt><a href="./?q=%7Banagram%20countries%3AA%7B6%7D%7D">{anagram countries:A{6}}</a></tt></td></tr>
+<tr><td><tt>match.eq</tt></td><td>two parts named with {=a:…} read the same</td><td><tt><a href="./?q=%7Beq%20a%2Cb%3A%7B%3Da%3AA%7B2%2C4%7D%7D%20%7B%3Db%3AA%7B2%2C4%7D%7D%7D">{eq a,b:{=a:A{2,4}} {=b:A{2,4}}}</a></tt></td></tr>
+<tr><td><tt>match.rev</tt></td><td>one named part is the other reversed</td><td><tt><a href="./?q=%7Brev%20a%2Cb%3A%7B%3Da%3AA%7B2%2C4%7D%7D%20%7B%3Db%3AA%7B2%2C4%7D%7D%7D">{rev a,b:{=a:A{2,4}} {=b:A{2,4}}}</a></tt></td></tr>
+<tr><td><tt>match.shift</tt></td><td>one named part is the other Caesar-shifted</td><td><tt><a href="./?q=%7Bshift13%20a%2Cb%3A%7B%3Da%3AA%7B3%7D%7D%20%7B%3Db%3AA%7B3%7D%7D%7D">{shift13 a,b:{=a:A{3}} {=b:A{3}}}</a></tt></td></tr>
 </table>
 <!-- REFERENCE:END -->
 

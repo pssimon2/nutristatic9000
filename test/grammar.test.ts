@@ -185,7 +185,11 @@ describe("every construct is at the level the catalogue claims", () => {
               ? "{stress 010:A{9}}"
               : name === "anagram"
                 ? "{anagram countries:A{5}}"
-                : `{${name}:A{5}}`;
+                : name === "eq" || name === "rev"
+                  ? `{${name} a,b:{=a:A{3}} {=b:A{3}}}`
+                  : name === "shift"
+                    ? "{shift13 a,b:{=a:A{3}} {=b:A{3}}}"
+                    : `{${name}:A{5}}`;
       expect(await works(`A{4}&${spec}`), `${spec} intersected`).toBe(true);
     }
   }, 120000);
