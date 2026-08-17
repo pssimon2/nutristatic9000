@@ -1,5 +1,6 @@
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
 import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
+import { type IndexManifest, parseManifest, transliterateQuery } from "../src/manifest.js";
 import { derivedNote } from "../src/match-notes.js";
 import { type Stats, formatStats } from "../src/stats.js";
 import { type Completion, completionsAt } from "../src/complete.js";
@@ -465,43 +466,33 @@ function actionButton(label: string, onClick: () => void): HTMLButtonElement {
 }
 
 /**
- * Match the index's text normalization in queries. The German index uses
- * the ae/oe/ue/ss digraph convention; all other corpora fold diacritics to
- * base letters (à→a, ñ→n, ç→c) with the œ→oe/æ→ae digraph exceptions.
- *
- * This one stays in the page rather than moving to src/ with the rest of the
- * query handling, because it is not query-language knowledge: it is a property
- * of the index being searched, and it has to run *before* parsing. Which rule
- * applies is currently guessed from the index's file name, which is why it
- * cannot follow a custom index URL.
- *
- * TODO(F1: manifest): read the transliteration rules from the index's manifest
- * sidecar instead of pattern-matching its name.
+ * Which rules `transliterate` uses: the index's manifest when it has one
+ * (fetched below), the file-name heuristic otherwise. See src/manifest.ts.
  */
+let indexManifest: IndexManifest | null = null;
+
+// The manifest sidecar (F1): `<index>.meta.json` beside the index. Optional,
+// fetched in the background; queries before it arrives use the file-name
+// heuristic, which is what every query used before manifests existed.
+if (!OFFLINE) {
+  void fetch(`${indexUrl}.meta.json`)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((json) => {
+      indexManifest = json === null ? null : parseManifest(json);
+      if (indexManifest?.description) {
+        indexInfo.title = indexManifest.description;
+      }
+    })
+    .catch(() => {
+      // No manifest is the normal case.
+    });
+}
+
 function transliterate(query: string): string {
-  // Decide from the file name, not a substring of the whole URL (a custom
-  // URL merely containing "de-wiki" in its path must not get German rules).
-  // Offline uses the picked file's name; online the index URL's basename.
   const basename = OFFLINE
     ? offlineName
     : new URL(indexUrl).pathname.split("/").pop() ?? "";
-  if (/^de[-_.]/.test(basename)) {
-    return query
-      .replace(/[äÄ]/g, "ae")
-      .replace(/[öÖ]/g, "oe")
-      .replace(/[üÜ]/g, "ue")
-      .replace(/[ßẞ]/g, "ss");
-  }
-  return query
-    .replace(/[œŒ]/g, "oe")
-    .replace(/[æÆ]/g, "ae")
-    .replace(/[ßẞ]/g, "ss")
-    .replace(/[łŁ]/g, "l") // these four don't decompose under NFD
-    .replace(/[ıİ]/g, "i")
-    .replace(/[đĐ]/g, "d")
-    .replace(/[øØ]/g, "o")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+  return transliterateQuery(query, indexManifest, basename);
 }
 
 // The step/byte/time budget for one run, by mode. Range mode caps on bytes

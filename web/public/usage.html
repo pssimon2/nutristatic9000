@@ -147,6 +147,20 @@ crosswords; the search box applies the same folding to whatever you type.
 <p>This build adds features on top of the original Nutristatic. So far:</p>
 
 <ul>
+<li><b>Remote word lists — <tt>{list:https://…/birds.txt}</tt></b>. A URL
+as the list argument fetches the list — one entry per line, <tt>#</tt>
+comments ignored, up to 20,000 entries — and uses it like any named list,
+anagram argument included. The server must allow cross-origin reads
+(CORS: <tt>Access-Control-Allow-Origin</tt>); a fetch that fails says so
+instead of failing as a pattern error. Fetched once per session.
+
+<li><b>Index manifests — <tt>my.index.meta.json</tt></b>. A custom index may
+put a JSON sidecar beside itself naming its <tt>description</tt>, its
+<tt>language</tt>, and the <tt>transliterate</tt> pairs its text was
+normalized with (<tt>[["ä","ae"], …]</tt>) — so a German-normalized index
+served under any file name still folds umlauts the way its corpus did,
+instead of the page guessing from the file name.
+
 <li><b>Weighted search — <tt>{~near:king}</tt>, <tt>{edit:cargo}</tt></b>.
 A soft construct boosts instead of filtering: <tt>{~near:king}</tt>,
 <tt>{~rhyme:day}</tt>, <tt>{~homo:knight}</tt>, <tt>{~like:reluctant}</tt>,

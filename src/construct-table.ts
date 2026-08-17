@@ -164,6 +164,24 @@ const wordLookups: Record<string, ConstructBuild> = {
   list: {
     argKind: "literal",
     build: ({ arg, ctx, text }) => {
+      // A URL is a remote list (F3): the host fetched it before compiling —
+      // see remoteListUrls — and a miss here means the fetch failed or has
+      // not landed, both retryable.
+      const url = arg.trim();
+      if (/^https?:\/\//i.test(url)) {
+        const entries = ctx.remoteLists.get(url);
+        if (entries === undefined) {
+          needsData(
+            text,
+            `{list:${url}} could not be fetched — the server has to allow ` +
+              "cross-origin reads (CORS), and the list is one entry per line",
+          );
+        }
+        if (entries.length === 0) {
+          throw new ParseError(text, `{list:${url}} fetched, but held no entries`);
+        }
+        return fromEntries(entries);
+      }
       const list = listNfa(arg, ctx.lists);
       if (list) return [list];
       const asked = arg.trim();

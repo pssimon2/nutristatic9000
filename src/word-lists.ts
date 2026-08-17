@@ -305,6 +305,36 @@ export function suggestList(
  * run on categories nobody could ship in advance, and an inline list needs no
  * settings screen and travels in the URL like the rest of the query.
  */
+/** The remote-list URLs a query names (F3), in order of appearance. */
+export function remoteListUrls(query: string): string[] {
+  const out: string[] = [];
+  const re = /\{\s*~?\s*(?:word\.)?list\s*:\s*(https?:\/\/[^}\s]+)\s*\}/gi;
+  for (const m of query.matchAll(re)) {
+    if (!out.includes(m[1])) out.push(m[1]);
+  }
+  return out;
+}
+
+/** Cap on entries read from one remote list, matching the anagram set cap. */
+export const REMOTE_LIST_CAP = 20000;
+
+/**
+ * A fetched remote list: one entry per line, normalized like every other
+ * list, blank lines and `#` comments dropped, capped.
+ */
+export function parseRemoteList(text: string): string[] {
+  const out: string[] = [];
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (t === "" || t.startsWith("#")) continue;
+    const entry = normalizeEntry(t);
+    if (entry === "") continue;
+    out.push(entry);
+    if (out.length >= REMOTE_LIST_CAP) break;
+  }
+  return out;
+}
+
 export function listNfa(
   nameOrEntries: string,
   lists: WikiLists | null = null,

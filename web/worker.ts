@@ -72,6 +72,7 @@ import {
   type FilterSpec,
   parseFilterWrappers,
 } from "../src/result-filter.js";
+import { parseRemoteList, remoteListUrls } from "../src/word-lists.js";
 import { compileConjuncts, compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
 import { SearchSession } from "../src/search-session.js";
@@ -1152,6 +1153,18 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           }
           if (token !== runToken) return;
         }
+        // Remote word lists (F3): fetched before compilation, kept for the
+        // session. A failure stays unfetched and the compile explains it.
+        for (const url of remoteListUrls(currentQuery)) {
+          if (ctx.remoteLists.has(url)) continue;
+          try {
+            const r = await fetch(url);
+            if (r.ok) ctx.remoteLists.set(url, parseRemoteList(await r.text()));
+          } catch {
+            // CORS or network: the compile error names the requirement.
+          }
+        }
+        if (token !== runToken) return;
         // Ordering by closeness needs the same list the pattern was built
         // from — including its count, which a second regex here used to drop.
         nearOrder = null;

@@ -39,7 +39,17 @@ export class SessionContext {
   categories: Categories | null = null;
   neighbours: Neighbours | null = null;
   thesaurus: Thesaurus | null = null;
+  /**
+   * Remote word lists (F3): `{list:https://…/birds.txt}`, fetched by the host
+   * before compilation — the worker and the CLI each fetch the URLs
+   * `remoteListUrls` finds in the query — and cached here for the session.
+   * Keyed by the URL as written.
+   */
+  remoteLists = new Map<string, string[]>();
 }
 
-/** The datasets a query needs, as reported by the `needsX` sniffers. */
-export type DataKey = keyof SessionContext;
+/**
+ * The datasets a query needs, as reported by the `needsX` sniffers. Remote
+ * lists are not one: they are keyed by URL, not by a fixed provider row.
+ */
+export type DataKey = Exclude<keyof SessionContext, "remoteLists">;

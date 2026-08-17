@@ -1007,18 +1007,25 @@ below is planned.
 
 ## Phase F — Flexibility
 
-- [ ] **F1. Index manifest sidecar.** `my.index.meta.json`: language,
-  description, transliteration rules, data-pack URLs, (later) alphabet.
-  The *only* per-index configuration channel. Replaces the filename-regex
-  transliteration in `main.ts:449`. Indexes without a manifest keep
-  today's defaults.
+- [x] **F1. Index manifest sidecar.** *(done 2026-08-17.)*
+  `my.index.meta.json`: description, language, transliteration pairs —
+  parsed tolerantly in src/manifest.ts, fetched in the background by the
+  page, and the transliteration moved out of main.ts into
+  `transliterateQuery` (manifest pairs first, then the generic fold;
+  `language: "de"` selects the digraph rules; no manifest keeps the
+  filename heuristic exactly). Data-pack URLs and the alphabet stay
+  reserved fields for F2/F6.
 - [ ] **F2. Per-language data packs.** Provider registry (C6) keyed by the
   manifest's language: `phonetics-de.txt`, `categories-fr.txt` built by
   the existing `scripts/build-*.mjs` pattern. Constructs light up per
   index instead of failing English-only.
-- [ ] **F3. Remote word lists.** `{list:https://…/birds.txt}` — fetch,
-  cache on the context, document the CORS requirement. Hunt teams' shared
-  lists become directly usable.
+- [x] **F3. Remote word lists.** *(done 2026-08-17.)*
+  `{list:https://…/birds.txt}`: the worker and the CLI fetch the URLs
+  `remoteListUrls` finds before compiling (one entry per line, `#`
+  comments, normalized, capped at 20,000), cache them on
+  `SessionContext.remoteLists`, and the compile error for a failed fetch
+  names the CORS requirement and is retryable. Works everywhere a list
+  works, `{anagram {list:URL}:…}` included.
 - [ ] **F4. Declarative construct packs.** JSON packs for table-driven
   constructs (`{name, type: "value-table" | "letter-class" |
   "substitution", data}`) loadable per session — custom keyboard layouts,

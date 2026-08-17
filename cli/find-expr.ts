@@ -19,6 +19,7 @@ import { applyResultFilters } from "../src/result-predicate.js";
 import { type FilterSpec, parseFilterWrappers } from "../src/result-filter.js";
 import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { makeWordChecker } from "../src/index-words.js";
+import { parseRemoteList, remoteListUrls } from "../src/word-lists.js";
 import {
   SourceStats,
   emptyStats,
@@ -122,6 +123,16 @@ for (const provider of providersFor(expr)) {
     }
   } catch {
     // Left unloaded: the parser reports what is missing.
+  }
+}
+
+// Remote word lists (F3): the CLI fetches them like the worker does.
+for (const url of remoteListUrls(expr)) {
+  try {
+    const r = await fetch(url);
+    if (r.ok) ctx.remoteLists.set(url, parseRemoteList(await r.text()));
+  } catch {
+    // The compile error explains what was needed.
   }
 }
 
