@@ -565,6 +565,8 @@ let slotBytesSpent = 0;
 let slotBytesAtStart = 0;
 /** Last lifetime byte count the worker reported, for the subtraction above. */
 let lastFetchedBytes = 0;
+/** True while re-running slots the reader asked to push further. */
+let slotRetry = false;
 const slotsEl = document.createElement("div");
 
 function slotLetters(slot: Slot): string | null {
@@ -646,9 +648,38 @@ function renderSlots(): void {
 /** Run the next unfinished slot, or finish. */
 function runNextSlot(): void {
   if (!slots) return;
+  // Skip what is already answered: a retry moves through the same list and
+  // must not search a slot that finished.
+  while (slotIndex < slots.length && slots[slotIndex].done) ++slotIndex;
   if (slotIndex >= slots.length) {
     renderSlots();
-    afterEl.textContent = `${slots.length} slots.`;
+    afterEl.textContent = `${slots.length} slots. `;
+    // Slots share one budget, so a later one can run out with answers still
+    // to find. Single-slot searches have always offered to try harder; this
+    // is the same offer, for the slots that need it.
+    const short = slots.filter(needsMoreBudget);
+    if (short.length > 0) {
+      // Lead with the download where there is one, as the single-slot path
+      // does: pushing several slots further costs a budget each, and a hunt
+      // asks the same slots more than once, so the one-off transfer is very
+      // often the cheaper of the two — and it makes every later slot instant
+      // rather than buying one more page of this one.
+      if (!dlFull.hidden) {
+        afterEl.append(
+          actionButton(
+            `Download it once (${fmtSize(downloadBytes)}) for instant results »`,
+            startFullDownload,
+          ),
+          document.createElement("br"),
+        );
+      }
+      afterEl.append(
+        actionButton(
+          `or search ${short.length} unfinished slot${short.length === 1 ? "" : "s"} further »`,
+          retryUnfinishedSlots,
+        ),
+      );
+    }
     return;
   }
   const slot = slots[slotIndex];
@@ -698,11 +729,45 @@ function runNextSlot(): void {
 function slotBudget(): { maxSteps: number; byteBudget: number; timeMs: number } {
   const budget = runBudget();
   if (budget.byteBudget === 0) return budget; // local index: no byte cost
+  if (slotRetry) return budget; // asked for: a full budget for each slot
   const left = RANGE_BYTE_BUDGET - slotBytesSpent;
   return {
     ...budget,
     byteBudget: Math.max(Math.floor(RANGE_BYTE_BUDGET / 8), left),
   };
+}
+
+/**
+ * Worth spending more on: it stopped on the budget, and there is still room
+ * in the picker. A slot that already offers three candidates has nowhere to
+ * put a fourth, so re-running it would buy the reader nothing.
+ */
+function needsMoreBudget(slot: Slot): boolean {
+  return slot.status === "limit" && slot.results.length < 3;
+}
+
+/** Re-run the slots that ran out of budget, with a budget each. */
+function retryUnfinishedSlots(): void {
+  if (!slots) return;
+  // A fresh allowance because the reader asked for it, which is the same
+  // contract "Try harder" has always had on a single-slot search.
+  slotBytesSpent = 0;
+  slotBytesAtStart = lastFetchedBytes;
+  // A budget each this time, not a shared one. Sharing exists so that asking
+  // for a dozen slots does not silently cost a dozen queries; this is the
+  // reader asking, having been told which slots came up short, and repeating
+  // the same shared allowance would just reproduce the same stopping point.
+  slotRetry = true;
+  for (const slot of slots) {
+    if (!needsMoreBudget(slot)) continue;
+    slot.done = false;
+    slot.status = null;
+    slot.results = [];
+    slot.chosen = 0;
+  }
+  slotIndex = 0;
+  afterEl.textContent = "";
+  runNextSlot();
 }
 
 function startMultiSlot(queries: string[]): void {
@@ -719,6 +784,7 @@ function startMultiSlot(queries: string[]): void {
   }));
   slotIndex = 0;
   slotBytesSpent = 0;
+  slotRetry = false;
   slotBytesAtStart = lastFetchedBytes;
   currentComp =
     parseInt(new URLSearchParams(location.search).get("comp") || "", 10) ||
