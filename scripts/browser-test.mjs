@@ -760,6 +760,39 @@ if (/no match/.test(emptySlotRows[1])) {
   throw new Error(`an impossible slot must not claim the corpus was searched: ${emptySlotRows[1]}`);
 }
 
+// Slots share one budget, so a later slot can stop with answers still to find
+// and the page offers to push the ones that came up short. A small ?comp
+// makes that state reproducible: the searches stop on the step limit rather
+// than on anything about the corpus.
+await page.goto(base + "?index=./demo.index&comp=400&q=" +
+  encodeURIComponent("{at 1:A{6}&.*zzz.*} ; {at 1:A{7}&.*qq.*}"));
+const slotsSettled = async () => {
+  await page.waitForFunction(
+    () => /slots\./.test(document.getElementById("after").textContent),
+    null, { timeout: 90000 });
+  await page.waitForTimeout(1200);
+};
+await slotsSettled();
+const slotsBefore = await page.$$eval("table.slots tr", (t) =>
+  t.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
+console.log("slots before retry:", slotsBefore.map((r) => r.slice(0, 30)).join(" / "));
+const further = await page.$("#after button:has-text('further')");
+if (!further) throw new Error("no offer to push the slots that ran short");
+
+await further.click();
+await page.waitForTimeout(500);
+await slotsSettled();
+const slotsAfter = await page.$$eval("table.slots tr", (t) =>
+  t.map((x) => x.textContent.replace(/\s+/g, " ").trim()));
+console.log("slots after retry: ", slotsAfter.map((r) => r.slice(0, 30)).join(" / "));
+// The retry must not cost answers already found — neither in the slots it
+// re-runs nor in the ones it leaves alone.
+for (let i = 0; i < slotsBefore.length; ++i) {
+  if (/no match|nothing found|cannot match/.test(slotsAfter[i])) {
+    throw new Error(`retry emptied a slot that had answers: ${slotsBefore[i]} -> ${slotsAfter[i]}`);
+  }
+}
+
 // A harvested list: not in the bundle, so the worker has to fetch the
 // catalogue before it can compile the query at all.
 await page.goto(

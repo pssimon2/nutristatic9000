@@ -758,6 +758,11 @@ function retryUnfinishedSlots(): void {
   // reader asking, having been told which slots came up short, and repeating
   // the same shared allowance would just reproduce the same stopping point.
   slotRetry = true;
+  // Locally there is no byte budget to widen — the limit is steps — so the
+  // same reasoning applies to those: re-running with the budget that already
+  // ran out stops in the same place. `tryHarder` doubles it for a single-slot
+  // search; this is that, for slots.
+  if (indexMode !== "range") currentComp *= 2;
   for (const slot of slots) {
     if (!needsMoreBudget(slot)) continue;
     slot.done = false;
