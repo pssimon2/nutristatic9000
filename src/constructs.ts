@@ -202,6 +202,20 @@ export function foldName(
 }
 
 /**
+ * The name dispatch sees for a construct written as `written`.
+ *
+ * A construct's name lexes as letters, so trailing digits land in the spec:
+ * `{row1:…}` arrives as "row" with spec "1", `{del1:…}` as "del" with "1".
+ * The catalogue lists what a reader writes — `row1`, `rot13` — and anything
+ * keyed by what dispatch receives has to fold the two together, or it keys
+ * rows nothing can ever reach.
+ */
+export function dispatchName(written: string): string {
+  const split = /^([a-z]*)(\d*)$/.exec(written);
+  return split ? foldName(split[1], split[2]).name : written;
+}
+
+/**
  * Resolve a written name, which may carry a group prefix. Returns the
  * construct, or a message explaining what is wrong with the token.
  *

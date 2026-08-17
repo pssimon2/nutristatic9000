@@ -304,25 +304,30 @@ Goal: mechanical, low-risk changes that everything later depends on.
   `emit`/`flushPending` in `worker.ts:1511`, rank/at logic in `main.ts`).
   Fixes known divergences: CLI gains `{near}` ordering; rank/filter
   interplay identical everywhere.
-- [ ] **C4. Construct registry.** One table replaces three dispatchers
-  (the ~240-line chain in `expr-parse.ts:361`, the `NAMES` list in
-  `result-filter.ts:21`, the wrapper parsers in `extract-spec.ts`):
-  ```ts
-  interface Construct {
-    name: string;
-    level: "automaton" | "predicate" | "transform";
-    argKind: "pattern" | "literal" | "none";
-    dataNeeds?: DataKey[];
-    docs: { summary: string; example: string };
-    compile(spec: string, inner: AstNode | null, ctx): CompileResult;
-  }
-  ```
-  Split `value-constraint.ts` (635 lines: counters, banks, ciphers, edits,
-  encodings, classes) into per-feature modules under
-  `src/engine/language/constructs/`, each registering itself.
-  `suggestConstruct` ("did you mean") now covers *every* name at every
-  level. Acceptance test: adding a construct = one new file + one
-  registration line + tests.
+- [~] **C4. Construct registry.** *(dispatch done 2026-08-17; the per-feature
+  file split is not.)* The parser's eleven-branch `if (name === …)` chain is
+  now `src/construct-table.ts`: one row per construct, each saying how its
+  argument is read and what it builds. `expr-parse.ts` 841 → 656 lines, and
+  what is left of it parses rather than knowing what `{rhyme:…}` means.
+  Arguments come in three kinds, and naming them is most of what the chain was
+  repeating by hand: `literal` (the text is data — `{rhyme:tree}`,
+  `{sub:cryptography}`), `wrap` (the argument is a pattern this intersects
+  with — `{sum=100:A*}`), `inner` (the argument is a pattern this is *about*,
+  built separately — `{del1:beast}`).
+  `construct-table.test.ts` holds the catalogue and the table together: every
+  automaton-level name reaches a row, every row is reachable by writing
+  something, and no predicate or transform has strayed into the automaton
+  path. Writing it found four dead rows — `rot13`, `row1`, `row2`, `row3` are
+  names a reader writes but never what dispatch receives, since a name lexes
+  as letters and the digits land in the spec. `dispatchName` is now the one
+  place that rule lives.
+  Measured against the item's own acceptance test: adding a construct took two
+  edits — one catalogue row, one table row with its builder — and worked
+  end to end with no other change, the cross-check and completion tests
+  passing unmodified.
+  Still open: splitting `value-constraint.ts` (713 lines) into per-feature
+  modules under `src/engine/language/constructs/`, which wants S4's directory
+  reshape; and `dataNeeds` on the rows, which C6 needs.
 - [ ] **C5. Slots first-class.** `;` parsed in C2's grammar; CLI gains
   multi-slot with the assembled extraction line; a whole-query wrapper
   outside slots applies per-slot. `main.ts` slot UI consumes SlotPlan

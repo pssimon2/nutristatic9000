@@ -34,6 +34,7 @@ import {
   optimize,
 } from "./automata.js";
 import { Conjunct, isNegated } from "./conjunct.js";
+import { CONSTRUCTS } from "./construct-table.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import {
@@ -472,230 +473,44 @@ function parseNamedConstraint(
   const folded = foldName(token.slice(token.lastIndexOf(".") + 1), spec);
   const name = folded.name;
   spec = folded.spec;
-  if (name === "kind") {
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!ctx.categories) {
-      throw new ParseError(
-        constructText(s, i),
-        "{kind:…} needs the category data, which this build could not load",
-        true,
-      );
+  const construct = CONSTRUCTS[name];
+  let conjuncts: Nfa[] | null = null;
+  // Where the construct ends: past its closing brace. The three argument
+  // kinds differ only in how much of the text belongs to the construct and
+  // how it is read — see construct-table.ts.
+  let after: number | null = null;
+  if (construct) {
+    const text = constructText(s, i);
+    const from = i + head[0].length;
+    if (construct.argKind === "literal") {
+      const close = s.indexOf("}", i);
+      if (close < 0) return null;
+      conjuncts = construct.build({
+        name, spec, arg: s.slice(from, close), inner: null, ctx, text,
+      });
+      after = close + 1;
+    } else if (construct.argKind === "inner") {
+      // A box of its own, parsed quoted: the argument is what the construct
+      // is *about*, not something to intersect the pattern with.
+      const argBox = new Box();
+      const p = parseExprBox(s, from, argBox, true, ctx);
+      if (p === null || s[p] !== "}") return null;
+      conjuncts = construct.build({
+        name, spec, arg: "", inner: argBox.materialize(), ctx, text,
+      });
+      after = p + 1;
+    } else {
+      conjuncts = construct.build({
+        name, spec, arg: "", inner: null, ctx, text,
+      });
+      // "wrap": the argument is a pattern this intersects with, so it is
+      // parsed into the caller's box and the conjuncts join it below.
     }
-    if (word === "") {
-      throw new ParseError(
-        constructText(s, i),
-        "{kind:…} needs a category name — e.g. {kind:bird}",
-      );
+    if (conjuncts && after !== null) {
+      box.and = conjuncts;
+      return after;
     }
-    const kinds = kindsOf(ctx.categories, word);
-    if (!kinds) {
-      throw new ParseError(
-        constructText(s, i),
-        `no category "${word}" — either WordNet has no such noun or verb, or ` +
-          `it covers more than ${MAX_CATEGORY} names and is too broad to be a clue`,
-      );
-    }
-    const nfa = entriesNfa(kinds);
-    if (!nfa) return null;
-    box.and = [nfa];
-    return close + 1;
   }
-  if (name === "near") {
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    // An optional count: {near 60:word} widens the net.
-    const limit = /^\s*(\d+)\s*$/.exec(spec);
-    if (spec.trim() !== "" && !limit) return null;
-    const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!ctx.neighbours) {
-      throw new ParseError(
-        constructText(s, i),
-        "{near:…} needs the meaning table, which this build could not load",
-        true,
-      );
-    }
-    const words = nearestTo(ctx.neighbours, word, limit ? +limit[1] : 32);
-    if (!words) {
-      throw new ParseError(
-        constructText(s, i),
-        `"${word}" is not in the meaning vocabulary (the 60,000 commonest ` +
-          "words); {like:…} covers a much larger dictionary",
-      );
-    }
-    const nfa = entriesNfa(words);
-    if (!nfa) return null;
-    box.and = [nfa];
-    return close + 1;
-  }
-  if (name === "like") {
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!ctx.thesaurus) {
-      throw new ParseError(
-        constructText(s, i),
-        "{like:…} needs the thesaurus, which this build could not load",
-        true,
-      );
-    }
-    const words = relatedTo(ctx.thesaurus, word);
-    if (!words) {
-      throw new ParseError(
-        constructText(s, i),
-        `the thesaurus doesn't know "${word}"`,
-      );
-    }
-    const nfa = entriesNfa(words);
-    if (!nfa) return null;
-    box.and = [nfa];
-    return close + 1;
-  }
-  if (name === "rhyme" || name === "homo") {
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const word = normalizeEntry(s.slice(i + head[0].length, close));
-    if (!ctx.phonetics) {
-      throw new ParseError(
-        constructText(s, i),
-        `{${name}:…} needs the pronunciation dictionary, which this build ` +
-          "could not load",
-        true,
-      );
-    }
-    const words =
-      name === "rhyme"
-        ? rhymesOf(ctx.phonetics, word)
-        : homophonesOf(ctx.phonetics, word);
-    if (!words) {
-      throw new ParseError(
-        constructText(s, i),
-        `the pronouncing dictionary doesn't know "${word}"` +
-          (name === "rhyme" ? "" : ", or it has no homophone"),
-      );
-    }
-    const nfa = entriesNfa(words);
-    if (!nfa) return null;
-    box.and = [nfa];
-    return close + 1;
-  }
-  if (name === "list") {
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const list = listNfa(s.slice(i + head[0].length, close), ctx.lists);
-    if (!list) {
-      const asked = s.slice(i + head[0].length, close).trim();
-      if (asked === "") {
-        throw new ParseError(
-          constructText(s, i),
-          "{list:…} needs a list name — e.g. {list:greek} — or your own " +
-            "entries separated by commas",
-        );
-      }
-      const near = suggestList(asked, ctx.lists);
-      throw new ParseError(
-        constructText(s, i),
-        `no such list "${asked}"` +
-          (near ? ` — did you mean "${near}"?` : "") +
-          " — or write entries with commas to give your own",
-        // The harvested catalogue may simply not be fetched yet.
-        ctx.lists === null,
-      );
-    }
-    box.and = [list];
-    return close + 1;
-  }
-  if (name === "morse") {
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const m = morseNfa(s.slice(i + head[0].length, close));
-    if (!m || spec.trim() !== "") {
-      throw new ParseError(
-        constructText(s, i),
-        `{morse:…} takes dots and dashes (up to ${MAX_PATTERN_LENGTH})`,
-      );
-    }
-    box.and = [m];
-    return close + 1;
-  }
-  if (name === "elements") {
-    // Unlike the other encodings this wraps a pattern: it constrains how the
-    // match is spelled rather than supplying the text.
-    if (spec.trim() !== "") return null;
-    const p = parseExprBox(s, i + head[0].length, box, quoted, ctx);
-    if (p === null || s[p] !== "}") return null;
-    box.and.push(elementsNfa());
-    return p + 1;
-  }
-  if (["t9", "enum"].includes(name)) {
-    // Encodings take a literal argument (digits, or a list of word lengths).
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const enc = encodingNfa(name, spec, s.slice(i + head[0].length, close));
-    if (!enc) {
-      throw new ParseError(
-        constructText(s, i),
-        name === "t9"
-          ? `{t9:…} takes keypad digits 2-9 (up to ${MAX_PATTERN_LENGTH})`
-          : "{enum:…} takes word lengths — each 1-40, " +
-            `${MAX_PATTERN_LENGTH} letters in total — e.g. {enum:4,3,5}`,
-      );
-    }
-    box.and = [enc];
-    return close + 1;
-  }
-  if (["caesar", "rot", "atbash"].includes(name)) {
-    // Ciphers transform a literal, so the atom is the transformed text.
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const cipher = cipherNfa(name, spec, s.slice(i + head[0].length, close));
-    if (!cipher) {
-      throw new ParseError(
-        constructText(s, i),
-        `{${name}…} takes literal text, and rot/caesar take a shift`,
-      );
-    }
-    box.and = [cipher];
-    return close + 1;
-  }
-  if (["del", "add", "subst", "edit"].includes(name)) {
-    // Edits wrap whatever is inside, not just a literal: `{del1:beast}` is one
-    // letter off a word, `{del1:{kind:instrument}}` is one letter off *any*
-    // instrument. Parsed in quoted mode, so a bare word is the exact letter
-    // chain it looks like rather than a pattern that may skip spaces.
-    const inner = new Box();
-    const p = parseExprBox(s, i + head[0].length, inner, true, ctx);
-    if (p === null || s[p] !== "}") return null;
-    const edit = editConstraint(name, spec, inner.materialize());
-    if (!edit) {
-      throw new ParseError(
-        constructText(s, i),
-        `{${name}…} takes a word or a pattern and up to 5 edits — e.g. ` +
-          `{del1:beast} or {del1:{kind:instrument}}. A big set with ` +
-          `substitutions or insertions is too large to build; try {del…}, or ` +
-          `narrow the set.`,
-      );
-    }
-    box.and = [edit];
-    return p + 1;
-  }
-  if (name === "sub" || name === "bank") {
-    // These take a literal bag of letters, not a pattern: the atom *is* the
-    // constraint, so there is nothing further to parse inside.
-    const close = s.indexOf("}", i);
-    if (close < 0) return null;
-    const bank = bankConstraint(s.slice(i + head[0].length, close), name);
-    if (!bank) {
-      throw new ParseError(
-        constructText(s, i),
-        `{${name}:…} takes letters — e.g. {sub:cryptography}`,
-      );
-    }
-    box.and = bank;
-    return close + 1;
-  }
-  const conjuncts = namedConstraint(name, spec) ?? classConstraint(name, spec);
   if (!conjuncts) {
     const whole = s.slice(i, s.indexOf("}", i) + 1 || undefined);
     const known = findConstruct(name);
