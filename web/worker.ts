@@ -73,6 +73,7 @@ import {
   parseFilterWrappers,
 } from "../src/result-filter.js";
 import { parseRemoteList, remoteListUrls } from "../src/word-lists.js";
+import { installPack, parsePack } from "../src/packs.js";
 import { compileConjuncts, compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
 import { SearchSession } from "../src/search-session.js";
@@ -160,6 +161,8 @@ let wordChecker: WordCheck | null = null;
 // The pronouncing dictionary is ~400 KB over the wire and only some queries
 // need it, so it is fetched the first time one does and kept thereafter.
 const extraLoads = new Map<string, Promise<void>>();
+/** Pack URLs already fetched (F4), so a re-post costs nothing. */
+const loadedPacks = new Set<string>();
 
 // ---- A4 + A3: reuse across queries in one session ----
 /**
@@ -1109,6 +1112,24 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
   yieldChannel.port2.postMessage(0);
   try {
     switch (msg.type) {
+      case "load-packs": {
+        for (const url of msg.urls) {
+          if (loadedPacks.has(url)) continue;
+          loadedPacks.add(url);
+          try {
+            const r = await fetch(url);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            installPack(ctx, parsePack(await r.json()));
+          } catch (e) {
+            loadedPacks.delete(url); // a later message may retry
+            post({
+              type: "error",
+              message: `construct pack ${url}: ${e instanceof Error ? e.message : String(e)}`,
+            });
+          }
+        }
+        break;
+      }
       case "open":
         ++runToken;
         // Another corpus: cached results are not answers here.

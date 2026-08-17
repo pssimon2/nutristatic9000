@@ -46,10 +46,16 @@ export class SessionContext {
    * Keyed by the URL as written.
    */
   remoteLists = new Map<string, string[]>();
+  /**
+   * Construct packs (F4): table-driven constructs installed by the host —
+   * the page fetches pack JSON and hands it to the worker, the CLI takes
+   * --pack. Keyed by construct name; see src/packs.ts.
+   */
+  packs = new Map<string, import("./packs.js").PackConstruct>();
 }
 
 /**
  * The datasets a query needs, as reported by the `needsX` sniffers. Remote
  * lists are not one: they are keyed by URL, not by a fixed provider row.
  */
-export type DataKey = Exclude<keyof SessionContext, "remoteLists">;
+export type DataKey = Exclude<keyof SessionContext, "remoteLists" | "packs">;

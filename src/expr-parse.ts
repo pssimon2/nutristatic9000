@@ -35,6 +35,7 @@ import {
 } from "./automata.js";
 import { Conjunct, isNegated } from "./conjunct.js";
 import { CONSTRUCTS, softConjunct } from "./construct-table.js";
+import { packAdvice, packConjuncts } from "./packs.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import { FilterError, parseFilterSpec } from "./result-filter.js";
@@ -777,6 +778,47 @@ function parseNamedConstraint(
   const name = folded.name;
   spec = folded.spec;
   const construct = CONSTRUCTS[name];
+  // A construct pack's name (F4), folded like the built-ins — digits lex
+  // into the spec, so a pack's {row9:…} arrives as "row" + "9". Checked
+  // before the built-in table because a pack cannot shadow a built-in name
+  // (parsePack refuses), so a hit here is unambiguous even when the bare
+  // letters collide with one ("row9" beside the built-in row1..row3).
+  {
+    const packed =
+      /^\d+$/.test(spec.trim()) && ctx.packs.has(name + spec.trim())
+        ? { c: ctx.packs.get(name + spec.trim())!, spec: "" }
+        : ctx.packs.has(name)
+          ? { c: ctx.packs.get(name)!, spec }
+          : null;
+    if (packed) {
+      const text = constructText(s, i);
+      if (packed.c.type === "substitution") {
+        const close = s.indexOf("}", i);
+        if (close < 0) return null;
+        const built = packConjuncts(
+          packed.c,
+          packed.spec,
+          s.slice(i + head[0].length, close),
+        );
+        if (!built) throw new ParseError(text, packAdvice(packed.c));
+        box.and = built;
+        return close + 1;
+      }
+      const built = packConjuncts(packed.c, packed.spec, "");
+      if (!built) throw new ParseError(text, packAdvice(packed.c));
+      const p = parseExprBox(s, i + head[0].length, box, quoted, ctx);
+      if (p === null || s[p] !== "}") return null;
+      const wrappedAst = collectAst ? astOf(box) : null;
+      box.and.push(...built);
+      if (collectAst) {
+        box.ast = keepIf({
+          t: "and",
+          parts: [wrappedAst!, { t: "nfa", and: built.map(cloneConjunct) }],
+        });
+      }
+      return p + 1;
+    }
+  }
   let conjuncts: Nfa[] | null = null;
   // Where the construct ends: past its closing brace. The three argument
   // kinds differ only in how much of the text belongs to the construct and

@@ -202,6 +202,11 @@ export function namedConstraint(name: string, spec: string): Nfa[] | null {
 }
 
 /** Any string built from `allowed` (spaces always permitted). */
+/** A pack's letter-class automaton: only these letters (spaces allowed). */
+export function packAlphabetNfa(allowed: Iterable<number>): Nfa {
+  return alphabetNfa(allowed);
+}
+
 function alphabetNfa(allowed: Iterable<number>): Nfa {
   const nfa = new Nfa();
   const s = nfa.addState();

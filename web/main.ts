@@ -482,6 +482,9 @@ if (!OFFLINE) {
       if (indexManifest?.description) {
         indexInfo.title = indexManifest.description;
       }
+      if (indexManifest?.constructPacks) {
+        postToWorker({ type: "load-packs", urls: indexManifest.constructPacks });
+      }
     })
     .catch(() => {
       // No manifest is the normal case.
@@ -493,6 +496,16 @@ function transliterate(query: string): string {
     ? offlineName
     : new URL(indexUrl).pathname.split("/").pop() ?? "";
   return transliterateQuery(query, indexManifest, basename);
+}
+
+// Construct packs named in the URL (F4): ?pack=https://…/dvorak.json, once
+// per pack. The worker fetches and installs them; queries typed before the
+// install lands are re-checked on the next keystroke.
+{
+  const packUrls = params.getAll("pack").filter((u) => /^https?:\/\//.test(u));
+  if (packUrls.length > 0) {
+    postToWorker({ type: "load-packs", urls: packUrls });
+  }
 }
 
 // The step/byte/time budget for one run, by mode. Range mode caps on bytes

@@ -26,6 +26,8 @@ export interface IndexManifest {
   language?: string;
   /** Character → replacement, applied before the generic diacritic fold. */
   transliterate?: Array<[string, string]>;
+  /** Construct-pack URLs (F4) to load alongside this index. */
+  constructPacks?: string[];
 }
 
 /** Parse a fetched manifest, tolerating junk: null when unusable. */
@@ -49,6 +51,12 @@ export function parseManifest(json: unknown): IndexManifest | null {
       }
     }
     if (pairs.length > 0) out.transliterate = pairs;
+  }
+  if (Array.isArray(raw.constructPacks)) {
+    const urls = raw.constructPacks.filter(
+      (u): u is string => typeof u === "string" && /^https?:\/\//.test(u),
+    );
+    if (urls.length > 0) out.constructPacks = urls;
   }
   return out;
 }

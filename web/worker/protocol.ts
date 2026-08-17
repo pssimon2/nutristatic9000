@@ -149,7 +149,18 @@ export interface CompleteKindMsg {
   categoriesUrl?: string | null;
 }
 
+/**
+ * Construct packs (F4): URLs the page found in `?pack=` and the index
+ * manifest. The worker fetches, parses and installs them on its session; a
+ * pack that fails to parse is reported once as a non-fatal error.
+ */
+export interface LoadPacksMsg {
+  type: "load-packs";
+  urls: string[];
+}
+
 export type InMsg =
+  | LoadPacksMsg
   | OpenMsg
   | SearchMsg
   | ContinueMsg

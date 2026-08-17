@@ -20,6 +20,7 @@ import { type FilterSpec, parseFilterWrappers } from "../src/result-filter.js";
 import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { makeWordChecker } from "../src/index-words.js";
 import { parseRemoteList, remoteListUrls } from "../src/word-lists.js";
+import { installPack, parsePack } from "../src/packs.js";
 import {
   SourceStats,
   emptyStats,
@@ -37,7 +38,8 @@ const USAGE =
   "  N: step limit (default 1000000; 0 = unlimited)\n" +
   "  --walk: always walk the index, even where testing a list would do\n" +
   "  --score-floor F: drop frontier entries below F x the best score seen\n" +
-  "    (e.g. 1e-9) - bounds frontier growth, truncates the deep tail";
+  "    (e.g. 1e-9) - bounds frontier growth, truncates the deep tail\n" +
+  "  --pack FILE|URL: load a construct pack (repeatable)";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -48,6 +50,16 @@ const wantExplain = args.includes("--explain");
 if (wantExplain) args.splice(args.indexOf("--explain"), 1);
 // Same default computation limit as the upstream website; upstream's CLI
 // instead runs unbounded, which exhausts memory on open-ended patterns.
+const packRefs: string[] = [];
+for (let i = args.indexOf("--pack"); i !== -1; i = args.indexOf("--pack")) {
+  const ref = args[i + 1];
+  if (ref === undefined) {
+    console.error(`error: --pack needs a file or URL\n${USAGE}`);
+    process.exit(2);
+  }
+  packRefs.push(ref);
+  args.splice(i, 2);
+}
 let scoreFloor = 0;
 const floorIdx = args.indexOf("--score-floor");
 if (floorIdx !== -1) {
@@ -123,6 +135,19 @@ for (const provider of providersFor(expr)) {
     }
   } catch {
     // Left unloaded: the parser reports what is missing.
+  }
+}
+
+// Construct packs (F4): files or URLs, installed before compiling.
+for (const ref of packRefs) {
+  try {
+    const text = /^https?:\/\//.test(ref)
+      ? await (await fetch(ref)).text()
+      : fs.readFileSync(ref, "utf8");
+    installPack(ctx, parsePack(JSON.parse(text)));
+  } catch (e) {
+    console.error(`error: pack ${ref}: ${e instanceof Error ? e.message : String(e)}`);
+    process.exit(2);
   }
 }
 

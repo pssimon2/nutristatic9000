@@ -12,7 +12,7 @@ closed by that decision), A2–A4 (score floor, filter cache, refinement),
 W1–W3 (weighted search; W4 declined with arithmetic), F1 and F3 (manifest,
 remote lists). Still genuinely open: **X1–X3** (parallel sharding — see the
 partition caveat on X1 before starting), **F2** (per-language data packs —
-needs foreign datasets built), **F4** (declarative construct packs), **F5**
+needs foreign datasets built), **F5**
 (multi-index merged search), **F6** (generalized alphabet — sequence last),
 **F7** (reverse-index sidecar), **F8** (library packaging), **E13** (left
 open in principle, guarded and unreproducible), and the deliberately-unbuilt
@@ -1050,11 +1050,17 @@ below is planned.
   `SessionContext.remoteLists`, and the compile error for a failed fetch
   names the CORS requirement and is retryable. Works everywhere a list
   works, `{anagram {list:URL}:…}` included.
-- [ ] **F4. Declarative construct packs.** JSON packs for table-driven
-  constructs (`{name, type: "value-table" | "letter-class" |
-  "substitution", data}`) loadable per session — custom keyboard layouts,
-  tile values, ciphers without code. Most of the old `value-constraint.ts`
-  tables become the built-in pack.
+- [x] **F4. Declarative construct packs.** *(done 2026-08-17.)*
+  src/packs.ts: `{name, type: "letter-class" | "value-table" |
+  "substitution", …}` per construct, validated with author-facing errors,
+  installed on `SessionContext.packs`, dispatched by the parser *before*
+  the built-in table (safe: a pack cannot shadow a built-in name, and the
+  digit fold works — a pack's `{row9:…}` lexes as "row"+"9" and still finds
+  the pack row). Loaded via `?pack=URL`, the manifest's `constructPacks`,
+  or the CLI's `--pack FILE|URL`. Value tables share `parseValueRange`, so
+  the comparison grammar is one grammar. Deliberately not done: migrating
+  the built-in tables into a pack — they are compile-time constants and
+  moving them buys churn, not capability.
 - [ ] **F5. Multi-index merged search.** Merged driver: heap over
   per-index drivers, comparable scores; one query consults demo + Simple
   + full English at once. Straightforward after C3; needs S1.
