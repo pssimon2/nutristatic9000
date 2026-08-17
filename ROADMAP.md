@@ -839,10 +839,17 @@ Goal: mechanical, low-risk changes that everything later depends on.
   `ceil(chars/40) - 1` restarts are forced. That bound is zero for almost every
   query anyone writes, which is the same as saying the optimization would
   rarely fire.
-- [ ] **A2. Score-floor knob.** Optional budget: drop frontier entries
-  whose priority falls below `floor × best-emitted-score` (e.g. 1e-9).
-  Off by default; bounds frontier growth on hopeless tails. Document that
-  it can truncate the deep tail.
+- [x] **A2. Score-floor knob.** *(done 2026-08-17.)* `SearchDriverOptions.
+  scoreFloor`: pushes below `floor × best-emitted-score` are refused, and
+  entries that sank below it are dropped unexpanded on pop. Off by default;
+  CLI takes `--score-floor F`; SearchSession passes it through. Priority is
+  an upper bound, so nothing above the floor is lost — asserted in
+  test/score-floor.test.ts as membership plus descending order, because
+  equal priorities may pop in a different order when the frontier's shape
+  differs. Measured on the fixture index, `A*` at 1e-6: frontier peak
+  1,234,566 → 1,688, and the run *finishes* in 14k steps where the plain
+  walk hit the million-step limit — the documented cost being the tail
+  (2,857 results against 109,675).
 - [ ] **A3. Refinement caching.** Cache last N result sets per session
   keyed by conjunct fingerprint. On a new query, detect refinement
   (old conjunct set ⊆ new, via `equivalent()` from `automata.ts:572`):

@@ -34,7 +34,9 @@ process.stdout.on("error", (e: NodeJS.ErrnoException) => {
 const USAGE =
   "usage: find-expr [--max-steps N] [--stats] [--explain] input.index expression\n" +
   "  N: step limit (default 1000000; 0 = unlimited)\n" +
-  "  --walk: always walk the index, even where testing a list would do";
+  "  --walk: always walk the index, even where testing a list would do\n" +
+  "  --score-floor F: drop frontier entries below F x the best score seen\n" +
+  "    (e.g. 1e-9) - bounds frontier growth, truncates the deep tail";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -45,6 +47,18 @@ const wantExplain = args.includes("--explain");
 if (wantExplain) args.splice(args.indexOf("--explain"), 1);
 // Same default computation limit as the upstream website; upstream's CLI
 // instead runs unbounded, which exhausts memory on open-ended patterns.
+let scoreFloor = 0;
+const floorIdx = args.indexOf("--score-floor");
+if (floorIdx !== -1) {
+  const raw = args[floorIdx + 1];
+  const parsed = raw === undefined ? NaN : Number(raw);
+  if (!(parsed >= 0) || !isFinite(parsed)) {
+    console.error(`error: bad --score-floor value "${raw ?? ""}"\n${USAGE}`);
+    process.exit(2);
+  }
+  scoreFloor = parsed;
+  args.splice(floorIdx, 2);
+}
 let maxSteps = 1000000;
 const flagIdx = args.indexOf("--max-steps");
 if (flagIdx !== -1) {
@@ -206,7 +220,7 @@ async function runQuery(): Promise<Run> {
     }
   }
 
-  const driver = makeDriver(reader, filter);
+  const driver = makeDriver(reader, filter, undefined, { scoreFloor });
   for (;;) {
     if (maxSteps > 0 && run.steps >= maxSteps) {
       process.stdout.write(`# computation limit reached (${run.steps} steps)\n`);

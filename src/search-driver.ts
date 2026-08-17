@@ -169,6 +169,16 @@ export interface SearchDriverOptions {
    * instead of serializing); keep 0 for in-memory sources.
    */
   prefetchDepth?: number;
+  /**
+   * Optional frontier budget (A2): once a result has been emitted, frontier
+   * entries whose priority falls below `scoreFloor × best-emitted-score` are
+   * not pushed, and are skipped if popped. Priority is an upper bound on any
+   * score the entry can still reach, so nothing scoring above the floor is
+   * lost — but the deep tail below it is deliberately truncated, so this
+   * trades completeness of the tail for bounded frontier growth. 0 (the
+   * default) disables it.
+   */
+  scoreFloor?: number;
 }
 
 export class SearchDriver {
@@ -185,6 +195,9 @@ export class SearchDriver {
   private readonly tmp = new ChoiceBuffer();
   private readonly seen = new Set<string>();
   private readonly prefetchDepth: number;
+  private readonly scoreFloor: number;
+  /** Best score emitted so far, for the score-floor cutoff. */
+  private best = 0;
 
   constructor(
     private readonly reader: IndexReader,
@@ -194,7 +207,13 @@ export class SearchDriver {
     opts: SearchDriverOptions = {},
   ) {
     this.prefetchDepth = opts.prefetchDepth ?? 0;
+    this.scoreFloor = opts.scoreFloor ?? 0;
     this.frontier.push(-1, startState, 0, 1.0, reader.count(), reader.root());
+  }
+
+  /** The A2 cutoff: 0 until a result exists or when the knob is off. */
+  private cutoff(): number {
+    return this.scoreFloor > 0 ? this.scoreFloor * this.best : 0;
   }
 
   /**
@@ -211,6 +230,11 @@ export class SearchDriver {
     }
 
     f.pop();
+
+    // Below the floor, an entry can no longer reach a score worth keeping:
+    // drop it unexpanded. (Pushes are refused too; this catches entries that
+    // were above the floor when pushed and sank as `best` rose.)
+    if (f.topCount * f.topScale < this.cutoff()) return false;
 
     if (this.prefetchDepth > 0) {
       // The heap's first entries are the likeliest next pops; start their
@@ -238,7 +262,9 @@ export class SearchDriver {
     const tmp = this.tmp;
     const newCrumb = this.crumbs.length;
 
+    const cut = this.cutoff();
     for (let i = 0; i < tmp.n; ++i) {
+      if (tmp.count[i] * f.topScale < cut) continue;
       const state = this.filter.transition(f.topState, tmp.ch[i]);
       if (state >= 0) {
         if (this.crumbs.length === newCrumb) {
@@ -265,7 +291,7 @@ export class SearchDriver {
       // Once the scale underflows to zero every further result would score
       // zero anyway; dropping the restart keeps never-accepting filter states
       // (possible with lazy products) from cycling forever.
-      if (scale > 0) {
+      if (scale > 0 && scale * this.reader.count() >= cut) {
         f.push(
           f.topCrumb,
           f.topState,
@@ -292,6 +318,7 @@ export class SearchDriver {
         this.seen.add(text);
         this.text = text;
         this.score = f.topScale * f.topCount;
+        if (this.score > this.best) this.best = this.score;
         return true;
       }
     }
