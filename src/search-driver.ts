@@ -28,7 +28,8 @@ class Frontier {
   peak = 0;
   crumb = new Int32Array(1024);
   state = new Int32Array(1024);
-  ch = new Int32Array(1024);
+  /** A byte from the index, so a byte here: see the note on CrumbTrail.ch. */
+  ch = new Uint8Array(1024);
   scale = new Float64Array(1024);
   count = new Float64Array(1024);
   next = new Float64Array(1024);
@@ -44,7 +45,7 @@ class Frontier {
 
   private grow(): void {
     const cap = this.crumb.length * 2;
-    const copy = <T extends Int32Array | Float64Array>(
+    const copy = <T extends Int32Array | Uint8Array | Float64Array>(
       old: T,
       make: (n: number) => T,
     ): T => {
@@ -54,7 +55,7 @@ class Frontier {
     };
     this.crumb = copy(this.crumb, (n) => new Int32Array(n));
     this.state = copy(this.state, (n) => new Int32Array(n));
-    this.ch = copy(this.ch, (n) => new Int32Array(n));
+    this.ch = copy(this.ch, (n) => new Uint8Array(n));
     this.scale = copy(this.scale, (n) => new Float64Array(n));
     this.count = copy(this.count, (n) => new Float64Array(n));
     this.next = copy(this.next, (n) => new Float64Array(n));
@@ -138,7 +139,12 @@ class Frontier {
 class Crumbs {
   length = 0;
   parent = new Int32Array(1024);
-  ch = new Int32Array(1024);
+  /**
+   * The character taken at each step, which is a byte read out of the index —
+   * so a byte here. The trail grows for the length of a run and is never
+   * compacted, so this is 8 bytes an entry against 5.
+   */
+  ch = new Uint8Array(1024);
 
   push(parent: number, ch: number): void {
     if (this.length === this.parent.length) {
@@ -146,7 +152,7 @@ class Crumbs {
       const np = new Int32Array(cap);
       np.set(this.parent);
       this.parent = np;
-      const nc = new Int32Array(cap);
+      const nc = new Uint8Array(cap);
       nc.set(this.ch);
       this.ch = nc;
     }

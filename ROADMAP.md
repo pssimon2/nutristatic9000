@@ -453,13 +453,16 @@ Goal: mechanical, low-risk changes that everything later depends on.
   accepting self-loop sink. Removes the cap entirely. Keep the eager path
   only where an NFA is structurally required (inside quantifiers), with a
   proper ParseError naming the limit when it trips.
-- [ ] **E2. Filter-level boolean algebra.** *(partly done in E1: `subs` is
-  now `Filter[]` and products may contain complements; products of products
-  and `makeFilter` composing at the Filter level are still open.)* Generalize
-  `ProductFilter.subs: ExprFilter[]` (`expr-filter.ts:151`) to `Filter[]`:
-  products of products, products containing complements — all lazy, none
-  materialized. `makeFilter` composes at the Filter level whenever the NFA
-  level would have to materialize for boolean reasons.
+- [x] **E2. Filter-level boolean algebra.** *(completed by E1; verified
+  2026-08-17 rather than assumed.)* `ProductFilter.subs` is `Filter[]`,
+  `makeFilter` composes at the Filter level — `new ProductFilter(conjuncts.map(
+  conjunctFilter))` — and `conjunctFilter` gives a negated conjunct a lazy
+  `ComplementFilter` rather than building it out. Nothing materializes for
+  boolean reasons anywhere on the JS path.
+  Products of products remain unreachable rather than unimplemented: a query
+  compiles to a flat list of conjuncts, so no sub is ever itself a product.
+  `subs` being `Filter[]` means one would work if a caller ever made one;
+  writing the case that cannot arise would be untested code.
 - [x] **E3. Trie-shaped `entriesNfa`.** *(done 2026-08-16)* Prefix trie
   instead of union-of-chains: bird 26,276 arcs → 14,905, tree 43,543 →
   22,350 (~57%), and one start branch instead of one per entry. Equivalence
@@ -477,6 +480,27 @@ Goal: mechanical, low-risk changes that everything later depends on.
   and hashes a 26-wide tuple per transition. If this is revisited, that is the
   place, and narrowing the tuple (most sub-filters do not move on a given
   letter) is the idea worth trying, not the key encoding.
+  **Follow-up (2026-08-17): the successor idea is wrong too, and measured so.**
+  This note said the place to look was `ProductFilter.intern` and the thing to
+  try was narrowing the tuple. A fresh profile confirms the first half —
+  `{distinct:A{6}}` spends 17.9% there against 8.6% in `compute` — and refutes
+  the second. Two experiments, on a 1.2M-step run over the demo index,
+  median of five:
+
+  * Folding the hash into the loop that builds the tuple, so the 26 entries
+    are hashed as they are produced instead of walked a second time: 2,546 ms
+    against a 2,517 ms baseline. No gain, inlined or as a static helper.
+  * Comparing only 4 of the 26 entries on a probe — wrong, but it prices the
+    compare: 2,517 ms, identical to baseline.
+
+  Neither the hashing nor the comparing is the cost, so the tuple's *width* is
+  not what to attack. What is left in `intern` is the random access itself:
+  one probe into `slots`, one into a `pool` that holds 79,680 states times 26
+  ints — 8.3 MB, far past any cache. It is memory latency, not arithmetic.
+  Anything that helps has to shrink the pool's footprint (packing several sub
+  states per int, which lazy filters make awkward since ids grow without
+  bound) rather than touch how the tuple is hashed or compared.
+
   Original text: `intern()` keys DFA states with `sorted.join(",")`
   (`expr-filter.ts:113`) — string building + Map hashing per novel subset.
   Port ProductFilter's open-addressed Int32 pool (`expr-filter.ts:158`, whose
@@ -498,9 +522,23 @@ Goal: mechanical, low-risk changes that everything later depends on.
   stand rather than printing a bare `error:`. `SearchSession` accepts a
   prebuilt `Filter` so this is testable without an eight-million-step query
   (and as a step toward A4's filter reuse).
-- [ ] **E5. Frontier memory diet.** `search-driver.ts:25`: `ch` fits
-  Uint8Array; evaluate narrowing `state`/`crumb`. Only with S7 numbers
-  showing benefit; kernel-tier change (GR3).
+- [x] **E5. Frontier memory diet.** *(done 2026-08-17, for memory; the speed
+  case it asked for does not exist.)* `ch` is a byte read out of the index, so
+  it is a `Uint8Array` in both the frontier and the breadcrumb trail rather
+  than an `Int32Array`.
+  The item asked for S7 numbers showing benefit. On speed there are none: a
+  1.2M-step run of `{distinct:A{6}}` is 2,658 ms against 2,517 ms before,
+  `{maxrep=2:A*}` 993 against 971, both inside the run-to-run spread, and the
+  nine bench cases match baseline. Narrowing the frontier's row from 44 bytes
+  to 41 does not move a heap whose peak is around 20,000 entries.
+  On memory it is real, and the trail is where it lives rather than the
+  frontier. The trail grows for the length of a run and is never compacted:
+  measured over the demo index, `A{4} A{5}` reaches 1,016,567 entries after
+  1.2M steps and `{distinct:A{6}}` 912,826 — 8.1 MB and 7.3 MB at 8 bytes an
+  entry, 5.1 MB and 4.6 MB at 5. Roughly 3 MB saved per million steps, in a
+  worker that may be running on a phone.
+  `state` and `crumb` are left alone: both are indices that legitimately reach
+  past 65,535, and the DFA state cap is 500,000.
 - [x] **E6. Generated docs.** *(done 2026-08-16)* Every construct carries a
   `summary` and a runnable `example` in `src/constructs.ts`;
   `scripts/build-docs.mjs` renders the grouped reference into
