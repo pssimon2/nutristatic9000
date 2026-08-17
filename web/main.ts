@@ -50,6 +50,23 @@ const RANGE_TIME_MS = 20000; //               …or ~20 s, whichever comes first
  * cap at all.
  */
 const RANGE_STALL_MS = 6000;
+
+/**
+ * The same, per slot in a multi-slot query.
+ *
+ * Shorter, because the arithmetic is different: a slot shows three candidates
+ * in a picker, not a page of results, and the head sidecar has almost always
+ * supplied those before the index is touched at all. What the walk adds after
+ * that is a fourth candidate nobody has room for — and a hunt is a dozen
+ * searches, so every second of stall is paid twelve times.
+ *
+ * Measured on the deployed index, a twelve-slot hunt took 21.4 s with the
+ * six-second cap, of which two slots — a `{palindrome:…}` and an `A{7}&.*zz.*`
+ * — spent thirteen seconds between them adding nothing. A slot that stopped
+ * early still offers "search the unfinished slots harder", which restores the
+ * full budget and no stall cap at all.
+ */
+const SLOT_STALL_MS = 2000;
 const RANGE_STEP_CEILING = 8000000;
 const PER_RUN_RESULTS = 1000;
 
@@ -767,6 +784,7 @@ function slotBudget(): ReturnType<typeof firstRunBudget> {
   return {
     ...budget,
     byteBudget: Math.max(Math.floor(RANGE_BYTE_BUDGET / 8), left),
+    stallMs: SLOT_STALL_MS,
   };
 }
 

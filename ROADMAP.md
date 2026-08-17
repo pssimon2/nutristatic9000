@@ -781,6 +781,20 @@ Goal: mechanical, low-risk changes that everything later depends on.
   where-it-applies test rather than a cost model, which is the right shape
   while there are two strategies.
 
+- [x] **C9. A shorter stall for a slot than for a query.** *(Added 2026-08-17,
+  not in the original plan.)* A slot shows three candidates in a picker, not a
+  page of results, and the head sidecar has almost always supplied those before
+  the index is touched at all — so the six-second stall cap (C8) was being spent
+  looking for a fourth candidate nobody has room for, once per slot.
+  Measured on the deployed index with a realistic twelve-slot hunt (a bird, a
+  rhyme, a palindrome, an anagram, a Greek letter, and so on): 21.4 s before,
+  **9.4 s** after, with the same assembled answer, "chnypalaaesd". The cost is
+  two candidates out of a possible thirty-six, in the two slots whose answers
+  are genuinely rare — and the page names them and offers "search 2 unfinished
+  slots further", which restores the full budget with no stall cap.
+  Slots get 2 s; a single query keeps 6 s, checked unchanged
+  (`{palindrome:A{5}}` 7.5 s / 60 results, `A{5}&C*` 18 s / 1,027).
+
 ## Phase A — Search smarts
 
 - [ ] **A1. Restart-aware priority (admissible A*).** Frontier priority is
