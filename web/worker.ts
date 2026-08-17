@@ -301,6 +301,10 @@ async function serveFromHead(
   // `{near:…}` orders the whole result set by closeness once the run is over,
   // so a page taken from the head would be ordered by frequency instead.
   if (nearOrder) return "partial";
+  // A weighted query ({~…}, graded {edit:…}) is ordered by the engine's
+  // deferred-emission heap; the head knows frequency order only, and serving
+  // from it put penalty-weighted words above the boosted ones.
+  if (filter.acceptWeight !== undefined) return "partial";
 
   const page = await headPage(
     head,

@@ -903,7 +903,11 @@ Goal: mechanical, low-risk changes that everything later depends on.
   the weights survive it. Gotcha found on the way: the deferred-emission
   sentinel must not live in `next` — a leaf's next is legitimately
   negative, and marking there silently skipped leaf restarts ("ee a"
-  vanished); it lives in a bit-flipped state instead.
+  vanished); it lives in a bit-flipped state instead. The head sidecar
+  also declines weighted queries (it knows frequency order only — serving
+  from it put penalty words above boosted ones), so over a *streamed*
+  index a weighted query pays the full walk; on any local index it is
+  fast, and the standing "download it once" offer covers the rest.
 - [x] **W2. Soft constructs.** *(done 2026-08-17.)* `{~near:king}`,
   `{~rhyme:day}`, `{~homo:…}`, `{~like:…}`, `{~kind:…}`, `{~list:a,b,…}`:
   match everything, members weighted at (near) 1 — `~near` decaying 0.9 per
