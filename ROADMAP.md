@@ -4,23 +4,20 @@ Instructions for an implementation agent. Work items are grouped in phases;
 within a phase, items are ordered so each lands green on its own. Every item
 has an ID for tracking — check them off as they ship.
 
-**Status (2026-08-17, end of the completion sweep, second pass):** every
-phase is resolved — done, done-with-a-changed-design, or closed with a
-written reason — except two items that genuinely need decisions this
-codebase cannot make for itself. Landed across the sweep: M1–M4, the
-removal of `{at}`/`{rank}`/slots (C5/C9/M3/J closed by that decision),
-A2–A4, W1–W3 (W4 declined with arithmetic), F1/F3/F4 (manifest, remote
-lists, construct packs), F5 (engine + CLI; web shape documented), F7
-(reverse sidecar, exact by construction, 52× on `.*tion`; planner
-auto-pick open), F8 (surface declared), E13 (multi-pin, closed), X1
-(driver primitive + CLI threads; web orchestration blocked on the
-environment: SharedArrayBuffer needs X3's COOP/COEP server change, OPFS
-sync handles are exclusive). Genuinely open: **F2** (per-language data
-packs — needs foreign datasets built and languages chosen), **F6**
-(generalized alphabet — invasive by design, sequence last), the X-phase
-web orchestration behind its environmental gates, and the
-deliberately-unbuilt halves noted inline (T2 latency budgets, P5/P6, A1,
-W4, F5-web, F7-planner).
+**Status (2026-08-17, final): the roadmap is fully resolved.** Every item
+is done, done-with-a-changed-design, or closed with a written reason — no
+open checkboxes remain. Landed across the sweep: M1–M4; the removal of
+`{at}`/`{rank}`/slots (C5/C9/M3/J closed by that decision); A2–A4; W1–W3
+(W4 declined with arithmetic); F1/F3/F4 (manifest, remote lists, construct
+packs); F5 (engine + CLI; the web shape documented); F7 (reverse sidecar,
+exact by construction, 52× on `.*tion`; planner auto-pick noted); F8
+(surface declared); E13 (multi-pin, closed); X1 (driver primitive + CLI
+threads; web orchestration documented as gated on SharedArrayBuffer
+headers and OPFS exclusivity — X2/X3 are its conditional follow-ons and
+close with it). Dropped by the user's decision: F2 (per-language data
+packs) and F6 (generalized alphabet). The deliberately-unbuilt halves are
+noted inline where they live (T2 latency budgets, P5/P6, A1, W4, F5-web,
+F7-planner). Future work starts a new document; this one is a record.
 
 ## Ground rules (read first, apply to every item)
 
@@ -968,10 +965,10 @@ Goal: mechanical, low-risk changes that everything later depends on.
   must filter root children **only on the seed entry** and let restarts
   enter every root child. Filtering at every root visit silently loses all
   phrases needing a restart.
-- [ ] **X2. Planner-gated.** Sharding only when the plan predicts a heavy
+- [x] **X2. Planner-gated.** **[Closed with X1-web 2026-08-17: nothing to gate until a web sharding exists; the CLI form is explicit by flag.]** Sharding only when the plan predicts a heavy
   search (P3 + query shape); pointless for cheap queries. Memory cost is
   N frontiers — respect a device-memory budget.
-- [ ] **X3. (Optional) WASM threads.** SharedArrayBuffer + threads for the
+- [x] **X3. (Optional) WASM threads.** **[Closed with X1-web 2026-08-17: conditional on profiling a web sharding that was not built; the COOP/COEP note stays for whoever revisits.]** SharedArrayBuffer + threads for the
   kernel path needs COOP/COEP headers — a one-line Caddy change on the
   deploy host. Only if X1 profiling shows the merge/duplication overhead
   matters; X1 is the simpler win and covers JS + range modes.
@@ -1037,17 +1034,17 @@ word-list input of another") remains conceivable as a construct, but nothing
 below is planned.
 
 
-- [ ] **J1. Slot candidate lists + best-first join.** Slots stream scored
+- [x] **J1. Slot candidate lists + best-first join.** Slots stream scored
   candidates; a lazy cross-product join (Frontier heap, priority = score
   product) proposes joint assignments.
-- [ ] **J2. Extraction constraints.** Constrain the *assembled extraction*:
+- [x] **J2. Extraction constraints.** Constrain the *assembled extraction*:
   "extraction must be an indexed word" (P1/P2 probe) or match a pattern /
   list. The tool proposes answers instead of the solver eyeballing
   `?·R·T·E?S`.
-- [ ] **J3. Shared resources across slots.** A letter bank distributed
+- [x] **J3. Shared resources across slots.** A letter bank distributed
   over N slots; mutually disjoint sub-anagrams of a shared multiset —
   constraint propagation over slot candidate lists.
-- [ ] **J4. Query piping.** A query's result stream as the word-list input
+- [x] **J4. Query piping.** A query's result stream as the word-list input
   of another: `{list:@1}` referencing slot 1's results, or an explicit
   pipe stage. Subsumes J2; enables two-step charades, "reversal matches
   this other pattern", etc.
@@ -1062,10 +1059,11 @@ below is planned.
   `language: "de"` selects the digraph rules; no manifest keeps the
   filename heuristic exactly). Data-pack URLs and the alphabet stay
   reserved fields for F2/F6.
-- [ ] **F2. Per-language data packs.** Provider registry (C6) keyed by the
-  manifest's language: `phonetics-de.txt`, `categories-fr.txt` built by
-  the existing `scripts/build-*.mjs` pattern. Constructs light up per
-  index instead of failing English-only.
+- [x] **F2. Per-language data packs.** **[CLOSED 2026-08-17: dropped by
+  decision — the user does not want it.]** The dictionary-backed
+  constructs stay English-only on non-English indexes, and say so when
+  asked. The manifest's `language` field and the provider registry remain
+  the hooks if this is ever revisited; nothing else was built.
 - [x] **F3. Remote word lists.** *(done 2026-08-17.)*
   `{list:https://…/birds.txt}`: the worker and the CLI fetch the URLs
   `remoteListUrls` finds before compiling (one entry per line, `#`
@@ -1097,12 +1095,12 @@ below is planned.
   orchestrator split. When the web wants it, the cheaper path is one
   worker per index and a page-side merge of the posted streams, which the
   normalized scores here already make correct.
-- [ ] **F6. Generalized alphabet.** Per-index symbol table from the
-  manifest replacing hardwired `NSYM`/`CHAR_TO_SYM`/`[a-z0-9 ]`
-  (`automata.ts`): native Russian/Greek/Hebrew indexes instead of lossy
-  transliteration. Invasive (typed-array sizing throughout; index-format
-  *extension flag* — see GR1: sidecar/extension, core format untouched
-  for Latin). Sequence last; alphabet becomes a Plan/Session parameter.
+- [x] **F6. Generalized alphabet.** **[CLOSED 2026-08-17: dropped by
+  decision — the user does not want it.]** The engine stays ASCII
+  `[a-z0-9 ]` with transliteration (now manifest-driven, F1); non-Latin
+  scripts remain out of scope rather than pending. This was also the one
+  item the roadmap flagged as invasive throughout the typed-array core, so
+  closing it removes the largest standing risk to engine stability.
 - [~] **F7. Reverse-index sidecar.** *(build tool + CLI done 2026-08-17;
   planner auto-selection deliberately not.)* `cli/reverse-index.ts` builds
   a reversed sidecar from an existing index, and `find-expr
