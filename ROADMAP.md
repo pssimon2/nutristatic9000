@@ -520,11 +520,19 @@ Goal: mechanical, low-risk changes that everything later depends on.
   2026-08-17 against the demo index with a deliberately small cache: a block
   was evicted with the pin on an unrelated span
   (`EVICT 625 keep[332,340] pin[213,213]`) and the read that had ensured it
-  failed with "byte … not ensured", in roughly three runs in five. Needs
-  acquire/release on `ByteSource` so overlapping reads each hold their own
-  span. `MIN_CACHE_BLOCKS = 64` keeps it out of reach meanwhile — 8 and 16
-  blocks fail, 32 and up do not, and the default is 4096 — so nothing real is
-  exposed, but the invariant is wrong rather than merely untested.
+  failed with "byte … not ensured", in roughly three runs in five.
+  The one-span pin is wrong, but *fixing it is not enough*, which is the thing
+  worth knowing before starting. Tried and reverted 2026-08-17: a set of held
+  spans with an explicit `release` on `ByteSource`, released by
+  `IndexReader.childrenInto` after its read rather than by the next `ensure`.
+  It left the failure exactly where it was — 8 and 16 blocks still fail, 24
+  and up still do not — and the instrumented throw says why: at the moment of
+  the crash the missing block *is* held (`held=[[502,502]], isHeld=true`) and
+  is simply not in the cache. Since nothing can evict a held block, it was
+  never inserted, so the bug is in the fetch/insert path and not in eviction
+  at all. Start there.
+  `MIN_CACHE_BLOCKS = 64` keeps it out of reach meanwhile — the default is
+  4096 — so nothing real is exposed.
 - [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
   pattern language + only predicate-level narrowing ⇒ warn "unbounded
   search; the {palindrome} filter cannot prune — add a length or a
