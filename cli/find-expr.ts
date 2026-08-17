@@ -43,7 +43,9 @@ const USAGE =
   "    (e.g. 1e-9) - bounds frontier growth, truncates the deep tail\n" +
   "  --pack FILE|URL: load a construct pack (repeatable)\n" +
   "  --shards N: split the walk across N threads by first letter (X1);\n" +
-  "    results merge exactly, printed once every shard finishes";
+  "    results merge exactly, printed once every shard finishes\n" +
+  "  --reverse-index FILE: walk this reversed sidecar instead (F7) - the\n" +
+  "    win for suffix-anchored patterns like .*tion; results read forward";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -63,6 +65,17 @@ for (let i = args.indexOf("--pack"); i !== -1; i = args.indexOf("--pack")) {
   }
   packRefs.push(ref);
   args.splice(i, 2);
+}
+let reverseIndexPath: string | null = null;
+const revIdx = args.indexOf("--reverse-index");
+if (revIdx !== -1) {
+  const raw = args[revIdx + 1];
+  if (raw === undefined) {
+    console.error(`error: --reverse-index needs a file\n${USAGE}`);
+    process.exit(2);
+  }
+  reverseIndexPath = raw;
+  args.splice(revIdx, 2);
 }
 let shardCount = 1;
 const shardsIdx = args.indexOf("--shards");
@@ -396,9 +409,54 @@ async function runSharded(): Promise<Run> {
   return run;
 }
 
+/**
+ * F7: walk the reversed sidecar. The pattern's automata are reversed, the
+ * walk prunes on what is now a prefix, and each match is re-reversed before
+ * the predicates and the printout — same strings, same scores, read forward.
+ */
+async function runReversed(path: string): Promise<Run> {
+  const { compileConjunctsReversed, unreverseText } = await import("../src/reverse.js");
+  const { makeFilter } = await import("../src/expr-filter.js");
+  compileQuery(pattern, ctx); // report pattern errors against the real query
+  const revReader = await cliOpenIndex(path);
+  const filter = makeFilter(compileConjunctsReversed(pattern, ctx));
+  const run: Run = {
+    steps: 0, emitted: 0, frontierPeak: 0, dfaStates: 0,
+    predicateChecks: 0, predicatePassed: 0, hitLimit: false,
+    candidatesTested: 0, indexLookups: 0,
+  };
+  const present = presenter(run);
+  const driver = makeDriver(revReader, filter, undefined, { scoreFloor });
+  for (;;) {
+    if (maxSteps > 0 && run.steps >= maxSteps) {
+      process.stdout.write(`# computation limit reached (${run.steps} steps)\n`);
+      run.hitLimit = true;
+      break;
+    }
+    if (++run.steps % 100000 === 0) process.stdout.write(`# ${run.steps}\n`);
+    let r = driver.step();
+    if (r instanceof Promise) r = await r;
+    if (r) {
+      if (driver.text === null) break;
+      const line = await present(driver.score, unreverseText(driver.text));
+      if (line !== null) {
+        ++run.emitted;
+        process.stdout.write(`${line}\n`);
+      }
+    }
+  }
+  run.frontierPeak = driver.frontierPeak;
+  run.dfaStates = filter.stateCount;
+  return run;
+}
+
 try {
   const run =
-    shardCount > 1 && readers.length === 1 ? await runSharded() : await runQuery();
+    reverseIndexPath !== null
+      ? await runReversed(reverseIndexPath)
+      : shardCount > 1 && readers.length === 1
+        ? await runSharded()
+        : await runQuery();
 
   if (wantStats) {
     const src = reader.source as SourceStats;

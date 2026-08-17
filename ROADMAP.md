@@ -1098,10 +1098,23 @@ below is planned.
   transliteration. Invasive (typed-array sizing throughout; index-format
   *extension flag* — see GR1: sidecar/extension, core format untouched
   for Latin). Sequence last; alphabet becomes a Plan/Session parameter.
-- [ ] **F7. Reverse-index sidecar (optional, heavy).** Reversed index
-  built at index time; planner runs suffix-anchored patterns (`A*zzyx`)
-  on it with the reversed DFA. Opt-in like `.idxz` (disk cost); the only
-  fix for that query class.
+- [~] **F7. Reverse-index sidecar.** *(build tool + CLI done 2026-08-17;
+  planner auto-selection deliberately not.)* `cli/reverse-index.ts` builds
+  a reversed sidecar from an existing index, and `find-expr
+  --reverse-index FILE` searches it with the pattern's automata reversed
+  (complement commutes; weighted constructs refuse — their weights ride
+  the accepting states the reversal turns into starts), un-reversing each
+  match for the predicates and the printout. The subtle half was the
+  build: the forward index stores per-*position* windows capped at ~40
+  chars, so naive entry reversal mis-scores at window boundaries; the
+  correct construction recovers word-aligned node counts and emits each
+  string at its maximal-occurrence multiplicity, which telescopes reverse
+  prefix counts back to the forward ones exactly. Measured on demo.index:
+  `.*tion` drops from 810,490 steps to 15,665 — 52× — with byte-identical
+  results and scores (3,043 of them). Open: teaching the planner to pick
+  the sidecar automatically for suffix-anchored patterns, and web serving
+  (another per-index sidecar fetch) — both straightforward once someone
+  wants them, and the exactness proof is the part that was in doubt.
 - [~] **F8. Package as a library.** *(surface declared 2026-08-17;
   publishing deliberately not.)* `src/engine.ts` is the public barrel —
   peel/compile/plan, the catalogue, SessionContext + packs/lists/manifest,
