@@ -4,6 +4,20 @@ Instructions for an implementation agent. Work items are grouped in phases;
 within a phase, items are ordered so each lands green on its own. Every item
 has an ID for tracking — check them off as they ship.
 
+**Status (2026-08-17, end of the completion sweep):** every phase except X
+and the heavy tail of F is resolved — done, done-with-a-changed-design, or
+closed with a written reason. Landed today: M1–M4 (spans, nested predicates,
+captures + relations), the removal of `{at}`/`{rank}`/slots (C5/C9/M3/J
+closed by that decision), A2–A4 (score floor, filter cache, refinement),
+W1–W3 (weighted search; W4 declined with arithmetic), F1 and F3 (manifest,
+remote lists). Still genuinely open: **X1–X3** (parallel sharding — see the
+partition caveat on X1 before starting), **F2** (per-language data packs —
+needs foreign datasets built), **F4** (declarative construct packs), **F5**
+(multi-index merged search), **F6** (generalized alphabet — sequence last),
+**F7** (reverse-index sidecar), **F8** (library packaging), **E13** (left
+open in principle, guarded and unreproducible), and the deliberately-unbuilt
+halves noted inline (T2 latency budgets, P5/P6, A1, W4).
+
 ## Ground rules (read first, apply to every item)
 
 - **GR1.** The index byte format is a frozen contract: byte-compatible with
@@ -921,6 +935,12 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Each worker streams descending scores; UI-side merge with a small heap
   is exact. Requires S1 (no globals). Weight partitions by root-child
   counts so workers finish together.
+  **Implementation caveat (verified 2026-08-16):** a result's partition is
+  fixed by the first letter of the *whole phrase* — the restart carries
+  `f.topCrumb` unchanged — so a shard must filter root children **only on
+  the seed entry** (`crumb === -1`) and let restarts enter every root
+  child. Filtering at every root visit silently loses all phrases needing
+  a restart.
 - [ ] **X2. Planner-gated.** Sharding only when the plan predicts a heavy
   search (P3 + query shape); pointless for cheap queries. Memory cost is
   N frontiers — respect a device-memory budget.
