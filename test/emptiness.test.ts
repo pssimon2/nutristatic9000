@@ -127,11 +127,32 @@ describe("naming the parts that disagree", () => {
     ]);
   });
 
-  it("declines to name when the written parts do not line up", () => {
-    // `{sum=52:A*}` is several conjuncts written as one, so index 3 of the
-    // compiled list has no text of its own. Guessing would mislabel it, and
-    // the caller says the shorter thing instead.
-    expect(conflictText("{sum=52:A*}&{sum=99:A*}", ctx)).toBeNull();
+  it("names constructs, which are several conjuncts written as one", () => {
+    // This used to be the case that could not be named: `{sum=52:A*}` is four
+    // conjuncts, so pairing compiled conjuncts with written ones by position
+    // went wrong the moment a construct appeared — which is most real
+    // queries. Each written part is compiled on its own now, so the two stay
+    // aligned by construction.
+    expect(conflictText("{sum=52:A*}&{sum=99:A*}", ctx)).toEqual([
+      "{sum=52:A*}",
+      "{sum=99:A*}",
+    ]);
+    // A letter bank is one per distinct letter — nine of them here — so a
+    // five-letter match cannot carry them all.
+    expect(conflictText("{bank:washington}&A{5}", ctx)).toEqual([
+      "{bank:washington}",
+      "A{5}",
+    ]);
+    expect(conflictText("{list:greek}&A{20}", ctx)).toEqual([
+      "{list:greek}",
+      "A{20}",
+    ]);
+  });
+
+  it("says nothing when a part cannot stand on its own", () => {
+    // Splitting on `&` is a guess at the writer's parts; when a piece does not
+    // compile alone there is nothing honest to name.
+    expect(conflictText("A{5}", ctx)).toBeNull();
   });
 
   it("declines to name a conflict that needs three parts", () => {

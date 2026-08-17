@@ -116,27 +116,41 @@ export function conflictingConjuncts(
  * Why a query matches nothing, in the words the user wrote.
  *
  * Naming the two parts that disagree is the difference between "this finds
- * nothing" and "these two cannot both be true". It is only possible when the
- * query's textual conjuncts line up one-to-one with the compiled ones, which
- * a plain intersection does and a construct expanding into several does not —
- * `{sum=52:A*}` is four conjuncts written as one, and guessing which text goes
- * with which automaton would mislabel them. Then it returns null and the
- * caller says the shorter thing.
+ * nothing" and "these two cannot both be true". The parts are the ones
+ * *written* — split on `&` — and each is compiled on its own, because a
+ * construct is rarely one automaton: `{bank:washington}` is a per-letter
+ * bound for each of its nine distinct letters, so pairing compiled conjuncts
+ * with written ones by position only works for a query made entirely of bare
+ * patterns. Compiling each written part separately keeps the two aligned by
+ * construction, and is what lets the commonest kind of impossible query —
+ * a construct against a length — say which two parts it means.
  */
 export function conflictText(
   query: string,
   ctx: SessionContext,
 ): string[] | null {
-  let conjuncts: Conjunct[];
-  let sources: string[];
-  try {
-    conjuncts = compileConjuncts(query, ctx);
-    sources = topLevelConjuncts(query);
-  } catch {
-    return null; // it did not compile; that is a different message
+  const sources = topLevelConjuncts(query);
+  if (sources.length < 2) return null; // one part cannot contradict another
+  const compiled: Conjunct[][] = [];
+  for (const source of sources) {
+    try {
+      compiled.push(compileConjuncts(source, ctx));
+    } catch {
+      return null; // a part that does not stand alone; say the shorter thing
+    }
   }
-  if (sources.length !== conjuncts.length) return null;
-  const indices = conflictingConjuncts(conjuncts);
-  if (!indices) return null;
-  return indices.map((i) => sources[i]);
+
+  // A part that matches nothing by itself is the whole story.
+  for (let i = 0; i < compiled.length; ++i) {
+    if (languageEmptiness(makeFilter(compiled[i])) === "empty") {
+      return [sources[i]];
+    }
+  }
+  for (let i = 0; i < compiled.length; ++i) {
+    for (let j = i + 1; j < compiled.length; ++j) {
+      const pair = makeFilter([...compiled[i], ...compiled[j]]);
+      if (languageEmptiness(pair) === "empty") return [sources[i], sources[j]];
+    }
+  }
+  return null;
 }
