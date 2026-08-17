@@ -37,6 +37,7 @@
 // passes.
 
 import type { IndexReader } from "./index-reader.js";
+import { probeCount } from "./index-probe.js";
 import type { WordCheck } from "./compound.js";
 
 /**
@@ -69,33 +70,17 @@ export const MIN_COMPOUND_PIECE = 2;
  * this in the index" rather than "is this a word".
  */
 export function makeWordChecker(reader: IndexReader): WordCheck {
-  const cache = new Map<string, boolean>();
+  // Keyed by word rather than by word-and-floor: the count does not depend on
+  // what is being asked of it, so one walk answers every floor.
+  const counts = new Map<string, Promise<number>>();
   const total = reader.count();
   return async (word: string, minShare = 0): Promise<boolean> => {
-    const key = `${minShare} ${word}`;
-    const hit = cache.get(key);
-    if (hit !== undefined) return hit;
-    const floor = minShare * total;
-    let ok = word.length > 0;
-    if (ok) {
-      let node = reader.root();
-      let count = reader.count();
-      for (const ch of `${word} `) {
-        const out: Array<{ ch: number; count: number; next: number }> = [];
-        const r = reader.children(node, count, out);
-        if (r instanceof Promise) await r;
-        const child = out.find((c) => c.ch === ch.charCodeAt(0));
-        if (!child) {
-          ok = false;
-          break;
-        }
-        node = child.next;
-        count = child.count;
-      }
-      // `count` is now the occurrences of the word *with* its boundary space.
-      if (ok && count < floor) ok = false;
+    if (word.length === 0) return false;
+    let count = counts.get(word);
+    if (count === undefined) {
+      count = probeCount(reader, word);
+      counts.set(word, count);
     }
-    cache.set(key, ok);
-    return ok;
+    return (await count) >= minShare * total;
   };
 }

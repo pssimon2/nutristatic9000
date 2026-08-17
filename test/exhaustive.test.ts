@@ -136,8 +136,14 @@ describe("the search finds exactly what is there", () => {
   });
 
   it("finds a needle that only one entry matches", async () => {
-    const { found } = await search('"nutrimatic"');
-    expect(found).toEqual(bruteForce('"nutrimatic"'));
+    // "nutrimatic" was the needle here, and it is not in this index — so the
+    // search found nothing, the oracle expected nothing, and the case passed
+    // without testing anything. A needle has to be *in* the haystack.
+    const needle = "blasphemer";
+    const expected = bruteForce(`"${needle}"`);
+    expect(expected, `${needle} is not in the index`).toEqual([needle]);
+    const { found } = await search(`"${needle}"`);
+    expect(found).toEqual(expected);
   });
 });
 

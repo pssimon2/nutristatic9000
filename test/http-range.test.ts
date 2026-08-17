@@ -12,6 +12,7 @@ import { buildIdxz } from "../src/idxz-build.js";
 import { IndexReader } from "../src/index-reader.js";
 import { SearchSession, SearchResult } from "../src/search-session.js";
 import { SessionContext } from "../src/session-context.js";
+import { probeCount } from "../src/index-probe.js";
 
 const ctx = new SessionContext();
 
@@ -216,5 +217,40 @@ describe("the block cache floor", () => {
       200000,
     );
     expect(results).toEqual(memory);
+  }, 60000);
+});
+
+// The score probe over a streamed index.
+//
+// A probe is a single path down the trie, so it should cost round trips
+// proportional to the word's length rather than to the index's size — that is
+// the whole reason it exists as something separate from a search. Over a
+// memory source the distinction is invisible, so it has to be checked here.
+describe("probing a streamed index", () => {
+  it("gives the same counts as the same index in memory", async () => {
+    const memory = await IndexReader.open(new MemorySource(data));
+    const source = await HttpRangeSource.open(`${baseUrl}/demo.index`);
+    const streamed = await IndexReader.open(source);
+    for (const word of ["the", "chicken", "solar system", "blasphemer", "qqzzxxjjv"]) {
+      expect(await probeCount(streamed, word), word).toBe(
+        await probeCount(memory, word),
+      );
+    }
+  }, 60000);
+
+  it("costs round trips proportional to the word, not to the index", async () => {
+    const source = await HttpRangeSource.open(`${baseUrl}/demo.index`);
+    const streamed = await IndexReader.open(source);
+    const before = source.requests;
+    await probeCount(streamed, "chicken");
+    const requests = source.requests - before;
+
+    // "chicken " is eight levels, so eight child lookups at most, and
+    // read-ahead means several of them land in bytes already fetched. The
+    // claim being pinned is that this is bounded by the word rather than by
+    // the index: a number in single figures, not the hundreds a walk makes.
+    expect(requests).toBeGreaterThan(0);
+    expect(requests, `${requests} requests for one eight-character probe`)
+      .toBeLessThanOrEqual(8);
   }, 60000);
 });

@@ -574,9 +574,25 @@ Goal: mechanical, low-risk changes that everything later depends on.
   a word list. And the batch-then-`flushPending` path is still there:
   `{compound}` / `{reversible}` predicates do not yet stream through the
   pipeline.
-- [ ] **P2. Direct score probe.** `IndexReader` helper: walk the trie
-  along a given word/phrase (single path, O(length)) returning its
-  count/score, range-mode aware. This is the planner's cheap oracle.
+- [x] **P2. Direct score probe.** `src/index-probe.ts`: `probeCount(reader,
+  text)` walks a single path down the trie and returns the occurrences of
+  `text` as a complete word or phrase, 0 if the index has no such entry;
+  `probeShare` gives the same as a fraction of the corpus, which is the form
+  worth comparing across indexes three orders of magnitude apart in size.
+  Range-aware by construction — `reader.children` returns a promise when the
+  bytes are not in hand — and bounded by the string's length rather than the
+  index's size: measured over the demo index served by HTTP Range, an
+  eight-character probe issues at most eight requests.
+  `makeWordChecker` is now this plus a floor, which is what it always was: the
+  walk behind `{compound …}` and `{reversible …}` was a private copy. Its
+  cache is keyed by word rather than by word-and-floor now, since a count does
+  not depend on what is being asked of it.
+  Writing the equivalence test — the probe's answer is the score the search
+  reports for the same string — found that `exhaustive.test.ts`'s "finds a
+  needle that only one entry matches" was asserting nothing: its needle,
+  "nutrimatic", is not in the demo index, so the search found nothing and the
+  oracle expected nothing. It uses a needle that is in the haystack now, and
+  checks that it is.
 - [ ] **P3. Cardinality estimation.** For each conjunct: finite ⇔ acyclic
   NFA; estimate |language| with a capped path count (anagram conjuncts:
   cap kicks in). Attach estimates to the SlotPlan; show in `--explain`.
