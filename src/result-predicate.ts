@@ -14,6 +14,10 @@
 
 import { SessionContext } from "./session-context.js";
 import { listKey, wordList } from "./word-lists.js";
+import { FilterError } from "./result-filter.js";
+import { compileConjuncts } from "./find-expr.js";
+import { innerNfa } from "./conjunct.js";
+import { enumerateLanguage } from "./finite-strategy.js";
 import {
   FilterSpec,
   isPalindrome,
@@ -142,23 +146,72 @@ function anagramKeys(
   }
   const cached = perCtx.get(name);
   if (cached !== undefined) return cached;
-  // Bundled lists first, then the harvested catalogue — the same order
-  // `{list:…}` resolves in, so the two agree about what a list contains.
+  // A list name first — bundled, then harvested, the same order `{list:…}`
+  // resolves in, so the two agree about what a list contains. Failing that, the
+  // argument is a pattern, and its language is the set to rearrange: that is
+  // what makes `{anagram {kind:bird}:A{6}}` work, and `{anagram {del1:beast}:A*}`
+  // and anything else finite.
   const entries =
-    wordList(name) ?? ctx.lists?.entries.get(name) ?? null;
-  let built: Map<string, string[]> | null = null;
-  if (entries !== null) {
-    built = new Map();
-    for (const e of entries) {
-      const k = letters(e).split("").sort().join("");
-      const at = built.get(k);
-      if (at) at.push(e);
-      else built.set(k, [e]);
-    }
+    wordList(name) ??
+    ctx.lists?.entries.get(name) ??
+    enumeratedSet(list, ctx);
+  if (entries === null) {
+    // Neither a list nor a set this can hold. Said once, rather than dropping
+    // every candidate in silence and reporting no results — which is what an
+    // unbounded argument like `{anagram A*:…}` did.
+    perCtx.set(name, null);
+    throw new FilterError(
+      `{anagram …} needs something it can list out: a list name, or a pattern ` +
+        `matching at most ${ANAGRAM_SET_CAP.toLocaleString("en-US")} strings. ` +
+        `"${list}" is ${
+          wordListLike(list) ? "not a list this build knows" : "not bounded enough"
+        } — try {anagram countries:…} or {anagram {kind:bird}:…}`,
+    );
+  }
+  const built = new Map<string, string[]>();
+  for (const e of entries) {
+    const k = letters(e).split("").sort().join("");
+    const at = built.get(k);
+    if (at) at.push(e);
+    else built.set(k, [e]);
   }
   perCtx.set(name, built);
   return built;
 }
+
+/**
+ * The strings a pattern matches, when there are few enough to hold.
+ *
+ * Returns null when the argument does not compile, or matches unboundedly many
+ * strings, or more than the cap — for which the caller has no answer to give
+ * and says so once rather than dropping every candidate in silence.
+ */
+/** A bare word looks like a list name; anything else was meant as a pattern. */
+function wordListLike(spec: string): boolean {
+  return /^[a-z0-9 ]+$/i.test(spec.trim());
+}
+
+function enumeratedSet(pattern: string, ctx: SessionContext): string[] | null {
+  let conjuncts;
+  try {
+    conjuncts = compileConjuncts(pattern, ctx);
+  } catch {
+    return null;
+  }
+  // One conjunct, because an intersection cannot be enumerated by enumerating
+  // one of its parts: `{anagram A{5}&C*:…}` would need the product.
+  if (conjuncts.length !== 1) return null;
+  const strings = enumerateLanguage(innerNfa(conjuncts[0]), ANAGRAM_SET_CAP);
+  // Compiled conjuncts carry the boundary space the search requires.
+  return strings === null ? null : strings.map((t) => t.replace(/ $/, ""));
+}
+
+/**
+ * Most strings an `{anagram …}` argument may name. Generous, since the work is
+ * one pass to build a keyed index and then a probe per candidate — but bounded,
+ * because the argument may be `A*`.
+ */
+const ANAGRAM_SET_CAP = 20000;
 
 /** Per-session anagram indexes, by list name. See anagramKeys. */
 const ANAGRAM_KEYS = new WeakMap<

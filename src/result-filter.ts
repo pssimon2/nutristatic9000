@@ -86,8 +86,26 @@ export function parseFilterWrapper(
   query: string,
 ): { spec: FilterSpec; inner: string } | null {
   const q = query.trim();
-  const m = /^\{\s*([a-z][a-z.]*)\s*([^:}]*):/i.exec(q);
-  if (!m) return null;
+  const head = /^\{\s*([a-z][a-z.]*)\s*/i.exec(q);
+  if (head === null) return null;
+  // The colon that ends the spec is the one at brace depth zero. A spec used to
+  // be digits or a word, so `[^:}]*` was enough; `{anagram {kind:bird}:A{6}}`
+  // has a whole pattern in there, with braces and colons of its own.
+  let depth = 0;
+  let colon = -1;
+  for (let i = head[0].length; i < q.length; ++i) {
+    const c = q[i];
+    if (c === "{") ++depth;
+    else if (c === "}") {
+      if (depth === 0) break;
+      --depth;
+    } else if (c === ":" && depth === 0) {
+      colon = i;
+      break;
+    }
+  }
+  if (colon === -1) return null;
+  const m = [q.slice(0, colon + 1), head[1], q.slice(head[0].length, colon)];
   const token = m[1].toLowerCase();
   // The group prefix is optional here too: {match.palindrome:…}.
   if (token.includes(".")) {
