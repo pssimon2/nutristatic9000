@@ -179,6 +179,16 @@ export interface SearchDriverOptions {
    * default) disables it.
    */
   scoreFloor?: number;
+  /**
+   * First-letter sharding (X1): this driver owns only results whose *whole
+   * phrase* starts with one of these character codes. Applied to the seed
+   * entry's expansion ONLY — a restart re-enters the root mid-walk carrying
+   * its crumb, and its result's partition is fixed by the phrase's first
+   * letter, so restarts must enter every root child; filtering them would
+   * silently lose every phrase needing one. Shards over a partition of the
+   * root's children are disjoint and complete.
+   */
+  seedLetters?: ReadonlyArray<number>;
 }
 
 export class SearchDriver {
@@ -198,6 +208,8 @@ export class SearchDriver {
   private readonly scoreFloor: number;
   /** Set when the filter carries acceptance weights (W1). */
   private readonly weighted: boolean;
+  /** X1: allowed first letters for the seed expansion, or null for all. */
+  private readonly seedMask: Uint8Array | null;
   /** Best score emitted so far, for the score-floor cutoff. */
   private best = 0;
 
@@ -211,6 +223,12 @@ export class SearchDriver {
     this.prefetchDepth = opts.prefetchDepth ?? 0;
     this.scoreFloor = opts.scoreFloor ?? 0;
     this.weighted = filter.acceptWeight !== undefined;
+    if (opts.seedLetters !== undefined) {
+      this.seedMask = new Uint8Array(256);
+      for (const c of opts.seedLetters) this.seedMask[c & 0xff] = 1;
+    } else {
+      this.seedMask = null;
+    }
     this.frontier.push(-1, startState, 0, 1.0, reader.count(), reader.root());
   }
 
@@ -275,7 +293,11 @@ export class SearchDriver {
     const newCrumb = this.crumbs.length;
 
     const cut = this.cutoff();
+    // The seed entry is the one with no crumb; its children are the phrase's
+    // possible first letters, which is where a shard's ownership is decided.
+    const seedMask = f.topCrumb === -1 ? this.seedMask : null;
     for (let i = 0; i < tmp.n; ++i) {
+      if (seedMask !== null && seedMask[tmp.ch[i]] === 0) continue;
       if (tmp.count[i] * f.topScale < cut) continue;
       const state = this.filter.transition(f.topState, tmp.ch[i]);
       if (state >= 0) {

@@ -939,18 +939,30 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase X — Parallel search
 
-- [ ] **X1. First-letter sharding.** N workers, each owning a subset of
-  the trie root's children; restarts jump to the root *within* a walk and
-  never change a result's partition, so shards are disjoint and complete.
-  Each worker streams descending scores; UI-side merge with a small heap
-  is exact. Requires S1 (no globals). Weight partitions by root-child
-  counts so workers finish together.
-  **Implementation caveat (verified 2026-08-16):** a result's partition is
-  fixed by the first letter of the *whole phrase* — the restart carries
-  `f.topCrumb` unchanged — so a shard must filter root children **only on
-  the seed entry** (`crumb === -1`) and let restarts enter every root
-  child. Filtering at every root visit silently loses all phrases needing
-  a restart.
+- [~] **X1. First-letter sharding.** *(driver primitive + CLI threads done
+  2026-08-17; the web orchestration deliberately not.)*
+  `SearchDriverOptions.seedLetters` filters root children on the seed
+  entry ONLY (`crumb === -1`) — implementing the caveat below exactly, so
+  restarts enter every root child and phrases stay in the shard of their
+  first letter. `shardSeedLetters` partitions the root's children weighted
+  by count. The CLI runs it for real: `find-expr --shards N` spawns N
+  worker threads, each walking its shard, K-way-merged exactly (shards
+  stream descending) with predicates run once in the parent — measured 4
+  threads at 0.8 s wall / 2.0 s CPU on the fixture, identical result sets
+  and scores, only equal-score ties reordered. test/shards.test.ts pins
+  disjointness, completeness (exhaustible query), no-invention under a
+  budget, and the restart-phrase ownership case.
+  The web side is open for environmental reasons, not design ones: workers
+  cannot share the index bytes without SharedArrayBuffer (X3's COOP/COEP
+  server change), OPFS sync handles are exclusive, and N range caches
+  multiply fetch cost — a page-side N-worker merge is the shape when those
+  trade-offs are chosen.
+  **Implementation caveat (verified 2026-08-16, now encoded in the
+  driver):** a result's partition is fixed by the first letter of the
+  *whole phrase* — the restart carries `f.topCrumb` unchanged — so a shard
+  must filter root children **only on the seed entry** and let restarts
+  enter every root child. Filtering at every root visit silently loses all
+  phrases needing a restart.
 - [ ] **X2. Planner-gated.** Sharding only when the plan predicts a heavy
   search (P3 + query shape); pointless for cheap queries. Memory cost is
   N frontiers — respect a device-memory budget.

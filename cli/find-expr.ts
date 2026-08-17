@@ -41,7 +41,9 @@ const USAGE =
   "  --walk: always walk the index, even where testing a list would do\n" +
   "  --score-floor F: drop frontier entries below F x the best score seen\n" +
   "    (e.g. 1e-9) - bounds frontier growth, truncates the deep tail\n" +
-  "  --pack FILE|URL: load a construct pack (repeatable)";
+  "  --pack FILE|URL: load a construct pack (repeatable)\n" +
+  "  --shards N: split the walk across N threads by first letter (X1);\n" +
+  "    results merge exactly, printed once every shard finishes";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -61,6 +63,17 @@ for (let i = args.indexOf("--pack"); i !== -1; i = args.indexOf("--pack")) {
   }
   packRefs.push(ref);
   args.splice(i, 2);
+}
+let shardCount = 1;
+const shardsIdx = args.indexOf("--shards");
+if (shardsIdx !== -1) {
+  const raw = args[shardsIdx + 1];
+  if (raw === undefined || !/^\d+$/.test(raw) || +raw < 1 || +raw > 64) {
+    console.error(`error: bad --shards value "${raw ?? ""}"\n${USAGE}`);
+    process.exit(2);
+  }
+  shardCount = +raw;
+  args.splice(shardsIdx, 2);
 }
 let scoreFloor = 0;
 const floorIdx = args.indexOf("--score-floor");
@@ -206,6 +219,34 @@ interface Run {
   indexLookups: number;
 }
 
+/**
+ * One match through the predicates: null drops it, else the line to print.
+ * Shared by the single-threaded walk and the sharded merge, counting into
+ * whichever run is live.
+ */
+function presenter(run: Run) {
+  return async function present(score: number, text: string): Promise<string | null> {
+    let note = "";
+    if (filters.length > 0) {
+      ++run.predicateChecks;
+      // Same rule as the browser (src/result-predicate.ts); only the
+      // formatting differs — a line suffix here, a `note` field over
+      // postMessage there.
+      const verdict = await applyResultFilters(filters, text, ctx, isWord);
+      if (!verdict.keep) return null;
+      ++run.predicatePassed;
+      if (verdict.notes.length > 0) note = `  ${verdict.notes.join("  ")}`;
+    }
+    // Derived from the query and the answer together — the Caesar shift that
+    // matched, the letter an edit changed. Shared with the page, which is the
+    // point: these were written where they were first needed and so the CLI
+    // showed none of them.
+    const derived = derivedNote(shape, text);
+    if (derived !== null) note = note === "" ? `  ${derived}` : `${note}  ${derived}`;
+    return `${formatScore(score)} ${text}${note}`;
+  };
+}
+
 async function runQuery(): Promise<Run> {
   let filter;
   try {
@@ -230,27 +271,7 @@ async function runQuery(): Promise<Run> {
     indexLookups: 0,
   };
 
-  /** One match through the predicates: null drops it, else the line to print. */
-  async function present(score: number, text: string): Promise<string | null> {
-    let note = "";
-    if (filters.length > 0) {
-      ++run.predicateChecks;
-      // Same rule as the browser (src/result-predicate.ts); only the
-      // formatting differs — a line suffix here, a `note` field over
-      // postMessage there.
-      const verdict = await applyResultFilters(filters, text, ctx, isWord);
-      if (!verdict.keep) return null;
-      ++run.predicatePassed;
-      if (verdict.notes.length > 0) note = `  ${verdict.notes.join("  ")}`;
-    }
-    // Derived from the query and the answer together — the Caesar shift that
-    // matched, the letter an edit changed. Shared with the page, which is the
-    // point: these were written where they were first needed and so the CLI
-    // showed none of them.
-    const derived = derivedNote(shape, text);
-    if (derived !== null) note = note === "" ? `  ${derived}` : `${note}  ${derived}`;
-    return `${formatScore(score)} ${text}${note}`;
-  }
+  const present = presenter(run);
 
   // A query with one small finite conjunct is a list, and a list can be
   // tested rather than searched for — same answers, same order, same scores.
@@ -305,8 +326,79 @@ async function runQuery(): Promise<Run> {
   return run;
 }
 
+/**
+ * X1: run the walk across N threads, each owning a first-letter shard, and
+ * merge exactly. Shards stream in descending order, so a K-way merge over
+ * their finished result lists is the unsharded order; each result then goes
+ * through the same predicates as a single-threaded run.
+ */
+async function runSharded(): Promise<Run> {
+  const { Worker } = await import("node:worker_threads");
+  const { shardSeedLetters } = await import("../src/shards.js");
+  compileQuery(pattern, ctx); // fail fast, in this thread, with the real error
+  const shards = await shardSeedLetters(reader, shardCount);
+  const run: Run = {
+    steps: 0, emitted: 0, frontierPeak: 0, dfaStates: 0,
+    predicateChecks: 0, predicatePassed: 0, hitLimit: false,
+    candidatesTested: 0, indexLookups: 0,
+  };
+  const present = presenter(run);
+  const lists = await Promise.all(
+    shards.map(
+      (seedLetters) =>
+        new Promise<Array<{ score: number; text: string }>>((resolve, reject) => {
+          const worker = new Worker(new URL("./shard-worker.ts", import.meta.url), {
+            workerData: {
+              indexPath: indexPaths[0],
+              pattern,
+              seedLetters,
+              maxSteps,
+              scoreFloor,
+            },
+          });
+          const mine: Array<{ score: number; text: string }> = [];
+          worker.on("message", (m: { results: typeof mine; done?: boolean;
+              steps?: number; hitLimit?: boolean; frontierPeak?: number }) => {
+            mine.push(...m.results);
+            if (m.done) {
+              run.steps += m.steps ?? 0;
+              run.frontierPeak += m.frontierPeak ?? 0;
+              if (m.hitLimit) run.hitLimit = true;
+              void worker.terminate();
+              resolve(mine);
+            }
+          });
+          worker.on("error", reject);
+        }),
+    ),
+  );
+  // K-way merge of descending lists.
+  const at = lists.map(() => 0);
+  for (;;) {
+    let best = -1;
+    for (let i = 0; i < lists.length; ++i) {
+      if (at[i] >= lists[i].length) continue;
+      if (best === -1 || lists[i][at[i]].score > lists[best][at[best]].score) {
+        best = i;
+      }
+    }
+    if (best === -1) break;
+    const r = lists[best][at[best]++];
+    const line = await present(r.score, r.text);
+    if (line !== null) {
+      ++run.emitted;
+      process.stdout.write(`${line}\n`);
+    }
+  }
+  if (run.hitLimit) {
+    process.stdout.write(`# computation limit reached in a shard (${run.steps} steps total)\n`);
+  }
+  return run;
+}
+
 try {
-  const run = await runQuery();
+  const run =
+    shardCount > 1 && readers.length === 1 ? await runSharded() : await runQuery();
 
   if (wantStats) {
     const src = reader.source as SourceStats;
