@@ -24,11 +24,12 @@ Deployment notes specific to this fork:
 
       npm run build-head -- /path/to/en-wiki.index --out web/dist/en-wiki.head
 
-  12 MB on disk, 3.85 MB over the wire, four seconds to build. Without it the
-  site still works and is much slower — `{palindrome:A{5}}` goes from half a
-  second to twenty and finds nothing — so a deploy that forgets it fails
-  quietly. `?debug=1` says "answered from the head of the index" when it is
-  being used, which is the quickest way to tell.
+  12 MB on disk, 3.8 MB over the wire, a few seconds to build; all 22 language
+  indexes come to 259 MB on the server and are built by the same loop over
+  `*-merged.index`. Without one the site still works and is much slower —
+  `{palindrome:A{5}}` goes from half a second to twenty and finds nothing — so
+  a deploy that forgets it fails quietly. `?debug=1` says "answered from the
+  head of the index" when it is being used, which is the quickest way to tell.
 
 ## Added so far
 
