@@ -16,6 +16,13 @@ export interface ByteSource {
   readonly length: number;
   /** Make bytes [start, end) available for byte(). May resolve synchronously. */
   ensure(start: number, end: number): void | Promise<void>;
+  /**
+   * Hold the span un-evictable until `unpin` (E13). Several reads may hold
+   * pins at once; a source with no eviction may omit both. `ensure`'s
+   * legacy last-span pin remains for callers that do not pin explicitly.
+   */
+  pin?(start: number, end: number): number;
+  unpin?(token: number): void;
   /** Read one byte inside a previously ensured range. */
   byte(pos: number): number;
   /**
@@ -268,6 +275,9 @@ export class HttpRangeSource implements ByteSource {
   // first call.
   private pinFirst = 0;
   private pinLast = -1;
+  /** Explicitly held spans (E13): token -> [firstChunk, lastChunk]. */
+  private readonly pins = new Map<number, [number, number]>();
+  private nextPin = 1;
   bytesFetched = 0;
   requests = 0;
   /** Chunk cache outcomes: the ratio is what makes range mode viable. */
@@ -347,6 +357,28 @@ export class HttpRangeSource implements ByteSource {
 
   ensure(start: number, end: number): void | Promise<void> {
     return this.load(start, end, true);
+  }
+
+  pin(start: number, end: number): number {
+    const token = this.nextPin++;
+    this.pins.set(token, [
+      Math.floor(start / this.chunkSize),
+      Math.floor((end - 1) / this.chunkSize),
+    ]);
+    return token;
+  }
+
+  unpin(token: number): void {
+    this.pins.delete(token);
+  }
+
+  /** Is the chunk inside any held pin span? */
+  private pinned(c: number): boolean {
+    if (c >= this.pinFirst && c <= this.pinLast) return true;
+    for (const [first, last] of this.pins.values()) {
+      if (c >= first && c <= last) return true;
+    }
+    return false;
   }
 
   /**
@@ -473,7 +505,7 @@ export class HttpRangeSource implements ByteSource {
     while (this.cache.size > this.maxChunks) {
       const oldest = this.cache.keys().next().value!;
       if (oldest >= firstChunk && oldest <= lastChunk) break; // keep what we just loaded
-      if (oldest >= this.pinFirst && oldest <= this.pinLast) break; // promised
+      if (this.pinned(oldest)) break; // promised to a pending read
       this.cache.delete(oldest);
     }
   }

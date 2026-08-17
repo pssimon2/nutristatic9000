@@ -236,9 +236,15 @@ export class IndexReader {
       }
     }
 
-    return maybeAsync(
-      this.source.ensure(Math.max(0, parent - MAX_NODE_SPAN), parent),
-      () => {
+    // Pinned before the fetch and released after the synchronous read (E13):
+    // the read cannot re-fetch, and between ensure() resolving and the read
+    // running, an unrelated ensure or prefetch completing is otherwise free
+    // to evict exactly these blocks. The legacy last-ensure pin protects only
+    // one pending read; this protects each of them.
+    const spanStart = Math.max(0, parent - MAX_NODE_SPAN);
+    const token = this.source.pin?.(spanStart, parent);
+    const read = (): number | Promise<number> => {
+      try {
         const base = out.n;
         const leftover = this.childrenSync(parent, count, out);
         if (found === SEEN) {
@@ -255,8 +261,24 @@ export class IndexReader {
           this.parseCache.markSeen(parent);
         }
         return leftover;
-      },
-    );
+      } finally {
+        if (token !== undefined) this.source.unpin!(token);
+      }
+    };
+    let r: void | Promise<void>;
+    try {
+      r = this.source.ensure(spanStart, parent);
+    } catch (e) {
+      if (token !== undefined) this.source.unpin!(token);
+      throw e;
+    }
+    if (r instanceof Promise) {
+      return r.then(read, (e) => {
+        if (token !== undefined) this.source.unpin!(token);
+        throw e;
+      });
+    }
+    return read();
   }
 
   /**

@@ -14,8 +14,7 @@ remote lists). Still genuinely open: **X1–X3** (parallel sharding — see the
 partition caveat on X1 before starting), **F2** (per-language data packs —
 needs foreign datasets built), **F5**
 (multi-index merged search), **F6** (generalized alphabet — sequence last),
-**F7** (reverse-index sidecar), **F8** (library packaging), **E13** (left
-open in principle, guarded and unreproducible), and the deliberately-unbuilt
+**F7** (reverse-index sidecar), **F8** (library packaging), and the deliberately-unbuilt
 halves noted inline (T2 latency budgets, P5/P6, A1, W4).
 
 ## Ground rules (read first, apply to every item)
@@ -736,7 +735,7 @@ Goal: mechanical, low-risk changes that everything later depends on.
   results. Uncompressed: `<aaagmnr>` 0 results at 84.6 MB → 20 results at
   52.6 MB. 4 was better again on bytes but lost more to round-trips.
   Measured on both paths rather than changing one by analogy with the other.
-- [ ] **E13. A pin several pending reads can hold.** `CompressedRangeSource`
+- [x] **E13. A pin several pending reads can hold.** `CompressedRangeSource`
   (and `HttpRangeSource`) keep one pin span, overwritten by whichever `ensure`
   ran last, which is only correct while at most one read is pending. Traced on
   2026-08-17 against the demo index with a deliberately small cache: a block
@@ -771,8 +770,15 @@ Goal: mechanical, low-risk changes that everything later depends on.
   oldest. A fix and a test for it were written and both reverted, because the
   test passed against the unfixed code — which is the only way to find out that
   a plausible bug is unreachable.
-  Left open rather than closed: the one-span pin is still wrong in principle,
-  and `MIN_CACHE_BLOCKS = 64` is still the thing keeping it out of reach.
+  **Closed 2026-08-17: the principled fix is in.** `ByteSource` gained
+  optional `pin(start, end) → token` / `unpin(token)`; both range sources
+  keep a map of held spans and their evictors refuse to drop a block inside
+  any of them; `IndexReader.childrenInto` pins before its ensure and
+  releases in a finally after its synchronous read — so every pending read
+  holds its own promise, not just the most recent one. Regression test in
+  range-eviction.test.ts (two pins held across heavy unrelated traffic,
+  then released and evicted normally). `MIN_CACHE_BLOCKS = 64` stays as
+  defence in depth.
 - [~] **P6. Plan diagnostics.** *(deferred 2026-08-17 — the advice it proposes
   is measurably wrong now.)* The warning it specifies is "unbounded search; the
   {palindrome} filter cannot prune — add a length or a value ceiling". The

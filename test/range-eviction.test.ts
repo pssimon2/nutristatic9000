@@ -74,6 +74,35 @@ describe("a promised chunk survives a concurrent prefetch", () => {
     for (let c = 0; c < 3; ++c) expect(src.byte(c * CHUNK), `chunk ${c}`).toBe(c);
   });
 
+  it("holds several pins at once — the E13 case the one-span pin lost", async () => {
+    const src = await source();
+    // Two reads pending at once, each pinning its own span. The one-span pin
+    // was overwritten by whichever ensure ran last, so the first read's
+    // chunks were fair game for eviction while it awaited.
+    const pinA = src.pin!(0, 16);
+    const a = src.ensure(0, 16);
+    const pinB = src.pin!(30 * CHUNK, 30 * CHUNK + 16);
+    const b = src.ensure(30 * CHUNK, 30 * CHUNK + 16);
+    // Heavy unrelated traffic while both are pending.
+    for (let c = 40; c < 60; ++c) {
+      const p = src.ensure(c * CHUNK, c * CHUNK + 16);
+      if (p) await p;
+    }
+    await Promise.all([a, b]);
+    expect(src.byte(0)).toBe(0);
+    expect(src.byte(30 * CHUNK)).toBe(30 & 0xff);
+    src.unpin!(pinA);
+    src.unpin!(pinB);
+    // Released, the spans are ordinary LRU citizens again — fresh fetches
+    // (chunks the cache has never held, so real inserts fire the evictor)
+    // push them out.
+    for (let c = 10; c < 30; ++c) {
+      const p = src.ensure(c * CHUNK, c * CHUNK + 16);
+      if (p) await p;
+    }
+    expect(() => src.byte(0)).toThrow(/not ensured/);
+  });
+
   it("still evicts, or the cache would grow without bound", async () => {
     const src = await source();
     // Sequential reads: each ensure releases the previous pin.

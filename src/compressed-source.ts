@@ -124,12 +124,12 @@ export async function fetchIdxzPrefix(
  * cache is small enough that anything gets evicted at all: 8 and 16 blocks
  * fail, 32 and up do not, and the default is 4096.
  *
- * The real repair is a pin that several pending reads can hold at once, which
- * means an acquire/release on `ByteSource` and both sources changed to match.
- * This is the floor that keeps the race out of reach until then — sized
- * against what one fetch brings in (MAX_READAHEAD_BLOCKS of read-ahead,
- * several such fetches in flight under a prefetching driver, plus the span
- * being read).
+ * The real repair landed 2026-08-17: `pin`/`unpin` on ByteSource — a span a
+ * pending read holds is un-evictable until that read's synchronous
+ * continuation finishes, however many reads are pending (see
+ * IndexReader.childrenInto and the pins map below). This floor stays as
+ * defence in depth: it costs nothing, and it keeps even a source that a
+ * future caller forgets to pin from meeting the race.
  */
 export const MIN_CACHE_BLOCKS = 64;
 
@@ -138,6 +138,9 @@ export class CompressedRangeSource implements ByteSource {
   // Span of the most recent ensure(); empty until the first call.
   private pinFirst = 0;
   private pinLast = -1;
+  /** Explicitly held spans (E13): token -> [firstBlock, lastBlock]. */
+  private readonly pins = new Map<number, [number, number]>();
+  private nextPin = 1;
   private readonly inflight = new Map<number, Promise<void>>();
   bytesFetched = 0; // compressed bytes over the wire
   requests = 0;
@@ -207,6 +210,26 @@ export class CompressedRangeSource implements ByteSource {
 
   ensure(start: number, end: number): void | Promise<void> {
     return this.ensureInternal(start, end, true);
+  }
+
+  pin(start: number, end: number): number {
+    const bs = this.header.blockSize;
+    const token = this.nextPin++;
+    this.pins.set(token, [Math.floor(start / bs), Math.floor((end - 1) / bs)]);
+    return token;
+  }
+
+  unpin(token: number): void {
+    this.pins.delete(token);
+  }
+
+  /** Is the block inside any held pin span? */
+  private pinned(b: number): boolean {
+    if (b >= this.pinFirst && b <= this.pinLast) return true;
+    for (const [first, last] of this.pins.values()) {
+      if (b >= first && b <= last) return true;
+    }
+    return false;
   }
 
   /** `pin`: see the note on HttpRangeSource.load — a prefetch must not pin. */
@@ -350,7 +373,7 @@ export class CompressedRangeSource implements ByteSource {
     while (this.cache.size > this.maxBlocks) {
       const oldest = this.cache.keys().next().value!;
       if (oldest >= keepFirst && oldest <= keepLast) break;
-      if (oldest >= this.pinFirst && oldest <= this.pinLast) break; // promised
+      if (this.pinned(oldest)) break; // promised to a pending read
       this.cache.delete(oldest);
     }
   }
