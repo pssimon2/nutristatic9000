@@ -65,6 +65,22 @@ full search takes over as before.</p>
   <tr><td class="want">No repeated letter, six long</td><td><a href="./?q=%7Bdistinct%3AA%7B6%7D%7D"><tt>{distinct:A{6}}</tt></a></td></tr>
   <tr><td class="want">Only top-row QWERTY letters<div class="note">TYPEWRITER is the famous one.</div></td><td><a href="./?q=%7Brow1%3AA%7B6%7D%7D"><tt>{row1:A{6}}</tt></a></td></tr>
 </table>
+<h2>Several at once</h2>
+<p>The constructs are not a menu of separate tools: they compose, and a
+clue usually needs two or three of them pulling against each other. Each
+of these stacks features that work at different stages &mdash; the pattern
+prunes the walk, a construct intersects with it, a predicate sifts what
+survives.</p>
+<table class="recipes">
+  <tr><td class="want">Eight letters, one syllable<div class="note">STRENGTH, STRAIGHT, THOUGHTS. The pattern bounds the length; the pronouncing dictionary decides the rest.</div></td><td><a href="./?q=%7Bsyllables%3D1%3AA%7B8%7D%7D"><tt>{syllables=1:A{8}}</tt></a></td></tr>
+  <tr><td class="want">Nine letters, spellable in chemical symbols, no letter twice<div class="note">BIOGRAPHY, SINGAPORE, CHAMPIONS. Three constructs stacked: one restricts the spelling, one the letters, one the length.</div></td><td><a href="./?q=%7Bdistinct%3A%7Belements%3AA%7B9%7D%7D%7D"><tt>{distinct:{elements:A{9}}}</tt></a></td></tr>
+  <tr><td class="want">Seven letters, no E, letter values over 90<div class="note">THROUGH, HISTORY, STATION. A negation and a counter narrowing each other — E is the commonest letter, and dropping it while demanding a high total leaves the back of the alphabet.</div></td><td><a href="./?q=A%7B7%7D%26%21.%2Ae.%2A%26%7Bsum%3E90%3AA%2A%7D"><tt>A{7}&amp;!.*e.*&amp;{sum&gt;90:A*}</tt></a></td></tr>
+  <tr><td class="want">A six-letter palindrome of two syllables<div class="note">HANNAH. Two checks on the finished match, each of which would be hopeless as an automaton.</div></td><td><a href="./?q=%7Bpalindrome%3A%7Bsyllables%3D2%3AA%7B6%7D%7D%7D"><tt>{palindrome:{syllables=2:A{6}}}</tt></a></td></tr>
+  <tr><td class="want">Nine letters, three syllables, stress on the middle one<div class="note">SEPTEMBER, ACCORDING, AUSTRALIA. The shape of a word said aloud, with the length pinned.</div></td><td><a href="./?q=%7Bstress%20010%3A%7Bsyllables%3D3%3AA%7B9%7D%7D%7D"><tt>{stress 010:{syllables=3:A{9}}}</tt></a></td></tr>
+  <tr><td class="want">A palindromic bird<div class="note">TIT, and nothing else. WordNet supplies the birds; the palindrome check reads each one backwards.</div></td><td><a href="./?q=%7Bpalindrome%3A%7Bkind%3Abird%7D%7D"><tt>{palindrome:{kind:bird}}</tt></a></td></tr>
+  <tr><td class="want">Eight letters, splits into two words, no letter repeated<div class="note">TOWNSHIP is TOWN·SHIP, SQUADRON is SQUAD·RON. The split is looked up in the corpus while the pattern is still being walked.</div></td><td><a href="./?q=%7Bcompound%202%3A%7Bdistinct%3AA%7B8%7D%7D%7D"><tt>{compound 2:{distinct:A{8}}}</tt></a></td></tr>
+  <tr><td class="want">Three different kinds of clue, one extraction<div class="note">A bird, a palindrome and an anagram — one {at 1:…} written around all three applies to each, and the first letters assemble at the top.</div></td><td><a href="./?q=%7Bat%201%3A%7Bkind%3Abird%7D%26A%7B7%7D%20%3B%20%7Bpalindrome%3AA%7B5%7D%7D%20%3B%20%7Bsub%3Acryptography%7D%26A%7B8%7D%7D"><tt>{at 1:{kind:bird}&amp;A{7} ; {palindrome:A{5}} ; {sub:cryptography}&amp;A{8}}</tt></a></td></tr>
+</table>
 <h2>Reading an extraction</h2>
 <table class="recipes">
   <tr><td class="want">The third letter of each match<div class="note">Shown beside the word it came from; click to copy just the letter.</div></td><td><a href="./?q=%7Bat%203%3AA%7B7%7D%7D"><tt>{at 3:A{7}}</tt></a></td></tr>
