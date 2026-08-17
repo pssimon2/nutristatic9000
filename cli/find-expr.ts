@@ -141,6 +141,9 @@ interface SlotRun {
   predicatePassed: number;
   /** Set when the step limit stopped it rather than the search finishing. */
   hitLimit: boolean;
+  /** Set when this slot was answered by testing a list, not by walking. */
+  candidatesTested: number;
+  indexLookups: number;
 }
 
 /**
@@ -172,6 +175,8 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
     predicateChecks: 0,
     predicatePassed: 0,
     hitLimit: false,
+    candidatesTested: 0,
+    indexLookups: 0,
   };
 
   /**
@@ -206,7 +211,9 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
   if (!forceWalk) {
     const tested = await finiteStrategy(reader, compileConjuncts(slot.pattern, ctx));
     if (tested !== null) {
-      for (const r of tested) {
+      run.candidatesTested = tested.candidates;
+      run.indexLookups = tested.lookups;
+      for (const r of tested.results) {
         const line = await present(r.score, r.text);
         if (line !== null) {
           ++run.emitted;
@@ -279,6 +286,8 @@ try {
     s.chunkMisses = src.chunkMisses ?? 0;
     s.predicateChecks = runs.reduce((a, r) => a + r.predicateChecks, 0);
     s.predicatePassed = runs.reduce((a, r) => a + r.predicatePassed, 0);
+    s.candidatesTested = runs.reduce((a, r) => a + r.candidatesTested, 0);
+    s.indexLookups = runs.reduce((a, r) => a + r.indexLookups, 0);
     // On stderr: stdout is the result stream, and a caller piping it should
     // not have to filter the summary back out.
     for (const line of formatStats(s)) console.error(`# ${line}`);

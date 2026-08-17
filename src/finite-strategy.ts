@@ -162,11 +162,19 @@ export function testPlan(
  * Null means "use the walk" and is the common answer: most queries have no
  * small finite conjunct, and many that do have one full of phrases.
  */
+export interface FiniteRun {
+  results: FiniteResult[];
+  /** Candidates the automaton produced, before the rest of the query. */
+  candidates: number;
+  /** How many survivors were looked up in the index. */
+  lookups: number;
+}
+
 export async function finiteStrategy(
   reader: IndexReader,
   conjuncts: Conjunct[],
   cap: number = CANDIDATE_CAP,
-): Promise<FiniteResult[] | null> {
+): Promise<FiniteRun | null> {
   const candidates = finiteCandidates(conjuncts, cap);
   if (candidates === null) return null;
 
@@ -190,7 +198,11 @@ export async function finiteStrategy(
   }
   // Best-first, which is the order the walk emits in.
   out.sort((a, b) => b.score - a.score);
-  return out;
+  return {
+    results: out,
+    candidates: candidates.strings.length,
+    lookups: survivors.length,
+  };
 }
 
 function accepts(

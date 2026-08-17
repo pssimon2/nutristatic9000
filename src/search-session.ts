@@ -79,6 +79,9 @@ export class SearchSession {
   private readonly reader: IndexReader;
   /** Results from the finite strategy, once it has been tried. */
   private finite: FiniteResult[] | null = null;
+  /** What testing cost, for stats(): a walk's numbers describe none of it. */
+  private finiteCandidates = 0;
+  private finiteLookups = 0;
   private finiteTried = false;
   /** How many of them have been handed over, so a "continue" resumes. */
   private finiteAt = 0;
@@ -99,6 +102,8 @@ export class SearchSession {
     s.chunkMisses = this.source.chunkMisses ?? 0;
     s.predicateChecks = this.predicateChecks;
     s.predicatePassed = this.predicatePassed;
+    s.candidatesTested = this.finiteCandidates;
+    s.indexLookups = this.finiteLookups;
     return s;
   }
 
@@ -136,7 +141,12 @@ export class SearchSession {
     // query is not that shape, which is the common case.
     if (!this.finiteTried && this.conjuncts !== null && !this.forceWalk) {
       this.finiteTried = true;
-      this.finite = await finiteStrategy(this.reader, this.conjuncts);
+      const run = await finiteStrategy(this.reader, this.conjuncts);
+      if (run !== null) {
+        this.finite = run.results;
+        this.finiteCandidates = run.candidates;
+        this.finiteLookups = run.lookups;
+      }
     }
     if (this.finite !== null) {
       let n = 0;

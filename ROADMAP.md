@@ -733,6 +733,24 @@ Goal: mechanical, low-risk changes that everything later depends on.
   at all. Start there.
   `MIN_CACHE_BLOCKS = 64` keeps it out of reach meanwhile — the default is
   4096 — so nothing real is exposed.
+  **Follow-up (2026-08-17): it no longer reproduces, and the eviction code that
+  looks wrong is unreachable.** Rebuilt the reproduction — demo index over a
+  local Range server with varying 1–13 ms latency, `prefetchDepth: 48`, and the
+  block cache forced to 8, 16 and 24 past the floor — and got 0 failures in 3
+  runs at each size, with the cache confirmed to be holding exactly that many
+  blocks rather than silently ignoring the setting. `MAX_READAHEAD_BLOCKS` is 2
+  now, where it was 32 when this was first traced, so a single fetch no longer
+  brings in enough to push a pinned span out.
+  Also examined `evict` in both sources, which `break`s at the first block it
+  must keep instead of stepping past it — so one protected block at the LRU
+  tail should halt eviction and let the cache grow past its limit. It cannot:
+  the two protected sets are the span just fetched and the span just ensured,
+  and both are by construction the *most* recently used, so neither is ever the
+  oldest. A fix and a test for it were written and both reverted, because the
+  test passed against the unfixed code — which is the only way to find out that
+  a plausible bug is unreachable.
+  Left open rather than closed: the one-span pin is still wrong in principle,
+  and `MIN_CACHE_BLOCKS = 64` is still the thing keeping it out of reach.
 - [~] **P6. Plan diagnostics.** *(deferred 2026-08-17 — the advice it proposes
   is measurably wrong now.)* The warning it specifies is "unbounded search; the
   {palindrome} filter cannot prune — add a length or a value ceiling". The

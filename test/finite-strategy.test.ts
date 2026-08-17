@@ -124,17 +124,22 @@ describe("the same answers as walking the index", () => {
   ]) {
     it(`agrees on ${query}`, async () => {
       const conjuncts = compileConjuncts(query, ctx);
-      const tested = await finiteStrategy(reader, conjuncts);
-      expect(tested, `${query} was not answerable this way`).not.toBeNull();
+      const run = await finiteStrategy(reader, conjuncts);
+      expect(run, `${query} was not answerable this way`).not.toBeNull();
+      const tested = run!.results;
 
       const { out: walked, status } = await byWalking(query);
       // A partial walk would make "the same set" meaningless.
       expect(status, `${query} did not exhaust`).toBe("exhausted");
 
-      expect(tested!.map((r) => r.text)).toEqual(walked.map((r) => r.text));
+      expect(tested.map((r) => r.text)).toEqual(walked.map((r) => r.text));
       for (let i = 0; i < walked.length; ++i) {
-        expect(tested![i].score, tested![i].text).toBe(walked[i].score);
+        expect(tested[i].score, tested[i].text).toBe(walked[i].score);
       }
+      // The counts stats() reports: candidates the automaton produced, and how
+      // many of those reached the index.
+      expect(run!.candidates).toBeGreaterThanOrEqual(run!.lookups);
+      expect(run!.lookups).toBeGreaterThanOrEqual(tested.length);
     }, 120000);
   }
 

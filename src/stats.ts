@@ -46,6 +46,17 @@ export interface Stats {
   /** Result predicates run, and how many survived. */
   predicateChecks: number;
   predicatePassed: number;
+  /**
+   * Set when the query was answered by testing a list rather than walking the
+   * index (src/finite-strategy.ts): how many candidates the automaton
+   * produced, and how many of those were looked up in the index.
+   *
+   * Without these a strategy run reported "steps: 0" and nothing else, which
+   * is true and useless — the numbers that describe a walk describe none of
+   * the work this does.
+   */
+  candidatesTested: number;
+  indexLookups: number;
 }
 
 export function emptyStats(): Stats {
@@ -60,6 +71,8 @@ export function emptyStats(): Stats {
     chunkMisses: 0,
     predicateChecks: 0,
     predicatePassed: 0,
+    candidatesTested: 0,
+    indexLookups: 0,
   };
 }
 
@@ -79,7 +92,17 @@ export function formatBytes(n: number): string {
 export function formatStats(s: Stats): string[] {
   const out: string[] = [];
   const add = (label: string, value: string) => out.push(`${label}: ${value}`);
-  add("steps", s.steps.toLocaleString("en-US"));
+  // A strategy run says so instead of reporting "steps: 0": the walk's units
+  // describe none of what it did.
+  if (s.candidatesTested) {
+    add(
+      "tested",
+      `${s.candidatesTested.toLocaleString("en-US")} candidates, ` +
+        `${s.indexLookups.toLocaleString("en-US")} looked up`,
+    );
+  } else {
+    add("steps", s.steps.toLocaleString("en-US"));
+  }
   add("results", s.results.toLocaleString("en-US"));
   if (s.frontierPeak) add("frontier peak", s.frontierPeak.toLocaleString("en-US"));
   if (s.dfaStates) add("lazy DFA states", s.dfaStates.toLocaleString("en-US"));
