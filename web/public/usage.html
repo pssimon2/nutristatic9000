@@ -821,7 +821,17 @@ into the given letters. This pattern finds the answer for HEGM:</p>
 
 <p>The word is required to be an anagram of &lt;waterhegm&gt; with the added
 constraint that the letters in "water" appear in that order. The answer "wheat
-germ" shows up on top.</p>
+germ" shows up on top.
+
+<p class="note">This one wants the index on your device, and it is worth knowing
+why: an anagram fixes no letters, so there is no prefix to walk down and the
+search touches the index everywhere. Over the network that is a round trip per
+step &mdash; measured against the streamed English index, 384 steps and 19.9 MB
+in seven seconds, and no answer &mdash; while the same query against a
+downloaded index answers in under two seconds. Against the 20 MB demo index,
+which the page fetches whole,
+<a href="./?q=%3Cwaterhegm%3E%26_%2Aw_%2Aa_%2At_%2Ae_%2Ar_%2A&amp;index=demo.index">wheat
+germ shows up on top</a> as described.</p></p>
 
 <h4><a name="examples_mortaljeopardy" href="http://bloodandbones.com/ph12sim/puzzles/Mortal%20Jeopardy/">Mortal Jeopardy</a></h4>
 
@@ -832,7 +842,14 @@ but the chunks were scrambled internally:</p>
 <pre><a href="./?q=%3Chet%3E%3Cral%3E%3Cseg%3E%3Ctan%3E%3Crut%3E%3Cbla%3E%3Coody%3E%3Cafl%3E%3Cndi%3E%3Ccin%3E%3Cawe%3E%3Cter%3E">&lt;het&gt;&lt;ral&gt;&lt;seg&gt;&lt;tan&gt;&lt;rut&gt;&lt;bla&gt;&lt;oody&gt;&lt;afl&gt;&lt;ndi&gt;&lt;cin&gt;&lt;awe&gt;&lt;ter&gt;</a></pre>
 
 <p>The answer, "the largest natural body of land in ice water", shows up first.
-(Interpreting it requires some cleverness by the human solver!)</p>
+(Interpreting it requires some cleverness by the human solver!)
+
+<p class="note">Also one for a local index, and for a second reason on top of
+the anagram cost above: at 45 characters the phrase is longer than the 40 the
+index windows into, so no single entry holds it. It is assembled from several,
+which the search does by restarting at a word boundary and scaling the score
+down each time &mdash; so the answer sits far below where a streamed search on a
+time budget gets to.</p></p>
 
 <h2><a name="how">How It Works (and What Makes a Query Slow)</a></h2>
 

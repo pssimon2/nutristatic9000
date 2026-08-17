@@ -795,15 +795,42 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Slots get 2 s; a single query keeps 6 s, checked unchanged
   (`{palindrome:A{5}}` 7.5 s / 60 results, `A{5}&C*` 18 s / 1,027).
 
+- [x] **T5. Audit the documented examples against the deployed site.** *(Added
+  2026-08-17.)* `check-examples` runs every documented query against the demo
+  index, which is not what a reader uses. Ran all 95 against the deployed
+  default — the streamed 1.3 GB English index — and 93 answered. The two that
+  did not are both anagram-shaped, and neither is an engine defect:
+  `<waterhegm>&_*w_*a_*t_*e_*r_*` and the twelve-chunk hunt.
+  An anagram fixes no letters, so there is no prefix to walk down and the search
+  touches the index everywhere: measured, 384 steps and 19.9 MB in seven seconds
+  over the network, against under two seconds for the same query on an index
+  fetched whole. The engine finds both — our answers for the first match
+  upstream's exactly, "wheat germ" then "wheatgerm" — and the twelve-chunk
+  answer is 45 characters, longer than the 40 the index windows, so it is
+  assembled from several entries with the score scaled down at each restart and
+  sits far below where a budgeted streamed search reaches. Upstream answers it
+  from local disk with no such budget.
+  The usage guide now says so at both examples, and the first carries a link
+  that selects the 20 MB demo index, where "wheat germ" does show up on top as
+  the text promises.
+
 ## Phase A — Search smarts
 
-- [ ] **A1. Restart-aware priority (admissible A*).** Frontier priority is
-  `count*scale` (h = 0). Compute per-filter-state minimum remaining
-  *restarts* (spaces to acceptance, derivable lazily per conjunct NFA);
-  multiply priority by `restart^minRemainingRestarts` (restart = 1e-6, so
-  forced future restarts demote entries by orders of magnitude
-  immediately). Still an upper bound ⇒ result order unchanged (add test).
-  Same idea for `{words=N}` counters, whose state encodes remaining words.
+- [~] **A1. Restart-aware priority (admissible A*).** *(assessed and not built
+  2026-08-17 — the heuristic is not admissible.)* The item multiplies a
+  frontier entry's priority by `restart^minRemainingRestarts`, on the reasoning
+  that a pattern needing more words forces more restarts, and argues the result
+  order is unchanged because the priority stays an upper bound.
+  It does not stay an upper bound. The index windows 40 characters of text into
+  each chain, so a multi-word match is often a *single* entry and costs no
+  restart at all — "solar system" is one entry, not two joined. Demoting such
+  an entry by 1e-6 per remaining space would understate what it can still
+  reach, which is exactly what breaks best-first order.
+  It could be made admissible against the window rather than the word count: a
+  match needing more than 40 characters must span, so at least
+  `ceil(chars/40) - 1` restarts are forced. That bound is zero for almost every
+  query anyone writes, which is the same as saying the optimization would
+  rarely fire.
 - [ ] **A2. Score-floor knob.** Optional budget: drop frontier entries
   whose priority falls below `floor × best-emitted-score` (e.g. 1e-9).
   Off by default; bounds frontier growth on hopeless tails. Document that
