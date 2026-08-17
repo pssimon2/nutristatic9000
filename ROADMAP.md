@@ -423,13 +423,27 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase P — Query planner: right engine per query
 
-- [ ] **P1. Word-membership/score sidecar (DAWG).** New sidecar built by a
-  CLI tool (pattern: `compress-index.ts`): compact DAWG (or bloom +
-  rank table) of indexed words above a frequency floor, few hundred KB,
-  served next to the index like `.idxz`. Loaded lazily. Used by: P2
-  probes, C1 predicates, compound splitting.
-  Then: remove the batch-then-`flushPending` path — `{compound}` /
-  `{reversible}` predicates stream through the pipeline.
+- [x] **P1. Word-membership/score sidecar.** *(done as the head sidecar,
+  which turned out to be the same file: `<index>.head` is the top 500,000
+  entries with their scores, ~3.8 MB gzipped, served next to the index and
+  loaded lazily — so no DAWG or bloom filter was needed.)* `head-index.ts`
+  `headWordChecker` answers `{compound …}` and `{reversible …}` from it
+  instead of walking the index per piece, which over a stream cost a round
+  trip each: `{compound 2:A{9}}` went from 60 s and empty to 774 ms with a
+  full page. It is not an approximation — the constructs' floors are shares
+  of the corpus, the head is sorted by exactly that, so once the head reaches
+  below a floor, absence from it *proves* failure of the floor. Measured, it
+  reaches 3x to 30x below across all 22 languages, and `build-head.mjs`
+  reports the margin as it writes.
+  The head also carries a signal the index cannot give cheaply: how much of a
+  string's weight comes from words merely ending in it. That is what finally
+  stopped `{compound}` cutting at suffixes (`publish·ed`, `relation·sh·ip`),
+  which no frequency floor could do — see `MIN_STANDALONE_RATIO`.
+  Still open: the same trick does not work on first pieces (`ap·pointed`,
+  `gene·rally`) — measured, there is no threshold; it would need morphology or
+  a word list. And the batch-then-`flushPending` path is still there:
+  `{compound}` / `{reversible}` predicates do not yet stream through the
+  pipeline.
 - [ ] **P2. Direct score probe.** `IndexReader` helper: walk the trie
   along a given word/phrase (single path, O(length)) returning its
   count/score, range-mode aware. This is the planner's cheap oracle.
