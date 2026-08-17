@@ -549,6 +549,20 @@ interface Slot {
 }
 let slots: Slot[] | null = null;
 let slotIndex = 0;
+/**
+ * Bytes fetched so far by this multi-slot query, across every slot.
+ *
+ * The range-mode budget is per *run*, and each slot is its own run, so a
+ * three-slot query fetched 169 MB against a 64 MB cap and a twelve-slot one —
+ * the size the usage guide describes as typical for a hunt — could fetch more
+ * than downloading the whole index. What the reader asked for is one query;
+ * it should cost about what one query costs.
+ */
+let slotBytesSpent = 0;
+/** The source's lifetime byte count when this multi-slot query began. */
+let slotBytesAtStart = 0;
+/** Last lifetime byte count the worker reported, for the subtraction above. */
+let lastFetchedBytes = 0;
 const slotsEl = document.createElement("div");
 
 function slotLetters(slot: Slot): string | null {
@@ -654,8 +668,26 @@ function runNextSlot(): void {
     // become one offered. Fetch enough to survive that; the extra results are
     // cheap, since they come from a walk that has already found the first.
     maxResults: 12,
-    ...runBudget(),
+    ...slotBudget(),
   });
+}
+
+/**
+ * What this slot may spend: whatever the query has left.
+ *
+ * Never zero, or a later slot could not run at all — a floor of an eighth
+ * means twelve slots still finish, the last few on a thin allowance, which is
+ * the right way round: the early slots are the ones whose answers the reader
+ * is most likely to be choosing between.
+ */
+function slotBudget(): { maxSteps: number; byteBudget: number; timeMs: number } {
+  const budget = runBudget();
+  if (budget.byteBudget === 0) return budget; // local index: no byte cost
+  const left = RANGE_BYTE_BUDGET - slotBytesSpent;
+  return {
+    ...budget,
+    byteBudget: Math.max(Math.floor(RANGE_BYTE_BUDGET / 8), left),
+  };
 }
 
 function startMultiSlot(queries: string[]): void {
@@ -670,6 +702,8 @@ function startMultiSlot(queries: string[]): void {
     done: false,
   }));
   slotIndex = 0;
+  slotBytesSpent = 0;
+  slotBytesAtStart = lastFetchedBytes;
   currentComp =
     parseInt(new URLSearchParams(location.search).get("comp") || "", 10) ||
     MAX_COMPUTATION;
@@ -982,12 +1016,18 @@ worker.onmessage = (ev) => {
         // once the run settles rather than raced against it.
         postToWorker({ type: "plan", query: qInput.value.trim() });
       }
+      if (typeof msg.fetched === "number") lastFetchedBytes = msg.fetched;
       if (msg.engine === "wasm" && !indexInfo.textContent!.includes("WASM")) {
         indexInfo.textContent += " · WASM engine";
       }
       if (slots) {
         const slot = slots[slotIndex];
         if (slot) slot.done = true;
+        // `fetched` is the source's lifetime total, so the difference is what
+        // this slot cost.
+        if (typeof msg.fetched === "number") {
+          slotBytesSpent = Math.max(slotBytesSpent, msg.fetched - slotBytesAtStart);
+        }
         ++slotIndex;
         runNextSlot();
         break;
