@@ -882,6 +882,8 @@ async function runSession(
       engine: engineOf(active),
       fetched: rangeSource?.bytesFetched,
       requests: rangeSource?.requests,
+      // Same rule as the finished run: only the JS engine keeps counters.
+      stats: active instanceof SearchSession ? active.stats() : null,
     });
   };
   const yieldCheck = () => {

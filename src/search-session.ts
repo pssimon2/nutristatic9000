@@ -22,6 +22,14 @@ export interface SearchResult {
   text: string;
 }
 
+/**
+ * How often to report progress when steps alone would not trigger it.
+ *
+ * Often enough that a panel watching a slow search looks alive, rarely enough
+ * that the message traffic is nothing next to a network fetch.
+ */
+const PROGRESS_MS = 250;
+
 export type SessionStatus =
   | "limit"
   | "results"
@@ -189,8 +197,29 @@ export class SearchSession {
     shouldStop?: () => boolean,
   ): Promise<SessionStatus> {
     let results = 0;
+    // Progress on a clock as well as on a step count. Steps are a wildly
+    // variable unit of time: in memory a hundred thousand of them take a
+    // moment, but over a streamed index a *single* step can be a round trip —
+    // measured, 384 steps in seven seconds — so a step-count trigger meant the
+    // debug panel never updated at all on exactly the searches worth watching.
+    let lastProgressAt = Date.now();
     while (this.steps < maxSteps && results < maxResults) {
-      if (++this.steps % 100000 === 0) onProgress?.(this.steps);
+      ++this.steps;
+      if (this.steps % 100000 === 0) {
+        lastProgressAt = Date.now();
+        onProgress?.(this.steps);
+      } else if (onProgress && (this.steps & 15) === 0) {
+        // The clock read is masked for the same reason the limiter's is: this
+        // runs once per step. Every 16 rather than every 64, because over the
+        // network 64 steps can be a second and the panel should not be a
+        // second behind what it is describing; in memory the step-count
+        // trigger above fires first anyway, so the extra reads cost nothing.
+        const now = Date.now();
+        if (now - lastProgressAt >= PROGRESS_MS) {
+          lastProgressAt = now;
+          onProgress(this.steps);
+        }
+      }
       // Yield to the event loop periodically so stop messages get through.
       if (this.steps % 20000 === 0 && shouldYield) {
         const y = shouldYield();

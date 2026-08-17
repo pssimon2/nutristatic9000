@@ -114,16 +114,42 @@ export interface ExtractOptions {
  * The members named by a list article's source, in order and deduplicated.
  * `lines` is the article wikitext; collection stops at the first end-of-list
  * section.
+ *
+ * One entry per table row, not one per cell. `cellEntry` already takes only the
+ * first link of a row written on one line — `| [[Bagel]] || [[Yeast bread]] ||
+ * [[Poland]]` — but Wikipedia writes most tables with each cell on its own
+ * line, and then every cell looked like its own entry. That is what filled the
+ * breads list with types and countries:
+ *
+ *   breads: food name, anadama bread, yeast bread, anpan, sweet bun, japan,
+ *           apple bread, taiwan, arboud, unleavened, jordan, arepa, …
+ *
+ * — the Name, Type and Place-of-origin columns interleaved. So a row
+ * contributes its first linked cell and nothing more, which is where the name
+ * is in every "List of …" table I looked at.
  */
 export function entriesFrom(
   lines: string[],
   { maxChars = 25, maxWords = 3 }: ExtractOptions = {},
 ): string[] {
   const out = new Set<string>();
+  // Whether the row being read has already given up its entry.
+  let rowTaken = false;
   for (const line of lines) {
     if (END_SECTION.test(line)) break;
+    const t = stripApparatus(line).trim();
+    // A table start or a row separator begins a new row.
+    if (t.startsWith("{|") || /^\|-/.test(t)) {
+      rowTaken = false;
+      continue;
+    }
+    const isCell = t.startsWith("|") && !/^\|[-+}]/.test(t);
+    if (isCell && rowTaken) continue;
     const raw = entryLink(line);
     if (raw === null) continue;
+    // Set before the length filters: a row whose first cell is a link this
+    // rejects must not fall through to its second column.
+    if (isCell) rowTaken = true;
     // "Ada (programming language)" is ADA; the qualifier is Wikipedia's, not
     // part of the name.
     const e = normalizeEntry(raw.replace(/\s*\([^)]*\)\s*$/, ""));

@@ -1111,6 +1111,10 @@ worker.onmessage = (ev: MessageEvent<OutMsg>) => {
       if (msg.fetched !== undefined) {
         indexInfo.textContent = `${fmtMB(msg.fetched)} fetched so far`;
       }
+      // Follow the search rather than waiting for it: over a streamed index a
+      // run can take seconds, and the counters are most interesting while it
+      // is happening.
+      if (DEBUG) showStats(msg.stats, msg.engine);
       break;
     case "parse-error":
       // A recognised-but-wrong construct explains itself; anything else falls

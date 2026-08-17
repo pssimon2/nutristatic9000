@@ -192,3 +192,63 @@ describe("normalizeEntry", () => {
     expect(normalizeEntry("  Anti-hero  ")).toBe("anti hero");
   });
 });
+
+// One entry per table row, not one per cell.
+//
+// `cellEntry` handled a row written on one line, but Wikipedia writes most
+// tables with each cell on its own line — and then the Type and
+// Place-of-origin columns became entries in their own right. The breads list
+// read "anadama bread, yeast bread, anpan, sweet bun, japan, apple bread,
+// taiwan, …": names interleaved with what should have been other columns.
+describe("tables with one cell per line", () => {
+  const table = [
+    '{| class="wikitable sortable"',
+    "! Name !! Type !! Place of origin",
+    "|-",
+    "| [[Anadama bread]]",
+    "| [[Yeast bread]]",
+    "| [[United States]]",
+    "|-",
+    "| [[Bagel]]",
+    "| [[Ashkenazi Jewish]]",
+    "| [[Poland]]",
+    "|}",
+  ];
+
+  it("takes the first linked cell of each row", () => {
+    expect(entriesFrom(table)).toEqual(["anadama bread", "bagel"]);
+  });
+
+  it("still takes the first cell of a row written on one line", () => {
+    expect(
+      entriesFrom([
+        "{|",
+        "|-",
+        "| [[Bagel]] || [[Yeast bread]] || [[Poland]]",
+        "|-",
+        "| [[Baguette]] || [[White bread]] || [[France]]",
+        "|}",
+      ]),
+    ).toEqual(["bagel", "baguette"]);
+  });
+
+  it("does not let a rejected first cell fall through to the second", () => {
+    // The first cell is a link this rejects for length; the row must give
+    // nothing rather than the Type column.
+    expect(
+      entriesFrom([
+        "{|",
+        "|-",
+        "| [[A very long bread name indeed that runs on]]",
+        "| [[Yeast bread]]",
+        "|}",
+      ]),
+    ).toEqual([]);
+  });
+
+  it("leaves bulleted lists alone", () => {
+    expect(
+      entriesFrom(["* [[Bagel]]", "* [[Baguette]]", "* [[Brioche]]"]),
+    ).toEqual(["bagel", "baguette", "brioche"]);
+  });
+});

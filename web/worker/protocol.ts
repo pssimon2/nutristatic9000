@@ -230,6 +230,12 @@ export interface ProgressMsg {
   /** Range mode only: the source's lifetime totals. */
   fetched?: number;
   requests?: number;
+  /**
+   * The counters so far, so a debug panel can follow a search rather than
+   * waiting for it. Null on the WASM engine, which keeps only steps — the same
+   * rule as `DoneMsg.stats`.
+   */
+  stats: Stats | null;
 }
 
 export interface DoneMsg {
