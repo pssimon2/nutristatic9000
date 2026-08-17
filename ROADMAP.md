@@ -1090,11 +1090,16 @@ below is planned.
   built at index time; planner runs suffix-anchored patterns (`A*zzyx`)
   on it with the reversed DFA. Opt-in like `.idxz` (disk cost); the only
   fix for that query class.
-- [ ] **F8. Package as a library.** `@nutristatic/engine`: public surface
-  = `parseQuery`, `compilePlan`, `Session`/`SessionContext`, the two
-  registries, the byte-source interface; everything else internal. CLI,
-  worker, offline build, tests become thin consumers. Enables: MCP
-  server / headless service, scriptable solving APIs for hunt teams.
+- [~] **F8. Package as a library.** *(surface declared 2026-08-17;
+  publishing deliberately not.)* `src/engine.ts` is the public barrel —
+  peel/compile/plan, the catalogue, SessionContext + packs/lists/manifest,
+  byte sources + IndexReader, SearchSession/SearchDriver/MergedDriver, the
+  result predicates — reachable as `nutristatic9000/engine` via the
+  package `exports` map, with the CLI as the reference consumer. Not done,
+  on purpose: an npm build pipeline (the repo runs TypeScript directly via
+  tsx/vite, and consumers with a bundler can already import the export),
+  and rewriting worker/tests to import through the barrel — churn that
+  buys no capability until there is an external consumer to serve.
 
 ## Phase T — Testing & verification infrastructure
 
