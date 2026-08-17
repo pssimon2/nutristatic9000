@@ -147,25 +147,32 @@ function anagramKeys(
   const cached = perCtx.get(name);
   if (cached !== undefined) return cached;
   // A list name first — bundled, then harvested, the same order `{list:…}`
-  // resolves in, so the two agree about what a list contains. Failing that, the
-  // argument is a pattern, and its language is the set to rearrange: that is
-  // what makes `{anagram {kind:bird}:A{6}}` work, and `{anagram {del1:beast}:A*}`
-  // and anything else finite.
-  const entries =
-    wordList(name) ??
-    ctx.lists?.entries.get(name) ??
-    enumeratedSet(list, ctx);
+  // resolves in, so the two agree about what a list contains. Only for an
+  // argument shaped like a name, though: `listKey` strips punctuation, so
+  // `A*` keys as "a" and could pick up a list by accident.
+  const named = wordListLike(list)
+    ? (wordList(name) ?? ctx.lists?.entries.get(name) ?? null)
+    : null;
+  // Failing that the argument is a pattern, and its language is the set to
+  // rearrange — which is what makes `{anagram {kind:bird}:A{6}}` work, and
+  // `{anagram beast:A*}`, and anything else that can be listed out.
+  const entries = named ?? enumeratedSet(list, ctx);
   if (entries === null) {
-    // Neither a list nor a set this can hold. Said once, rather than dropping
-    // every candidate in silence and reporting no results — which is what an
-    // unbounded argument like `{anagram A*:…}` did.
-    perCtx.set(name, null);
+    // Deliberately not cached. Caching the failure made this say its piece once
+    // and then drop every later candidate in silence, so a second run of the
+    // same query in one session reported "no results" instead of the reason.
+    // No "did you mean" for a bare word. A mistyped list name and a word are
+    // the same thing written down — "countrie" is a perfectly good five-letter
+    // string to rearrange — and guessing would hijack `{anagram cheese:…}`,
+    // which is one letter from the `cheeses` list. The rule stays plain: a list
+    // if it is one, otherwise the word. List names are discoverable where it
+    // matters, in the completion menu after `{anagram `.
     throw new FilterError(
-      `{anagram …} needs something it can list out: a list name, or a pattern ` +
-        `matching at most ${ANAGRAM_SET_CAP.toLocaleString("en-US")} strings. ` +
-        `"${list}" is ${
-          wordListLike(list) ? "not a list this build knows" : "not bounded enough"
-        } — try {anagram countries:…} or {anagram {kind:bird}:…}`,
+      `{anagram …} needs something it can list out: a list name, a word, or a ` +
+        `pattern matching at most ` +
+        `${ANAGRAM_SET_CAP.toLocaleString("en-US")} strings. "${list}" is not ` +
+        `bounded enough — try {anagram countries:…}, {anagram beast:…} or ` +
+        `{anagram {kind:bird}:…}`,
     );
   }
   const built = new Map<string, string[]>();
@@ -192,18 +199,29 @@ function wordListLike(spec: string): boolean {
 }
 
 function enumeratedSet(pattern: string, ctx: SessionContext): string[] | null {
-  let conjuncts;
-  try {
-    conjuncts = compileConjuncts(pattern, ctx);
-  } catch {
-    return null;
-  }
+  // Quoted first, because the argument is a set of *words* to rearrange. An
+  // unquoted atom carries an optional-space self-loop — that is what lets
+  // `solar s_stem` match "solar system" — so the language of a bare `cargo` is
+  // "cargo", "c argo", "c  argo" and on forever, and `{anagram cargo:A*}` was
+  // refused for being unbounded. Quoting makes it the five letters it looks
+  // like. Falls back to the query as written, in case quoting is what fails.
+  let conjuncts = compiled(`"${pattern}"`, ctx) ?? compiled(pattern, ctx);
+  if (conjuncts === null) return null;
   // One conjunct, because an intersection cannot be enumerated by enumerating
   // one of its parts: `{anagram A{5}&C*:…}` would need the product.
   if (conjuncts.length !== 1) return null;
   const strings = enumerateLanguage(innerNfa(conjuncts[0]), ANAGRAM_SET_CAP);
   // Compiled conjuncts carry the boundary space the search requires.
   return strings === null ? null : strings.map((t) => t.replace(/ $/, ""));
+}
+
+/** Compile, or null if it does not parse. */
+function compiled(pattern: string, ctx: SessionContext) {
+  try {
+    return compileConjuncts(pattern, ctx);
+  } catch {
+    return null;
+  }
 }
 
 /**

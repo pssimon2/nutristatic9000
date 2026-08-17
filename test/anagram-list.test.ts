@@ -79,12 +79,12 @@ describe("deciding a match", () => {
     expect((await check("{anagram countries:A*}", "orange")).keep).toBe(false);
   });
 
-  it("says so for a list that does not exist", async () => {
-    // Dropping every candidate silently reported "no results", which is the
-    // one answer a reader cannot act on.
-    await expect(check("{anagram qqzzxx:A*}", "serial")).rejects.toThrow(
-      /not a list this build knows/,
-    );
+  it("reads a name that is not a list as a word to rearrange", async () => {
+    // A mistyped list name and a word are the same thing written down, so the
+    // rule is plain: a list if it is one, otherwise the word. "serial" does not
+    // rearrange "qqzzxx".
+    expect((await check("{anagram qqzzxx:A*}", "serial")).keep).toBe(false);
+    expect((await check("{anagram qqzzxx:A*}", "qzqxzx")).keep).toBe(true);
   });
 
   it("works on a bundled list as well as a harvested one", async () => {
@@ -153,8 +153,53 @@ describe("rearranging whatever a pattern matches", () => {
     await expect(check("{anagram A*:A{5}}", "abcde")).rejects.toThrow(
       /needs something it can list out/,
     );
-    await expect(check("{anagram qqzz:A{5}}", "abcde")).rejects.toThrow(
-      /not a list this build knows/,
+    // A pattern, not a name: `listKey` would strip the punctuation and could
+    // pick up a list by accident, so only name-shaped arguments try that path.
+    await expect(check("{anagram A{5}&C*:A{5}}", "abcde")).rejects.toThrow(
+      /needs something it can list out/,
     );
+  });
+});
+
+// A bare word as the argument, which is what anyone would try first.
+describe("rearranging a single word", () => {
+  it("takes a plain word", async () => {
+    // BEATS and BATES rearrange BEAST.
+    expect((await check("{anagram beast:A*}", "beats")).notes).toEqual([
+      "← beast",
+    ]);
+    expect((await check("{anagram listen:A*}", "silent")).notes).toEqual([
+      "← listen",
+    ]);
+  });
+
+  it("does not treat the word's optional spaces as part of it", () => {
+    // The reason this needed doing: an unquoted atom carries an
+    // optional-space self-loop — what lets `solar s_stem` match "solar system"
+    // — so the language of a bare `cargo` is "cargo", "c argo", "c  argo" and
+    // on forever, and the argument was refused for being unbounded.
+    expect(() => parseFilterWrappers("{anagram cargo:A*}")).not.toThrow();
+  });
+
+  it("still refuses one that is unbounded even quoted", async () => {
+    await expect(check("{anagram A*:A{5}}", "abcde")).rejects.toThrow(
+      /needs something it can list out/,
+    );
+  });
+
+  it("says so every time, not only the first", async () => {
+    // The failure is deliberately not cached: caching it made this say its
+    // piece once and then drop every later candidate in silence, so a second
+    // run of the same query in one session reported "no results".
+    for (let i = 0; i < 3; ++i) {
+      await expect(
+        check("{anagram A*:A{5}}", "abcde"),
+        `attempt ${i + 1}`,
+      ).rejects.toThrow(/needs something it can list out/);
+    }
+  });
+
+  it("leaves the word itself out, as it does for a list", async () => {
+    expect((await check("{anagram beast:A*}", "beast")).keep).toBe(false);
   });
 });
