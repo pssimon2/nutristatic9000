@@ -965,12 +965,24 @@ Goal: mechanical, low-risk changes that everything later depends on.
 
 ## Phase T — Testing & verification infrastructure
 
-- [ ] **T1. Differential strategy tests.** Property tests asserting
-  *identical result sets and scores* across: trie walk vs
-  generate-and-test (P4), factored join vs monolithic (P5), sharded vs
-  single (X1), lazy vs eager complement (E1), refinement-cache path vs
-  fresh (A3), JS vs WASM (exists — extend). Randomized queries over
-  fixture indexes.
+- [~] **T1. Differential strategy tests.** *(the two pairs that exist, done
+  2026-08-17.)* `test/strategy-parity.test.ts` generates queries from the pieces
+  rather than naming them, so it covers combinations nobody wrote down — a rhyme
+  set narrowed by a negation and a length, a deletion of a list, an edit crossed
+  with a letter class — seeded, so a failure names the query and can be replayed.
+  * **trie walk vs generate-and-test (P4)**: 100 generated queries across four
+    seeds, requiring identical texts, order and scores. `--walk` forces the
+    other side. Writing it turned up that `"empty"` is a finished walk too —
+    the emptiness check settles `{del1:beast}&A{6}` from the automaton, since
+    BEAST minus a letter is four long — so the test requires both sides to
+    produce nothing there rather than treating it as a failure to exhaust.
+  * **lazy vs eager complement (E1)**: a negated conjunct is a lazy
+    `ComplementFilter` for the JS engine and built out for the kernel, and
+    nothing asserted the two accept the same language. Now every string over a
+    six-letter alphabet up to length six, for five negation shapes.
+  Checked both bite: reversing the strategy's sort fails the first on two seeds.
+  Not applicable yet: the factored join (P5, deferred), sharding (X1) and the
+  refinement cache (A3) do not exist to compare against.
 - [ ] **T2. Hard-query benchmark corpus.** Curated set (heavy anagram,
   10k-list, deep negation, 3-word phrase, cross-slot, suffix-anchored)
   with per-query step/latency budgets in CI — the standing definition of
