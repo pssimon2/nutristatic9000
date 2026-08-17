@@ -16,6 +16,10 @@ import { MemorySource } from "../src/byte-source.js";
 import { IndexReader } from "../src/index-reader.js";
 import { SearchSession } from "../src/search-session.js";
 import { SessionContext } from "../src/session-context.js";
+import {
+  COMPOUND_PIECE_FLOOR,
+  REVERSAL_FLOOR,
+} from "../src/index-words.js";
 
 const args = process.argv.slice(2);
 const input = args[0];
@@ -49,6 +53,31 @@ console.error(
   `wrote ${lines.length} entries to ${out} (${mb} MB, ` +
     `${session.steps} steps, ${((Date.now() - started) / 1000).toFixed(0)}s)`,
 );
+// The head is also the word oracle behind `{compound …}` and `{reversible …}`
+// (see headWordChecker), and that only holds while the head reaches *below*
+// the frequency floors those constructs use: if it does, absence from the head
+// proves a word fails the floor, and neither construct has to touch the index.
+// Below is where the head stops holding entries; the floors are shares of the
+// corpus in the same units.
+const lowest = Number(lines[lines.length - 1].split("\t")[1]);
+const floors = [
+  ["compound", COMPOUND_PIECE_FLOOR * reader.count()],
+  ["reversible", REVERSAL_FLOOR * reader.count()],
+];
+for (const [name, floor] of floors) {
+  const margin = (floor / lowest).toFixed(1);
+  if (lowest <= floor) {
+    console.error(`  {${name}} floor ${floor.toExponential(2)}: covered ${margin}x over`);
+  } else {
+    console.error(
+      `WARNING: this head stops at ${lowest.toExponential(2)}, above the ` +
+        `{${name}} floor of ${floor.toExponential(2)} — that construct will ` +
+        `fall back to index lookups, which over a streamed index is slow. ` +
+        `Build with a larger --count.`,
+    );
+  }
+}
+
 if (lines.length < count) {
   console.error(
     `note: the index held only ${lines.length} entries, fewer than the ${count} asked for`,

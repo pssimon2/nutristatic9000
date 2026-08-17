@@ -17,10 +17,16 @@ import { compileQuery } from "../src/find-expr.js";
 import {
   type HeadIndex,
   headPage,
+  headWordChecker,
   parseHeadIndex,
   searchHeadIndex,
 } from "../src/head-index.js";
 import { parseFilterWrappers } from "../src/result-filter.js";
+import {
+  COMPOUND_PIECE_FLOOR,
+  REVERSAL_FLOOR,
+  makeWordChecker,
+} from "../src/index-words.js";
 
 const ctx = new SessionContext();
 let reader: IndexReader;
@@ -206,5 +212,80 @@ describe("paging through the head", () => {
     );
     expect(out.results).toEqual([]);
     expect(out.next).toBe(head.text.length);
+  });
+});
+
+// The head answering the word question itself.
+//
+// This is the claim that makes it sound: the floors are shares of the corpus,
+// the head is sorted by exactly that quantity, so once the head reaches below
+// a floor, absence from the head *is* failure of the floor. If that ever
+// stopped holding the two constructs would silently start losing answers.
+describe("the head as the word oracle", () => {
+  const total = 1e6;
+  // Read inside the tests: the head is built in beforeAll, after collection.
+  const lowest = () => head.score[head.score.length - 1];
+
+  it("only claims to answer down to where it reaches", () => {
+    // The precondition, as arithmetic. This 60,000-entry head, built from the
+    // demo index, happens to straddle the two floors — deep enough to settle a
+    // compound piece, not deep enough for a reversal — which is what lets both
+    // branches below be tested with the real constants. A head the site
+    // actually ships covers both; scripts/build-head.mjs checks that.
+    expect(lowest()).toBeLessThan(COMPOUND_PIECE_FLOOR * reader.count());
+    expect(lowest()).toBeGreaterThan(REVERSAL_FLOOR * reader.count());
+  });
+
+  it("agrees with the index on every word it is asked about", async () => {
+    const fromIndex = makeWordChecker(reader);
+    const fromHead = headWordChecker(head, reader.count(), () => {
+      throw new Error("fell back: the head should have answered this");
+    });
+    // A mix of common words, corpus debris, and things that are not there.
+    const words = [
+      ...head.text.filter((t) => !t.includes(" ")).slice(0, 300),
+      ...head.text.slice(-400).map((t) => t.split(" ")[0]),
+      "avai", "lable", "taht", "eht", "morf", "qqzzxx", "",
+    ];
+    let accepted = 0;
+    for (const w of words) {
+      const got = await fromHead(w, COMPOUND_PIECE_FLOOR);
+      expect(got, w).toBe(await fromIndex(w, COMPOUND_PIECE_FLOOR));
+      if (got) ++accepted;
+    }
+    // A checker that said "no" to everything would agree with the index only
+    // where the index said no too; this makes sure there was a real signal.
+    expect(accepted, "nothing was accepted, so nothing was compared")
+      .toBeGreaterThan(50);
+  }, 120000);
+
+  it("hands back a floor it does not reach rather than guessing", async () => {
+    const asked: string[] = [];
+    const fromHead = headWordChecker(head, reader.count(), (w) => {
+      asked.push(w);
+      return true;
+    });
+    // Below the head's last score: absence from the head proves nothing here.
+    expect(await fromHead("qqzzxx", REVERSAL_FLOOR)).toBe(true);
+    expect(asked).toEqual(["qqzzxx"]);
+  });
+
+  it("hands back plain presence, which it can never settle", async () => {
+    let asked = "";
+    const fromHead = headWordChecker(head, total, (w) => {
+      asked = w;
+      return true;
+    });
+    // minShare 0 means "is it in the index at all", and the head holds only
+    // the top of it, so absence is never an answer.
+    expect(await fromHead("qqzzxx", 0)).toBe(true);
+    expect(asked).toBe("qqzzxx");
+  });
+
+  it("does not treat a phrase as a word", () => {
+    const phrase = head.text.find((t) => t.includes(" "));
+    expect(phrase, "no phrase in the head to check").toBeDefined();
+    const fromHead = headWordChecker(head, reader.count(), () => false);
+    expect(fromHead(phrase as string, REVERSAL_FLOOR)).toBe(false);
   });
 });

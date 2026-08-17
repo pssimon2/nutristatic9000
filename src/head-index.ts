@@ -144,3 +144,53 @@ export async function headPage(
   }
   return { results: out, next: out.length === 0 ? head.text.length : last };
 }
+
+/**
+ * The word test `{compound …}` and `{reversible …}` need, answered from the
+ * head instead of the index.
+ *
+ * Both constructs ask whether a piece is a word, and both answer it by
+ * frequency: a piece counts if it carries at least `minShare` of the corpus
+ * (see src/index-words.ts for why presence alone is not enough). Over a
+ * streamed index that is a trie walk per distinct piece, each possibly a round
+ * trip, and a page of candidates runs to tens of thousands of them —
+ * `{compound 2:A{9}}` spent a minute on the deployed site and still finished
+ * empty.
+ *
+ * But the head is sorted by exactly the quantity those floors are expressed
+ * in, so it answers them outright whenever it reaches below the floor: if the
+ * lowest score in the head is under `minShare * total`, then every word above
+ * the floor is *in* the head, and absence from it is proof of failing the
+ * floor rather than a gap in what we hold. That makes this identical to the
+ * index-backed check, not an approximation of it — and free.
+ *
+ * It holds with room to spare on every index the site serves. The floors are
+ * 1e-5 and 1e-6 of the corpus; measured across all 22 languages the head
+ * reaches between 3x and 30x below the lower of the two — German, the tightest,
+ * floors a reversal at 1968 and holds entries down to 694.
+ *
+ * `fallback` covers the case that leaves: a caller asking about a share so
+ * small the head cannot rule it out, or plain presence (`minShare` 0), which
+ * the head can never answer negatively.
+ */
+export function headWordChecker(
+  head: HeadIndex,
+  total: number,
+  fallback: WordCheck,
+): WordCheck {
+  // Single-word entries only. Phrases are entries too ("of the"), and are
+  // never what a compound piece or a reversal is checked against.
+  const score = new Map<string, number>();
+  for (let i = 0; i < head.text.length; ++i) {
+    const t = head.text[i];
+    if (!t.includes(" ")) score.set(t, head.score[i]);
+  }
+  const lowest =
+    head.score.length === 0 ? Infinity : head.score[head.score.length - 1];
+
+  return (word: string, minShare = 0): boolean | Promise<boolean> => {
+    const floor = minShare * total;
+    if (floor < lowest) return fallback(word, minShare);
+    return (score.get(word) ?? 0) >= floor;
+  };
+}

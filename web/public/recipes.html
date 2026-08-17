@@ -23,14 +23,15 @@ these combine: a category, a shape, a meaning and an extraction are all just
 constraints, and the intersection is what solves a clue. The
 <a href="./usage.html#nine">usage guide</a> explains each piece.</p>
 
-<p>A few of these want the index on your device. The ones that sift finished
-matches — <tt>{palindrome:…}</tt>, <tt>{compound …}</tt>,
-<tt>{reversible:…}</tt> — have to read a great deal of the index before the
-first match survives the sieve, and streamed over the network that spends the
-transfer budget first: the answer comes back as an offer to download the index
-once rather than as words. The same searches finish at once against a local
-copy — <tt>{palindrome:A{5}}</tt> finds LEVEL. Either take the download the
-page offers, or try them against the 20 MB demo index from the picker.</p>
+<p>All of these run over the network, without downloading anything. That was
+not true until recently: the ones that sift finished matches &mdash;
+<tt>{palindrome:&hellip;}</tt>, <tt>{compound &hellip;}</tt>,
+<tt>{reversible:&hellip;}</tt> &mdash; have to read a great deal of the index
+before the first match survives the sieve, and streamed a block at a time that
+spent the whole transfer budget before finding anything. Each index now ships
+with its highest-scoring entries as a small separate file, and every recipe
+here is answered out of that in well under a second. Past where it reaches, the
+full search takes over as before.</p>
 
 <h2>Solving a clue</h2>
 <table class="recipes">

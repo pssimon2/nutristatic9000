@@ -36,6 +36,7 @@ import { shapeOfQuery } from "../src/query-shape.js";
 import {
   type HeadIndex,
   headPage,
+  headWordChecker,
   parseHeadIndex,
 } from "../src/head-index.js";
 import type { Filter } from "../src/expr-filter.js";
@@ -145,6 +146,8 @@ let emitted = new Set<string>(); // texts posted for the current query
  */
 let head: HeadIndex | null = null;
 let headTried = false;
+/** Built from `head` on first use, and dropped with it when the index changes. */
+let headChecker: WordCheck | null = null;
 /** How far into the head this query has been served: where a page resumes. */
 let headOffset = 0;
 // Steps already executed on an engine that was discarded mid-search (the WASM
@@ -294,7 +297,14 @@ async function serveFromHead(
 const isIndexedWord: WordCheck = (word, minShare) => {
   if (!reader) return false;
   wordChecker ??= makeWordChecker(reader);
-  return wordChecker(word, minShare);
+  // Whenever the head is loaded it answers these outright, and the same way
+  // the index would — see headWordChecker. This is not only the head's own
+  // page: the search that continues past the head uses it too, so a long
+  // `{compound …}` run stops paying a round trip per distinct piece.
+  headChecker ??= head
+    ? headWordChecker(head, reader.count(), wordChecker)
+    : null;
+  return (headChecker ?? wordChecker)(word, minShare);
 };
 
 function getWasmModule(): Promise<WebAssembly.Module> {
@@ -479,6 +489,7 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
   wordChecker = null; // bound to the old index
   head = null;
   headTried = false;
+  headChecker = null;
   rangeSource = null;
   diskSource?.close(); // release the OPFS lock before (re)opening anything
   diskSource = null;
