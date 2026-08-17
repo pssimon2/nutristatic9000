@@ -11,7 +11,15 @@ has an ID for tracking — check them off as they ship.
   (like `.idxz`), never as changes to `.index` itself. The round-trip /
   golden tests in `test/index-format.test.ts` and `test/fixtures.test.ts`
   are the contract suite; they must never be weakened.
-  **Correction (2026-08-16):** they are not the contract that sentence claims.
+  **Closed (2026-08-17), see T3.** `test/upstream-format.test.ts` reads two
+  fixtures built by upstream's own C++ `make-index` — 126 bytes and 43 KB, the
+  latter with counts to 376 so the count varints are exercised — and requires
+  our reader to decode them to what upstream's own `dump-index` reports, *and*
+  our writer to reproduce those bytes byte for byte. A writer-and-reader pair
+  agreeing with each other and not with upstream fails it, since the input is
+  upstream's file and the expected output is that same file. Checked by changing
+  one comparison in the writer's encoding, which failed both fixtures.
+  **Correction (2026-08-16), now addressed:** they are not the contract that sentence claims.
   `index-format.test.ts` runs this repo's writer into this repo's reader and
   asserts decoded *meaning*, with no byte-level assertion; `fixtures.test.ts`
   is a result/step-count lock over `demo.index`. No upstream-generated index is
@@ -967,9 +975,22 @@ Goal: mechanical, low-risk changes that everything later depends on.
   10k-list, deep negation, 3-word phrase, cross-slot, suffix-anchored)
   with per-query step/latency budgets in CI — the standing definition of
   "fast in any use case" (extends S7).
-- [ ] **T3. Contract suite labeling.** Name and pin the byte-format
-  round-trip tests as the compatibility contract (GR1); make CI call out
-  any diff touching them.
+- [x] **T3. Contract suite labeling.** `test/upstream-format.test.ts` is the
+  byte-format contract, and it is named as such. Two fixtures built by
+  upstream's own C++ `make-index` are checked in —
+  `upstream-tiny.index` (126 bytes, 9 chains, from a three-line input that is
+  also checked in) and `upstream-bigger.index` (43 KB, 4,429 chains, counts to
+  376 so the count varints are exercised) — each beside the output of upstream's
+  own `dump-index`, so the expected meaning is stated by upstream rather than
+  transcribed.
+  Both directions: our reader must decode upstream's bytes to what upstream's
+  dumper reports, and our writer must reproduce those bytes byte for byte. The
+  second is what closes GR1's hole — a writer-and-reader pair that agreed with
+  each other and not with upstream passes the old tests and fails this one,
+  because the input is upstream's file and the expected output is that same
+  file. Verified by changing `>= 0x20` to `>= 0x21` in the writer's
+  single-choice encoding: 126 bytes became 150 and 42,927 became 51,037, and
+  both fixtures failed.
 - [x] **T4. Registry-driven smoke tests.** *(done 2026-08-16.)*
   `scripts/check-examples.mjs`, wired into CI as `npm run check-examples`:
   every one of the 45 documented construct examples — and, since 2026-08-17,
