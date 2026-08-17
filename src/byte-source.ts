@@ -212,11 +212,22 @@ export class SyncFileSource implements ByteSource {
  * so the choice is really 2 against 8, and returning nothing is a worse
  * outcome than taking longer.
  *
- * The honest fix is to adapt — measure how much of each read-ahead is read
- * before it is evicted, and shrink when the answer is "one block" — because no
- * constant is right for both shapes: at 2 the anagram on the front page goes
- * from 1.7 s to 3.6 s in the browser while its transfer drops from 43 MB to
- * 11 MB. This is the better constant meanwhile.
+ * Adapting was tried and reverted (2026-08-17). The obvious repair is to
+ * measure how much of each read-ahead gets read before eviction and resize to
+ * suit, on the reasoning that no constant can suit both shapes. Built, it
+ * works — the cap settles at 4 for an anagram, 1 for a phrase, 2 for
+ * `{kind:bird}&A{7}` — and buys nothing: the same bytes as a flat 2, slightly
+ * worse latency, because it swings window to window and spends the high ones
+ * on waste.
+ *
+ * What it measured is the reason a constant is fine after all. Utilisation is
+ * low almost everywhere, not just on the queries that jump about: windows of
+ * 24 speculative blocks came back 0%, 4%, 21%, 13%, 25% on `solar s_stem`,
+ * with the occasional 67% or 84%. The phrase search that reads everything it
+ * is handed — the case that made "no constant is right" sound obvious — does
+ * not appear in the data. Read-ahead is mostly waste at any size, so the
+ * small size is right, and the machinery to discover that per query is not
+ * worth carrying.
  */
 export const MAX_READAHEAD_BLOCKS = 2;
 
