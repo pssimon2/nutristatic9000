@@ -1,5 +1,9 @@
 node_modules/
 web/dist/
+# Head sidecars, built from the big indexes and copied into web/dist/ at
+# deploy time. Kept OUTSIDE dist so a rebuild + `rsync --delete` cannot
+# silently drop them from the server — which is exactly what happened once.
+web/heads/
 
 # Build workspace: dumps, chunks, merged indexes (see README to rebuild)
 data/

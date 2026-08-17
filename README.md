@@ -22,7 +22,14 @@ Deployment notes specific to this fork:
   streamed index wants an `<name>.head` beside the *page* (not beside the
   index, which is shared between deployments):
 
-      npm run build-head -- /path/to/en-wiki.index --out web/dist/en-wiki.head
+      npm run build-head -- /path/to/en-wiki.index --out web/heads/en-wiki.head
+
+  Keep the built heads in `web/heads/` (gitignored) and copy them into
+  `web/dist/` as part of every deploy — `cp web/heads/*.head web/dist/` before
+  the rsync. They must NOT live only in `web/dist/`: a rebuild empties dist,
+  and a deploy with `--delete` then removes every head from the server, which
+  fails in the quiet way described below. That is not hypothetical; it
+  happened, and check-deployed is what caught it.
 
   12 MB on disk, 3.8 MB over the wire, a few seconds to build; the 23 streamed
   indexes come to 272 MB on the server. A loop over `*-merged.index` misses
