@@ -4,7 +4,13 @@
 // stopping at a computation limit that the user can raise ("try harder").
 
 import { IndexReader } from "./index-reader.js";
-import { compileQuery, DEFAULT_RESTART, makeDriver } from "./find-expr.js";
+import { compileConjuncts, DEFAULT_RESTART, makeDriver } from "./find-expr.js";
+import type { Conjunct } from "./conjunct.js";
+import { makeFilter } from "./expr-filter.js";
+import {
+  type FiniteResult,
+  finiteStrategy,
+} from "./finite-strategy.js";
 import { SessionContext } from "./session-context.js";
 import { SearchDriver, SearchDriverOptions } from "./search-driver.js";
 import { Filter, FilterCapacityError } from "./expr-filter.js";
@@ -47,11 +53,26 @@ export class SearchSession {
     restart = DEFAULT_RESTART,
     opts: SearchDriverOptions = {},
   ) {
+    // Kept, not discarded into the filter: a query with one small finite
+    // conjunct can be answered by testing that list rather than walking the
+    // index, and the list is the conjunct. A caller that hands over a
+    // ready-made Filter has no conjuncts to offer, and gets the walk.
+    this.conjuncts =
+      typeof query === "string" ? compileConjuncts(query, ctx) : null;
     this.filter =
-      typeof query === "string" ? compileQuery(query, ctx) : query;
+      this.conjuncts === null ? (query as Filter) : makeFilter(this.conjuncts);
+    this.reader = reader;
     this.source = reader.source as SourceStats;
     this.driver = makeDriver(reader, this.filter, restart, opts);
   }
+
+  private readonly conjuncts: Conjunct[] | null;
+  private readonly reader: IndexReader;
+  /** Results from the finite strategy, once it has been tried. */
+  private finite: FiniteResult[] | null = null;
+  private finiteTried = false;
+  /** How many of them have been handed over, so a "continue" resumes. */
+  private finiteAt = 0;
 
   /**
    * What the search has cost so far. Gathered from the pieces that already
@@ -99,6 +120,26 @@ export class SearchSession {
     // through to the search exactly as before.
     this.canMatch ??= languageEmptiness(this.filter);
     if (this.canMatch === "empty") return "empty";
+
+    // A small finite conjunct is a list, and a list can be tested rather than
+    // searched for — same answers, same order, same scores, and the index
+    // touched once per survivor instead of once per node. Null means the
+    // query is not that shape, which is the common case.
+    if (!this.finiteTried && this.conjuncts !== null) {
+      this.finiteTried = true;
+      this.finite = await finiteStrategy(this.reader, this.conjuncts);
+    }
+    if (this.finite !== null) {
+      let n = 0;
+      while (this.finiteAt < this.finite.length && n < maxResults) {
+        const r = this.finite[this.finiteAt++];
+        onResult({ score: r.score, text: r.text });
+        ++n;
+        ++this.results;
+      }
+      return this.finiteAt >= this.finite.length ? "exhausted" : "results";
+    }
+
     let results = 0;
     try {
       return await this.walk(maxSteps, maxResults, onResult, onProgress, shouldYield, shouldStop);

@@ -610,12 +610,27 @@ Goal: mechanical, low-risk changes that everything later depends on.
   seventh hand-written list of the six side datasets, in the same shape as the
   five C6 found disagreeing; it goes through `providersFor` now, so the
   group-prefixed forms it used to miss are reported.
-- [ ] **P4. Finite-list generate-and-test strategy.** When one conjunct's
-  language is finite and below threshold (`{kind:…}`, `{list:…}`,
-  `{near:…}`, `{rhyme:…}`, small anagrams): enumerate entries, test the
-  other conjuncts' DFAs per entry (microseconds), score via P2, emit in
-  score order. Differential test (T1): identical result sets/scores vs
-  the trie walk on overlapping fixtures.
+- [x] **P4. Finite-list generate-and-test strategy.** `src/finite-strategy.ts`:
+  when one conjunct's language is finite and small, enumerate it, test each
+  string against the rest of the query (microseconds, no index), probe the
+  survivors with P2, and sort. The index is touched once per survivor instead
+  of once per node visited.
+  Exactness has one condition, and it is enforced rather than hoped for: a
+  result the walk produces is either one index entry or several joined at a
+  space, and a probe can price the first but not the second. So the strategy
+  declines any candidate set containing a space — a string with no space
+  cannot be a join — and then the probe's count *is* the walk's score. It also
+  declines past 400 survivors, since they are all paid before the first result
+  appears where the walk streams.
+  That rules out `{kind:bird}`, 68% of whose entries are phrases ("bird of
+  juno"), and admits `{rhyme:…}`, `{list:…}` and the edit family. Measured over
+  a Range-served index: `{rhyme:night}&A{5}` 1,592 ms walking against 627 ms
+  testing, `{rhyme:tree}&C*` 1,187 against 822.
+  The differential test the item asks for compares against the walk itself —
+  same texts, same order, same scores — and it earned its keep immediately: the
+  enumerator returned one string per *path*, so `{del1:{list:greek}}` reported
+  "gama" twice (either M of GAMMA deletes to it) and eight results too many.
+  Engine parity caught it before the differential test did.
 - [ ] **P5. Phrase factoring + best-first join.** A pattern that is a
   concatenation of word-level pieces separated by spaces: solve each word
   independently → scored candidate lists → join by probing the phrase trie
