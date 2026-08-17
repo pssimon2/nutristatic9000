@@ -8,6 +8,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build-docs": "tsx scripts/build-docs.mjs",
+    "build-head": "tsx scripts/build-head.mjs",
     "check-docs": "tsx scripts/build-docs.mjs --check",
     "check-layers": "node scripts/check-layers.mjs",
     "check-links": "node scripts/check-links.mjs",

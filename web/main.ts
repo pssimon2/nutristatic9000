@@ -1113,7 +1113,7 @@ worker.onmessage = (ev) => {
     case "done":
       setStatus("");
       if (DEBUG) {
-        showStats(msg.stats as Stats | null);
+        showStats(msg.stats as Stats | null, msg.engine as string | undefined);
         // The plan describes the query rather than the run, so it is asked for
         // once the run settles rather than raced against it.
         postToWorker({ type: "plan", query: qInput.value.trim() });
@@ -1395,12 +1395,16 @@ statsEl.id = "stats";
 statsEl.hidden = true;
 afterEl.after(statsEl);
 
-function showStats(stats: Stats | null): void {
+function showStats(stats: Stats | null, engine?: string): void {
   statsEl.textContent = "";
   if (!stats) {
-    // The WASM kernel reports steps and nothing else; saying so beats
-    // rendering zeros that look like measurements.
-    statsEl.textContent = "WASM engine — detailed counters are JS-engine only";
+    // Two things answer without the JS engine's counters, and saying "WASM"
+    // for both was simply wrong: a page served from the head of the index
+    // never ran a search at all.
+    statsEl.textContent =
+      engine === "head"
+        ? "answered from the head of the index — no search, no index traffic"
+        : "WASM engine — detailed counters are JS-engine only";
     statsEl.hidden = false;
     return;
   }

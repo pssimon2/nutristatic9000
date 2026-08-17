@@ -18,6 +18,17 @@ Deployment notes specific to this fork:
   with the app.
 - Deploy target is `/srv/nutristatic9000` on the web host, served by Caddy
   under `handle_path /9000/*`.
+- **The head sidecar is part of the deployment and is not in the repo.** Each
+  streamed index wants an `<name>.head` beside the *page* (not beside the
+  index, which is shared between deployments):
+
+      npm run build-head -- /path/to/en-wiki.index --out web/dist/en-wiki.head
+
+  12 MB on disk, 3.85 MB over the wire, four seconds to build. Without it the
+  site still works and is much slower — `{palindrome:A{5}}` goes from half a
+  second to twenty and finds nothing — so a deploy that forgets it fails
+  quietly. `?debug=1` says "answered from the head of the index" when it is
+  being used, which is the quickest way to tell.
 
 ## Added so far
 
