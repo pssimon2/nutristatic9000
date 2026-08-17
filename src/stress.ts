@@ -1,3 +1,4 @@
+import { mentionsConstruct } from "./constructs.js";
 // Syllable counts and stress shapes, from the CMU pronouncing dictionary.
 //
 // `{syllables=3:A*}` is the crossword question ("three syllables, seven
@@ -41,5 +42,5 @@ export function syllablesOf(s: Stress | null, text: string): number | null {
 }
 
 export function needsStress(query: string): boolean {
-  return /\{\s*(syllables|stress)\b/i.test(query);
+  return mentionsConstruct(query, ["syllables", "stress"]);
 }

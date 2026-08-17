@@ -349,11 +349,31 @@ Goal: mechanical, low-risk changes that everything later depends on.
   `asp`), which is what proves the outer one is really applied per slot.
   Still open: `;` in C2's grammar rather than a pre-pass, and the slot UI
   consuming a plan object richer than the per-slot query it holds now.
-- [ ] **C6. Data-provider registry.** One
-  `DataProvider { key, url(ctx), parse(Response), sizeHint }` per side
-  dataset; loading loops in `worker.ts:1671-1710` and
-  `cli/find-expr.ts:113-136` collapse to iterating `plan.dataNeeds`.
-  Lazily fetched, cached on the SessionContext (S1).
+- [x] **C6. Data-provider registry.** `src/data-providers.ts` is one row per
+  side dataset — key, file, text or bytes, the constructs it serves, whether a
+  query needs it, how to install it — and both loading loops collapse to
+  iterating `providersFor(query)`. The worker's forty-line block of six
+  near-identical `if (needsX) await ensureExtra(…)` clauses and the CLI's
+  different forty lines doing the same by hand are gone; each front end now
+  supplies only what it alone knows, a URL and `fetch` or a path and
+  `readFileSync`. The worker's two other load sites (`want-lists`,
+  `complete-kind`) go through the same rows.
+  It fixed a live bug, which is what the two hand-maintained lists cost. A
+  construct may be written with its group prefix, and five of the six "does
+  this query need it" tests were spelled `\{\s*rhyme\b` and never saw it — so
+  `{word.rhyme:tree}`, `{word.near:king}`, `{word.kind:bird}` and
+  `{word.like:…}` all answered *needs the … which this build could not load*
+  on a build carrying it, while the bare form worked. Only `{list:…}` had the
+  prefix, and only for its own group. `mentionsConstruct` in constructs.ts is
+  now the one place that knows how a construct may be written, and the
+  dataset tests are built on it.
+  `test/data-providers.test.ts` tests the end-to-end property rather than the
+  regexes: load what a query asks for, and it compiles — for every construct
+  each dataset serves, written both ways. Checked that it bites by restoring
+  the old regex, which failed four of its cases.
+  Not done: `dataNeeds` on the construct rows (C4's sketch). The mapping lives
+  on the provider instead, checked against the catalogue so a renamed
+  construct cannot leave a dataset pointing at a name nothing can write.
 - [ ] **C7. WASM eligibility from the plan.** `wasm-session.ts:251`
   ("parse exactly like compileQuery") re-parses the query — decide kernel
   eligibility from the AST/Plan instead (automaton-only slots → kernel;

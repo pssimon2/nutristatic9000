@@ -1,3 +1,4 @@
+import { mentionsConstruct } from "./constructs.js";
 // `{kind:bird}` — every name below a word in WordNet's kind-of hierarchy.
 //
 // "A seven-letter bird" is the shape of half the crossword clues ever written,
@@ -72,7 +73,7 @@ export function kindsOf(
 }
 
 export function needsCategories(query: string): boolean {
-  return /\{\s*kind\b/i.test(query);
+  return mentionsConstruct(query, ["kind"]);
 }
 
 /**

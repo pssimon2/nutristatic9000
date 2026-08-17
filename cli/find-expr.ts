@@ -6,13 +6,8 @@ import { FilterCapacityError } from "../src/expr-filter.js";
 import { cliOpenIndex } from "../src/node-io.js";
 import { applyExtract } from "../src/extract-spec.js";
 import fs from "node:fs";
-import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
-import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
-import { needsCategories, parseCategories } from "../src/categories.js";
-import { needsStress, parseStress } from "../src/stress.js";
-import { needsNeighbours, parseNeighbours } from "../src/neighbours.js";
 import { SessionContext } from "../src/session-context.js";
-import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
+import { providersFor } from "../src/data-providers.js";
 import { applyResultFilters } from "../src/result-predicate.js";
 import { makeWordChecker } from "../src/index-words.js";
 import {
@@ -85,27 +80,23 @@ try {
 // has already been stripped out of the latter.
 const ctx = new SessionContext();
 
-for (const [needed, file, install] of [
-  [needsPhonetics(expr), "phonetics.txt", (t: string) => (ctx.phonetics = parsePhonetics(t))],
-  [needsThesaurus(expr), "thesaurus.txt", (t: string) => (ctx.thesaurus = parseThesaurus(t))],
-  [needsCategories(expr), "categories.txt", (t: string) => (ctx.categories = parseCategories(t))],
-  [needsStress(expr), "stress.txt", (t: string) => (ctx.stress = parseStress(t))],
-  [needsWikiLists(expr), "lists.txt", (t: string) => (ctx.lists = parseWikiLists(t))],
-] as Array<[boolean, string, (t: string) => void]>) {
-  if (!needed) continue;
+// One row per dataset (src/data-providers.ts); the CLI supplies only the part
+// it alone knows — that they ship beside the web assets and are read from
+// disk rather than fetched.
+// Checked against `expr`, not the peeled pattern: a {syllables …}/{stress …}
+// wrapper has already been stripped out of the latter.
+for (const provider of providersFor(expr)) {
   try {
-    install(fs.readFileSync(new URL(`../web/public/${file}`, import.meta.url), "utf8"));
-  } catch {
-    // Left unloaded: the parser reports what is missing.
-  }
-}
-
-if (needsNeighbours(expr)) {
-  try {
-    const buf = fs.readFileSync(new URL("../web/public/neighbours.bin", import.meta.url));
-    ctx.neighbours = parseNeighbours(
-      buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
-    );
+    const path = new URL(`../web/public/${provider.file}`, import.meta.url);
+    if (provider.binary) {
+      const buf = fs.readFileSync(path);
+      provider.install(
+        ctx,
+        buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+      );
+    } else {
+      provider.install(ctx, fs.readFileSync(path, "utf8"));
+    }
   } catch {
     // Left unloaded: the parser reports what is missing.
   }

@@ -1,3 +1,4 @@
+import { mentionsConstruct } from "./constructs.js";
 // Rhyme and homophone lookups, from the groupings scripts/build-phonetics.mjs
 // derives from the CMU pronouncing dictionary.
 //
@@ -51,5 +52,5 @@ export function homophonesOf(
 
 /** Does this query need the dictionary loaded before it can be compiled? */
 export function needsPhonetics(query: string): boolean {
-  return /\{\s*(rhyme|homo)\b/i.test(query);
+  return mentionsConstruct(query, ["rhyme", "homo"]);
 }

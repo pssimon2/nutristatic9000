@@ -233,7 +233,8 @@ export function listKey(name: string): string {
  * has to be fetched before compiling, which is synchronous.
  */
 export function needsWikiLists(query: string): boolean {
-  const re = /\{\s*(?:word\.)?list\s*:\s*([^}]*)\}/gi;
+  // Any group prefix, not just the right one: see mentionsConstruct.
+  const re = /\{\s*(?:[a-z]+\.)?list\s*:\s*([^}]*)\}/gi;
   let m;
   while ((m = re.exec(query)) !== null) {
     const arg = m[1];

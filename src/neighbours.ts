@@ -1,3 +1,4 @@
+import { mentionsConstruct } from "./constructs.js";
 // `{near:reluctant}` — words an embedding places close to a given word.
 //
 // The thesaurus next door only knows words that share a dictionary sense,
@@ -78,5 +79,5 @@ export function nearestTo(
 }
 
 export function needsNeighbours(query: string): boolean {
-  return /\{\s*near\b/i.test(query);
+  return mentionsConstruct(query, ["near"]);
 }

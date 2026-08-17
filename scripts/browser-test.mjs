@@ -409,6 +409,22 @@ if (outerExtraction !== "asp") {
   throw new Error(`bad extraction from outer wrapper: ${outerExtraction}`);
 }
 
+// A construct may carry its group prefix, and the dataset it needs has to be
+// fetched for that form too. Five of the six "does this query need it" tests
+// did not know about the prefix, so this reported "needs the pronunciation
+// dictionary, which this build could not load" on a build carrying it.
+await page.fill("#q", "{word.rhyme:tree}&A{5}");
+await page.click("input[type=submit]");
+await waitDone();
+const prefixed = await page.$$eval("#results span.r", (els) =>
+  els.slice(0, 3).map((e) => e.firstChild.textContent),
+);
+console.log("prefixed construct:", JSON.stringify(prefixed));
+if (prefixed.length === 0) throw new Error("{word.rhyme:…} found nothing");
+if (!prefixed.includes("three")) {
+  throw new Error(`{word.rhyme:tree} gave ${JSON.stringify(prefixed)}`);
+}
+
 // Palindromes are a result filter, not an automaton: a length-n palindrome
 // would need 26^(n/2) states, but one string check per candidate is free.
 await page.fill("#q", "{palindrome:A{5}}");

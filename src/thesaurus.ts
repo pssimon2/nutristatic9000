@@ -1,3 +1,4 @@
+import { mentionsConstruct } from "./constructs.js";
 // `{like:reluctant}` — the words WordNet groups with a given word.
 //
 // The design document calls semantic matching the largest gap in the tool, and
@@ -40,5 +41,5 @@ export function relatedTo(
 }
 
 export function needsThesaurus(query: string): boolean {
-  return /\{\s*like\b/i.test(query);
+  return mentionsConstruct(query, ["like"]);
 }

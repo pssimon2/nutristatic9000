@@ -273,6 +273,30 @@ export function levelAdvice(info: ConstructInfo): string {
         `query — try {${info.name} …:your pattern}`;
 }
 
+/**
+ * Does this query use any of these constructs?
+ *
+ * The test every side dataset needs before compiling, because compilation is
+ * synchronous: the pronouncing dictionary has to be in hand before `{rhyme:…}`
+ * can be built, and the only thing available at that point is the query text.
+ *
+ * The group prefix is what makes this worth having in one place. A construct
+ * may be written `{rhyme:tree}` or `{word.rhyme:tree}`, and five of the six
+ * dataset tests were spelled `\{\s*rhyme\b` and so never saw the second — so
+ * `{word.rhyme:tree}` reported *needs the pronunciation dictionary, which this
+ * build could not load* on a build that could load it perfectly well. Only
+ * `{list:…}` had the prefix, and only for the one group it belongs to.
+ *
+ * Deliberately permissive about which group is written: `{shape.rhyme:…}` is
+ * wrong, but it is the parser's job to say so, with a message that names the
+ * right group. Loading a dataset for a query that turns out not to compile
+ * costs a fetch; refusing to load one costs an answer.
+ */
+export function mentionsConstruct(query: string, names: string[]): boolean {
+  const alt = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  return new RegExp(`\\{\\s*(?:[a-z]+\\.)?(?:${alt})\\b`, "i").test(query);
+}
+
 /** Closest known construct name, when it's close enough to be a typo. */
 export function suggestConstruct(name: string): string | null {
   const distance = (a: string, b: string): number => {

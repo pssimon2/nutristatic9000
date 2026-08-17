@@ -13,25 +13,11 @@ import { FileRangeSource } from "../src/file-source.js";
 import { IndexReader } from "../src/index-reader.js";
 import { makeWordChecker } from "../src/index-words.js";
 import type { WordCheck } from "../src/compound.js";
-import { needsPhonetics, parsePhonetics } from "../src/phonetics.js";
-import { needsThesaurus, parseThesaurus } from "../src/thesaurus.js";
-import {
-  needsStress,
-  parseStress,
-} from "../src/stress.js";
-import {
-  needsCategories,
-  parseCategories,
-  suggestKinds,
-} from "../src/categories.js";
-import {
-  nearestTo,
-  needsNeighbours,
-  parseNeighbours,
-} from "../src/neighbours.js";
+import { suggestKinds } from "../src/categories.js";
+import { nearestTo } from "../src/neighbours.js";
+import { DATA_PROVIDERS, providersFor } from "../src/data-providers.js";
 import { DataKey, SessionContext } from "../src/session-context.js";
 import { applyResultFilters, nearOrderKey } from "../src/result-predicate.js";
-import { needsWikiLists, parseWikiLists } from "../src/word-lists.js";
 import { shapeOfQuery } from "../src/query-shape.js";
 import {
   type HeadIndex,
@@ -205,6 +191,20 @@ async function ensureExtra(
     extraLoads.set(key, load);
   }
   await load;
+}
+
+/**
+ * Fetch one side dataset and put it on the context, if it is not there.
+ *
+ * The provider says how to read and parse it; the caller says where it lives,
+ * which is the only part the engine cannot know.
+ */
+async function loadProvider(key: DataKey, url: string | null): Promise<void> {
+  const provider = DATA_PROVIDERS.find((p) => p.key === key);
+  if (!provider) return;
+  await ensureExtra(key, url, async (r) => {
+    provider.install(ctx, provider.binary ? await r.arrayBuffer() : await r.text());
+  });
 }
 
 /** Is the index being streamed, rather than held in memory or on disk? */
@@ -1046,72 +1046,27 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // pattern: strip it, search the pattern, verify the pieces after.
         // Compilation is synchronous, so anything it needs must be here
         // first.
-        if (
-          needsPhonetics(currentQuery) ||
-          needsThesaurus(currentQuery) ||
-          needsNeighbours(currentQuery) ||
-          needsCategories(currentQuery) ||
-          needsStress(currentQuery) ||
-          needsWikiLists(currentQuery)
-        ) {
+        const needed = providersFor(currentQuery);
+        if (needed.length > 0) {
+          // Each front end supplies only what it alone knows; the datasets
+          // themselves are one table in src/data-providers.ts.
+          const urls: Partial<Record<DataKey, string | null>> = {
+            phonetics: msg.phoneticsUrl,
+            thesaurus: msg.thesaurusUrl,
+            neighbours: msg.neighboursUrl,
+            categories: msg.categoriesUrl,
+            stress: msg.stressUrl,
+            lists: msg.listsUrl,
+          };
           try {
-            if (needsPhonetics(currentQuery)) {
-              await ensureExtra(
-                "phonetics",
-                msg.phoneticsUrl ?? null,
-                async (r) => {
-                  ctx.phonetics = parsePhonetics(await r.text());
-                },
-              );
-            }
-            if (needsWikiLists(currentQuery)) {
-              await ensureExtra(
-                "lists",
-                msg.listsUrl ?? null,
-                async (r) => {
-                  ctx.lists = parseWikiLists(await r.text());
-                },
-              );
-              // Hand the catalogue to the page as well: it drives the
-              // completions in the box, which otherwise only ever knows the
-              // list names compiled into the bundle.
-              if (ctx.lists) post({ type: "lists-ready", lists: ctx.lists });
-            }
-            if (needsStress(currentQuery)) {
-              await ensureExtra(
-                "stress",
-                msg.stressUrl ?? null,
-                async (r) => {
-                  ctx.stress = parseStress(await r.text());
-                },
-              );
-            }
-            if (needsCategories(currentQuery)) {
-              await ensureExtra(
-                "categories",
-                msg.categoriesUrl ?? null,
-                async (r) => {
-                  ctx.categories = parseCategories(await r.text());
-                },
-              );
-            }
-            if (needsNeighbours(currentQuery)) {
-              await ensureExtra(
-                "neighbours",
-                msg.neighboursUrl ?? null,
-                async (r) => {
-                  ctx.neighbours = parseNeighbours(await r.arrayBuffer());
-                },
-              );
-            }
-            if (needsThesaurus(currentQuery)) {
-              await ensureExtra(
-                "thesaurus",
-                msg.thesaurusUrl ?? null,
-                async (r) => {
-                  ctx.thesaurus = parseThesaurus(await r.text());
-                },
-              );
+            for (const provider of needed) {
+              await loadProvider(provider.key, urls[provider.key] ?? null);
+              // The catalogue also drives the completions in the box, which
+              // otherwise only ever knows the list names compiled into the
+              // bundle.
+              if (provider.key === "lists" && ctx.lists) {
+                post({ type: "lists-ready", lists: ctx.lists });
+              }
             }
           } catch {
             // Fall through: the parser reports what is missing.
@@ -1337,9 +1292,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           break;
         }
         try {
-          await ensureExtra("lists", msg.listsUrl ?? null, async (r) => {
-            ctx.lists = parseWikiLists(await r.text());
-          });
+          await loadProvider("lists", msg.listsUrl ?? null);
           if (ctx.lists) post({ type: "lists-ready", lists: ctx.lists });
         } catch {
           // No catalogue: the built-in lists still complete.
@@ -1352,9 +1305,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // the download earlier, where it also buys a menu.
         if (!ctx.categories) {
           try {
-            await ensureExtra("categories", msg.categoriesUrl ?? null, async (r) => {
-              ctx.categories = parseCategories(await r.text());
-            });
+            await loadProvider("categories", msg.categoriesUrl ?? null);
           } catch {
             // No dataset: no menu. The query itself will say so properly.
           }
