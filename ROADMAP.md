@@ -71,7 +71,7 @@ Goal: mechanical, low-risk changes that everything later depends on.
   the parser, worker, and CLI. Delete the `setX`/`xLoaded` module API.
   Acceptance: two `SearchSession`s with different data sets can coexist in
   one process; tests no longer need load-order care.
-- [ ] **S2. Split `web/worker.ts` (1,850 lines) into single-concern
+- [x] **S2. Split `web/worker.ts` (1,850 lines) into single-concern
   modules.** Target: `web/worker/storage.ts` (OPFS handles, markers,
   progress records, resume ranges — `opfs*`, `addRange`, `rangeCovered`,
   `checkPartial`, `downloadToOpfs`), `web/worker/sources.ts` (probe
@@ -106,8 +106,16 @@ Goal: mechanical, low-risk changes that everything later depends on.
   continue lifecycle plus the message entry — so that split would rename a
   file and leave a three-line shim, moving ~20 mutable bindings for no
   testability gain. Revisit if S4's directory reshape makes it natural.
-  Outbound (worker→page) messages are still untyped; typing them has to
-  account for `postReady`'s replay.
+  Outbound (worker→page) messages are now typed too: `protocol.ts` carries an
+  `OutMsg` union, `post` takes it, and `main.ts`'s `onmessage` switch is typed
+  on it with a `satisfies never` default, so an unhandled message stops
+  compiling instead of being dropped at runtime. That removed eight casts on
+  the page — `msg.stats as Stats | null`, `msg.lines as string[]`,
+  `msg.reasons as Array<{...}>` — each of which was a place the two files
+  could drift silently. Writing the union found two shapes the casts had
+  wrong: `conflict` is `string[] | null`, not a string, and `checked.error` is
+  `{detail, at}`. `postReady`'s replay turned out to need nothing special
+  beyond `lastReady: ReadyMsg | null`, which let its object-shape guard go.
 - [x] **S3. Lift query-language knowledge out of `web/main.ts`.** *(done
   2026-08-16)* `src/query-shape.ts` owns `splitSlots`, `literalsOf` and
   `shapeOfQuery`, which peels `{at}`/`{rank}` in one fixed order and reports

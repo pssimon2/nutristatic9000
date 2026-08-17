@@ -43,7 +43,12 @@ import type { Filter } from "../src/expr-filter.js";
 import { conflictText } from "../src/emptiness.js";
 import { explainMatch } from "../src/explain.js";
 import { formatPlan, planQuery } from "../src/plan.js";
-import type { InMsg, OpenMsg } from "./worker/protocol.js";
+import type {
+  InMsg,
+  OpenMsg,
+  OutMsg,
+  ReadyMsg,
+} from "./worker/protocol.js";
 import {
   DownloadReporter,
   downloadToOpfs,
@@ -348,12 +353,12 @@ function getWasmEngine(): Promise<WasmEngine> {
   return p;
 }
 
-const post = (msg: unknown) => postMessage(msg);
+const post = (msg: OutMsg) => postMessage(msg);
 
 // Last "ready" payload: re-posted to restore the UI when an explicit
 // download fails but the previously loaded index is still usable.
-let lastReady: unknown = null;
-const postReady = (msg: unknown) => {
+let lastReady: ReadyMsg | null = null;
+const postReady = (msg: ReadyMsg) => {
   lastReady = msg;
   post(msg);
 };
@@ -1254,11 +1259,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             const partial = currentUrl
               ? await checkPartial(currentUrl, currentSize, currentValidator)
               : null;
-            post(
-              typeof lastReady === "object" && lastReady !== null
-                ? { ...(lastReady as object), partial: partial ?? undefined }
-                : lastReady,
-            );
+            post({ ...lastReady, partial: partial ?? undefined });
           }
         }
         break;

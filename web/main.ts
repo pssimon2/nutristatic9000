@@ -4,7 +4,7 @@ import {
   type RankSpec,
   applyExtract,
 } from "../src/extract-spec.js";
-import type { EarlyProbe, InMsg } from "./worker/protocol.js";
+import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
 import { shapeOfQuery, splitSlots } from "../src/query-shape.js";
 import { type Stats, formatStats } from "../src/stats.js";
 import { OutputTransform } from "../src/output.js";
@@ -898,7 +898,7 @@ function moreResults(): void {
   postToWorker({ type: "continue", maxResults: PER_RUN_RESULTS, ...runBudget() });
 }
 
-worker.onmessage = (ev) => {
+worker.onmessage = (ev: MessageEvent<OutMsg>) => {
   const msg = ev.data;
   switch (msg.type) {
     case "loading":
@@ -974,12 +974,12 @@ worker.onmessage = (ev) => {
     case "checked":
       // A stale answer for text that has since changed must not flash.
       if (msg.seq === checkSeq) {
-        showCheck(msg.error as { detail: string; at: number } | null);
+        showCheck(msg.error);
       }
       break;
     case "kind-completions": {
       if (msg.seq !== acKindSeq) break; // a newer keystroke has superseded this
-      const names = msg.items as string[];
+      const names = msg.items;
       acItems = names.map((n) => ({
         insert: n,
         label: n,
@@ -990,14 +990,14 @@ worker.onmessage = (ev) => {
       break;
     }
     case "lists-ready":
-      acLists = msg.lists as WikiLists;
+      acLists = msg.lists;
       updateCompletions();
       break;
     case "planned": {
       if (!DEBUG) break;
       const box = document.createElement("div");
       box.className = "plan";
-      for (const line of msg.lines as string[]) {
+      for (const line of msg.lines) {
         const div = document.createElement("div");
         div.textContent = line;
         box.append(div);
@@ -1007,17 +1007,13 @@ worker.onmessage = (ev) => {
     }
     case "explanation": {
       const why = resultsEl.querySelector(
-        `span.r[data-match="${CSS.escape(msg.text as string)}"]`,
+        `span.r[data-match="${CSS.escape(msg.text)}"]`,
       );
       if (!why) break;
       const box = document.createElement("div");
       box.className = "why-box";
-      box.dataset.match = msg.text as string;
-      const reasons = msg.reasons as Array<{
-        part: string;
-        ok: boolean;
-        detail: string | null;
-      }>;
+      box.dataset.match = msg.text;
+      const reasons = msg.reasons;
       if (reasons.length === 0) {
         box.textContent = "nothing to explain — the pattern matches directly";
       }
@@ -1113,7 +1109,7 @@ worker.onmessage = (ev) => {
     case "done":
       setStatus("");
       if (DEBUG) {
-        showStats(msg.stats as Stats | null, msg.engine as string | undefined);
+        showStats(msg.stats, msg.engine);
         // The plan describes the query rather than the run, so it is asked for
         // once the run settles rather than raced against it.
         postToWorker({ type: "plan", query: qInput.value.trim() });
@@ -1126,7 +1122,7 @@ worker.onmessage = (ev) => {
         const slot = slots[slotIndex];
         if (slot) {
           slot.done = true;
-          slot.status = msg.status as string;
+          slot.status = msg.status;
         }
         // `fetched` is the source's lifetime total, so the difference is what
         // this slot cost.
@@ -1138,9 +1134,15 @@ worker.onmessage = (ev) => {
         break;
       }
       lastDoneStatus = msg.status;
-      lastConflict = (msg.conflict as string[] | null) ?? null;
+      lastConflict = msg.conflict;
       renderAfterSearch(msg.status);
       break;
+    default:
+      // Every outbound message must be handled here. A new one added to
+      // `OutMsg` and posted by the worker but forgotten on this side stops
+      // compiling at this line rather than being silently dropped at runtime,
+      // which is what used to happen — the switch had no default at all.
+      msg satisfies never;
   }
 };
 
