@@ -236,7 +236,7 @@ describe("the head as the word oracle", () => {
     expect(lowest()).toBeGreaterThan(REVERSAL_FLOOR * reader.count());
   });
 
-  it("agrees with the index on every word it is asked about", async () => {
+  it("never accepts a word the index would reject", async () => {
     const fromIndex = makeWordChecker(reader);
     const fromHead = headWordChecker(head, reader.count(), () => {
       throw new Error("fell back: the head should have answered this");
@@ -249,14 +249,47 @@ describe("the head as the word oracle", () => {
     ];
     let accepted = 0;
     for (const w of words) {
-      const got = await fromHead(w, COMPOUND_PIECE_FLOOR);
-      expect(got, w).toBe(await fromIndex(w, COMPOUND_PIECE_FLOOR));
-      if (got) ++accepted;
+      const here = await fromHead(w, COMPOUND_PIECE_FLOOR);
+      // One-directional: the head is the index's frequency test plus the
+      // suffix test, so it may reject more, never accept more.
+      if (here) {
+        expect(await fromIndex(w, COMPOUND_PIECE_FLOOR), w).toBe(true);
+        ++accepted;
+      }
     }
-    // A checker that said "no" to everything would agree with the index only
-    // where the index said no too; this makes sure there was a real signal.
+    // A checker that said "no" to everything would satisfy the implication
+    // above vacuously; this makes sure there was a real signal.
     expect(accepted, "nothing was accepted, so nothing was compared")
       .toBeGreaterThan(50);
+  }, 120000);
+
+  it("rejects a suffix the frequency floor lets through", async () => {
+    const fromIndex = makeWordChecker(reader);
+    const fromHead = headWordChecker(head, reader.count(), () => false);
+    // The whole point: these clear the floor — the index calls them words —
+    // and are not words. Only asserted for the ones this corpus actually
+    // carries, since the demo index is a web crawl, not the deployed one.
+    let checked = 0;
+    for (const suffix of ["ed", "ing", "ment", "ness", "tion", "sh", "al"]) {
+      if (!(await fromIndex(suffix, COMPOUND_PIECE_FLOOR))) continue;
+      ++checked;
+      expect(await fromHead(suffix, COMPOUND_PIECE_FLOOR), suffix).toBe(false);
+    }
+    expect(checked, "no suffix in this corpus cleared the floor")
+      .toBeGreaterThan(2);
+  }, 120000);
+
+  it("keeps the short words a floor alone cannot tell from a suffix", async () => {
+    const fromIndex = makeWordChecker(reader);
+    const fromHead = headWordChecker(head, reader.count(), () => false);
+    // The cost side of the same threshold: real pieces must survive it.
+    let checked = 0;
+    for (const word of ["box", "book", "some", "thing", "copy", "keep", "up"]) {
+      if (!(await fromIndex(word, COMPOUND_PIECE_FLOOR))) continue;
+      ++checked;
+      expect(await fromHead(word, COMPOUND_PIECE_FLOOR), word).toBe(true);
+    }
+    expect(checked, "none of these cleared the floor").toBeGreaterThan(2);
   }, 120000);
 
   it("hands back a floor it does not reach rather than guessing", async () => {

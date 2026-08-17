@@ -172,7 +172,62 @@ export async function headPage(
  * `fallback` covers the case that leaves: a caller asking about a share so
  * small the head cannot rule it out, or plain presence (`minShare` 0), which
  * the head can never answer negatively.
+ *
+ * It also applies the suffix test below, which frequency alone cannot do.
  */
+/**
+ * Least of a piece's weight that must come from it standing on its own,
+ * rather than from words that merely end with it.
+ *
+ * A frequency floor cannot tell a suffix from a short word, and measurably so:
+ * on English Wikipedia "ed" carries 8.6e-5 of the corpus and "box" carries
+ * 8.3e-5, so any floor that rejects one rejects the other. That is why
+ * {compound 2:A{9}} answered "publish·ed" and "ment·ioned", and
+ * {compound 3:A{12}} answered "relation·sh·ip".
+ *
+ * What separates them is not how often the piece occurs but *where*. Measured
+ * on the same corpus, as standalone weight over the weight of words ending in
+ * it:
+ *
+ *   suffixes    tion 3.7e-5   ing 3.3e-4   ment 7.3e-4   ed 2.3e-3
+ *               sh 1.1e-2     al 1.7e-2    ness 7.4e-3   er 4.0e-4
+ *   words       port 8.4e-2   age 8.6e-2   ship 1.1e-1   land 1.3e-1
+ *               hood 1.3e-1   man 1.7e-1   box 4.8e-1    keep 3.4e+2
+ *
+ * Three orders of magnitude between the two groups, and nothing between
+ * 1.7e-2 and 8.4e-2. This sits in that gap, nearer the suffix end so that a
+ * genuine piece has room: every word above is at least 2.8x clear of it.
+ *
+ * It is a threshold, not morphology. "ton" (8.1e-3, from Washington and
+ * Hamilton) fails it and is a word; a suffix common enough to stand alone
+ * would pass. It removes what was actually visible.
+ *
+ * Only suffixes. The mirror of this — standalone weight over the weight of
+ * words *starting* with the piece — was measured on the same corpus and does
+ * not separate: "per" scores 1.9e-1 and "com" 1.3e-1, above the genuine
+ * "broad" (1.7e-1) and "sea" (1.0e-1), with "trans" (2.8e-2) and "foot"
+ * (4.2e-2) below even "pre" (3.0e-2). There is no threshold, so junk first
+ * pieces — ap·pointed, gene·rally — survive this. Suffixes are a small closed
+ * set attached to nearly everything, which is what makes their ratio collapse;
+ * Latin prefixes are fused into words rather than productive, so theirs does
+ * not.
+ *
+ * This needs the head, so it applies wherever the head is loaded — which is
+ * every search over a streamed index, and not one over an index already on
+ * the device, where the pieces are judged by frequency alone as before. The
+ * weight of words ending in a string is not something the index answers
+ * without enumerating it.
+ */
+export const MIN_STANDALONE_RATIO = 0.03;
+
+/**
+ * Longest piece the suffix test looks at. The debris is all short — the
+ * longest that failed above is "ness" — and beyond this the ratio stops
+ * meaning anything, since almost nothing ends in a given seven-letter string
+ * except that string.
+ */
+const MAX_SUFFIX_TESTED = 6;
+
 export function headWordChecker(
   head: HeadIndex,
   total: number,
@@ -188,9 +243,30 @@ export function headWordChecker(
   const lowest =
     head.score.length === 0 ? Infinity : head.score[head.score.length - 1];
 
+  // Weight of the words ending in each short string — built on first use,
+  // since most queries never ask a word question at all. Only over the words
+  // themselves, which is a small part of the head: 66,548 of English's
+  // 500,000 entries, the rest being phrases.
+  let ending: Map<string, number> | null = null;
+  const endingWeight = (suffix: string): number => {
+    if (ending === null) {
+      ending = new Map();
+      for (const [w, s] of score) {
+        for (let n = 2; n <= MAX_SUFFIX_TESTED && n < w.length; ++n) {
+          const suf = w.slice(-n);
+          ending.set(suf, (ending.get(suf) ?? 0) + s);
+        }
+      }
+    }
+    return ending.get(suffix) ?? 0;
+  };
+
   return (word: string, minShare = 0): boolean | Promise<boolean> => {
     const floor = minShare * total;
     if (floor < lowest) return fallback(word, minShare);
-    return (score.get(word) ?? 0) >= floor;
+    const alone = score.get(word) ?? 0;
+    if (alone < floor) return false;
+    if (word.length > MAX_SUFFIX_TESTED) return true;
+    return alone >= MIN_STANDALONE_RATIO * endingWeight(word);
   };
 }
