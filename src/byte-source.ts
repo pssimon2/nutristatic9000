@@ -185,17 +185,40 @@ export class SyncFileSource implements ByteSource {
  * slow link it is naturally tiny — and this caps it, because on a fast link
  * the product alone would fetch large fractions of the index.
  *
- * It was 32, which measured badly against the deployed 1.3 GB index: the
- * read-ahead was fetching far more subtree than the walk went on to use, and
- * because a run is capped on *bytes*, the waste came directly out of how deep
- * the search could go. At 8, over the compressed sidecar, `<aaagmnr>` fell
- * from 44.0 MB to 21.1 MB and from 1286 ms to 957 ms, `"_ ___ ___ _*burger"`
- * from 10953 ms to 8641 ms, and `{distinct:A{6}}` went from finding nothing
- * within budget to finding results. Uncompressed, the same query went from
- * 0 results at 84.6 MB to 20 results at 52.6 MB. Both paths were measured;
- * 4 was better still on bytes but lost more to round-trips.
+ * It was 32, then 8, and both were too many. The walk's locality varies
+ * enormously by query and the read-ahead does not: a phrase search follows one
+ * subtree and uses what it is given, while `{kind:bird}&A{7}` or
+ * `{elements:A{6}}` jump about and use one block of every eight. Since a run
+ * is capped on *bytes*, the unused seven come straight out of how deep the
+ * search gets, and those two queries reached the 64 MB cap having found
+ * nothing at all — 412 and 432 steps, where their first match sits at step
+ * 1,695 and 491.
+ *
+ * Measured against the deployed 1.3 GB index at 8 blocks and at 2:
+ *
+ *   {kind:bird}&A{7}      0 results, 69.7 MB  ->  10 results, 57.1 MB
+ *   {elements:A{6}}       0 results, 67.3 MB  ->  10 results, 38.7 MB
+ *   {syllables=3:A{7}}    0 kept              ->  article, history, october
+ *   <aaagmnr>            10 results, 21.1 MB  ->  10 results, 11.4 MB
+ *   solar s_stem         10 results, 30.5 MB  ->  10 results, 15.0 MB
+ *
+ * So it halves the bytes on the searches that were already working and makes
+ * a class of them work at all. It is not free: a search that is already
+ * request-bound rather than byte-bound gets slower, `"_ ___ ___ _*burger"`
+ * from 8.7 s to 13.3 s at the same 67 MB, because the same bytes now arrive in
+ * 1,248 requests instead of 515.
+ *
+ * 3 and 4 were measured too: both leave `{kind:bird}&A{7}` returning nothing,
+ * so the choice is really 2 against 8, and returning nothing is a worse
+ * outcome than taking longer.
+ *
+ * The honest fix is to adapt — measure how much of each read-ahead is read
+ * before it is evicted, and shrink when the answer is "one block" — because no
+ * constant is right for both shapes: at 2 the anagram on the front page goes
+ * from 1.7 s to 3.6 s in the browser while its transfer drops from 43 MB to
+ * 11 MB. This is the better constant meanwhile.
  */
-export const MAX_READAHEAD_BLOCKS = 8;
+export const MAX_READAHEAD_BLOCKS = 2;
 
 export interface ChunkStore {
   get(chunk: number): Promise<Uint8Array | undefined>;
