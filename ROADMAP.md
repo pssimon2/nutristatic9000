@@ -983,10 +983,32 @@ Goal: mechanical, low-risk changes that everything later depends on.
   Checked both bite: reversing the strategy's sort fails the first on two seeds.
   Not applicable yet: the factored join (P5, deferred), sharding (X1) and the
   refinement cache (A3) do not exist to compare against.
-- [ ] **T2. Hard-query benchmark corpus.** Curated set (heavy anagram,
-  10k-list, deep negation, 3-word phrase, cross-slot, suffix-anchored)
-  with per-query step/latency budgets in CI — the standing definition of
-  "fast in any use case" (extends S7).
+- [~] **T2. Hard-query benchmark corpus.** *(the corpus, done 2026-08-17; the
+  latency budgets deliberately not.)* Six shapes added to the gate, chosen as
+  the harder end of what the grid already had: one negation is not three, two
+  words are not three, a prefix walk is not a suffix one, and a list of two
+  hundred is not one of six hundred.
+
+  | case | what it stresses |
+  |---|---|
+  | `deep-negation` | three complements at once, 600 DFA states |
+  | `three-word` | two restarts rather than one |
+  | `suffix-anchored` | `.*tion` — the trie cannot prune, every path is a candidate until its last letter |
+  | `heavy-anagram` | thirteen letters, 33,714 DFA states |
+  | `huge-list` | 583 entries, 6,502 DFA states |
+  | `tested-list` | the *other strategy* — 0 steps, 103 candidates tested |
+
+  That last one is the gap that mattered. The gate covered only the trie walk,
+  so half the engine could regress unnoticed; a case answered by listing a
+  conjunct out has no steps to pin, and is pinned on `candidatesTested` and
+  `indexLookups` instead — the counters added for `--stats`. Checked it bites by
+  dropping `CANDIDATE_CAP` to 50, which makes the strategy decline: steps 0 →
+  423 and candidates 103 → 0, and the gate failed.
+  **Latency budgets are still not in CI, and should not be.** The script's own
+  reasoning holds: a step count is exact for a given index and query, and
+  wall-clock on a shared runner is not, so gating on it buys flaky builds rather
+  than confidence. Time is printed, because a 3x slowdown at identical step
+  counts is worth seeing even if no machine can assert it.
 - [x] **T3. Contract suite labeling.** `test/upstream-format.test.ts` is the
   byte-format contract, and it is named as such. Two fixtures built by
   upstream's own C++ `make-index` are checked in —

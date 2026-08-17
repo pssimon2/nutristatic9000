@@ -32,6 +32,8 @@ const { MemorySource } = await import("../src/byte-source.js");
 const { IndexReader } = await import("../src/index-reader.js");
 const { SearchSession } = await import("../src/search-session.js");
 const { SessionContext } = await import("../src/session-context.js");
+const { parsePhonetics } = await import("../src/phonetics.js");
+const { parseWikiLists } = await import("../src/word-lists.js");
 
 /** Query shapes, each stressing a different part of the engine. */
 const CASES = [
@@ -49,6 +51,21 @@ const CASES = [
   { name: "counter", query: "{sum=52:A*}", steps: 200000 },
   { name: "multiset", query: "{distinct:A{6}}", steps: 200000 },
   { name: "phrase", query: "A{4} A{5}", steps: 200000 },
+  // The harder end of each shape (T2). These were the parts the grid did not
+  // reach: one negation is not three, two words are not three, a prefix walk is
+  // not a suffix one, and a list of two hundred is not one of six hundred.
+  { name: "deep-negation", query: "A{6}&!.*ee.*&!.*th.*&!.*ss.*", steps: 200000 },
+  { name: "three-word", query: "A{3} A{3} A{3}", steps: 200000 },
+  // Anchored at the end, which the trie cannot prune on: every path is a
+  // candidate until its last letter.
+  { name: "suffix-anchored", query: ".*tion", steps: 200000 },
+  { name: "heavy-anagram", query: "<aaeilmnorstu>", steps: 300000 },
+  { name: "huge-list", query: "{list:vulnerablebirds}", steps: 200000 },
+  // The other strategy: this one is answered by listing a conjunct out rather
+  // than walking, so its step count is zero and the numbers that describe it
+  // are the candidates tested and looked up. Without it the gate covers only
+  // the walk, and half the engine could regress unnoticed.
+  { name: "tested-list", query: "{rhyme:night}&A{5}", steps: 200000 },
 ];
 
 const args = process.argv.slice(2);
@@ -62,7 +79,20 @@ for (const c of CASES) {
   // A fresh reader per case: a shared one carries a warm parse cache, which
   // makes a case's cost depend on the ones before it.
   const reader = await IndexReader.open(new MemorySource(data));
-  const session = new SearchSession(reader, c.query, new SessionContext());
+  // The datasets the harder cases name. Loaded per case for the same reason the
+  // reader is fresh: a shared context carries a warm parse.
+  const ctx = new SessionContext();
+  if (/\{rhyme|\{homo/.test(c.query)) {
+    ctx.phonetics = parsePhonetics(
+      fs.readFileSync(path.join(root, "web", "public", "phonetics.txt"), "utf8"),
+    );
+  }
+  if (/\{list:/.test(c.query)) {
+    ctx.lists = parseWikiLists(
+      fs.readFileSync(path.join(root, "web", "public", "lists.txt"), "utf8"),
+    );
+  }
+  const session = new SearchSession(reader, c.query, ctx);
   const t0 = performance.now();
   await session.run(c.steps, 100000, () => {});
   const ms = performance.now() - t0;
@@ -74,6 +104,8 @@ for (const c of CASES) {
     results: s.results,
     dfaStates: s.dfaStates,
     frontierPeak: s.frontierPeak,
+    candidatesTested: s.candidatesTested,
+    indexLookups: s.indexLookups,
     ms: Math.round(ms),
     stepsPerSec: Math.round(s.steps / (ms / 1000)),
   });
@@ -90,6 +122,9 @@ const pinned = (r) => ({
   results: r.results,
   dfaStates: r.dfaStates,
   frontierPeak: r.frontierPeak,
+  // Zero for a walk, and the whole story for a case answered by testing a list.
+  candidatesTested: r.candidatesTested,
+  indexLookups: r.indexLookups,
 });
 
 if (update) {
@@ -112,6 +147,9 @@ for (const r of results) {
     `  ${r.name.padEnd(12)} ${String(r.steps).padStart(7)} steps  ` +
       `${String(r.results).padStart(6)} results  ` +
       `${String(r.dfaStates).padStart(6)} dfa  ` +
+      (r.candidatesTested
+        ? `${String(r.candidatesTested).padStart(5)} tested  `
+        : "") +
       `${String(r.ms).padStart(5)}ms  ` +
       `${(r.stepsPerSec / 1e6).toFixed(2)}M steps/s`,
   );

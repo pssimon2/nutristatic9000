@@ -3,54 +3,120 @@
     "steps": 168087,
     "results": 11344,
     "dfaStates": 14,
-    "frontierPeak": 16822
+    "frontierPeak": 16822,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "prefix": {
     "steps": 200000,
     "results": 46874,
     "dfaStates": 9,
-    "frontierPeak": 79039
+    "frontierPeak": 79039,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "class-heavy": {
     "steps": 200000,
     "results": 5309,
     "dfaStates": 28,
-    "frontierPeak": 2147098
+    "frontierPeak": 2147098,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "anagram": {
     "steps": 300000,
     "results": 58,
     "dfaStates": 5296,
-    "frontierPeak": 399887
+    "frontierPeak": 399887,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "big-list": {
     "steps": 2074,
     "results": 196,
     "dfaStates": 1363,
-    "frontierPeak": 204
+    "frontierPeak": 204,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "negation": {
     "steps": 200000,
     "results": 22839,
     "dfaStates": 84,
-    "frontierPeak": 136871
+    "frontierPeak": 136871,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "counter": {
     "steps": 200000,
     "results": 3193,
     "dfaStates": 218,
-    "frontierPeak": 88648
+    "frontierPeak": 88648,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "multiset": {
     "steps": 200000,
     "results": 14802,
     "dfaStates": 79680,
-    "frontierPeak": 130455
+    "frontierPeak": 130455,
+    "candidatesTested": 0,
+    "indexLookups": 0
   },
   "phrase": {
     "steps": 200000,
     "results": 5607,
     "dfaStates": 13,
-    "frontierPeak": 97326
+    "frontierPeak": 97326,
+    "candidatesTested": 0,
+    "indexLookups": 0
+  },
+  "deep-negation": {
+    "steps": 200000,
+    "results": 15901,
+    "dfaStates": 600,
+    "frontierPeak": 211436,
+    "candidatesTested": 0,
+    "indexLookups": 0
+  },
+  "three-word": {
+    "steps": 200000,
+    "results": 947,
+    "dfaStates": 14,
+    "frontierPeak": 1731776,
+    "candidatesTested": 0,
+    "indexLookups": 0
+  },
+  "suffix-anchored": {
+    "steps": 200000,
+    "results": 836,
+    "dfaStates": 13,
+    "frontierPeak": 354864,
+    "candidatesTested": 0,
+    "indexLookups": 0
+  },
+  "heavy-anagram": {
+    "steps": 300000,
+    "results": 4,
+    "dfaStates": 33714,
+    "frontierPeak": 1048737,
+    "candidatesTested": 0,
+    "indexLookups": 0
+  },
+  "huge-list": {
+    "steps": 7930,
+    "results": 397,
+    "dfaStates": 6502,
+    "frontierPeak": 471,
+    "candidatesTested": 0,
+    "indexLookups": 0
+  },
+  "tested-list": {
+    "steps": 0,
+    "results": 20,
+    "dfaStates": 786,
+    "frontierPeak": 1,
+    "candidatesTested": 103,
+    "indexLookups": 21
   }
 }
