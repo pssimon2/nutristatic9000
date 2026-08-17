@@ -201,6 +201,13 @@ export class SyncFileSource implements ByteSource {
  *   {syllables=3:A{7}}    0 kept              ->  article, history, october
  *   <aaagmnr>            10 results, 21.1 MB  ->  10 results, 11.4 MB
  *   solar s_stem         10 results, 30.5 MB  ->  10 results, 15.0 MB
+ *   A{5}                  7 results, 67.7 MB  ->  46 results, 67.1 MB
+ *   A{5}&C*            1000 results, 62.7 MB  -> 1000 results, 43.2 MB
+ *
+ * The last two are the ones worth noticing: this was tuned on bytes and on
+ * queries that were failing, and the plainest query on the site turns out to
+ * return six times as many answers for the same transfer. Read-ahead was not
+ * only wasting bandwidth, it was crowding out results.
  *
  * So it halves the bytes on the searches that were already working and makes
  * a class of them work at all. It is not free: a search that is already
