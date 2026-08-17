@@ -12,8 +12,15 @@
 //
 // So this asks the deployment three questions per index, by range request rather
 // than by download: is the index there, is its compressed sidecar there, and is
-// its head there. Not in CI, because CI has no deployment to look at; run it
-// after uploading, which is exactly when it can still be fixed cheaply.
+// its head there. It also checks the app's own data files — the side datasets and
+// the demo index, the ones written by hand rather than by the bundler — and
+// checks their *size*, not just their presence: a deploy that shipped an old
+// `lists.txt` looks fine and answers `{list:…}` from a stale catalogue. The
+// bundled assets are content-hashed, so a stale one 404s and breaks the page
+// loudly; these are the files that go wrong quietly.
+//
+// Not in CI, because CI has no deployment to look at; run it after uploading,
+// which is exactly when a gap is still cheap to fix.
 
 import * as fs from "node:fs";
 
@@ -42,6 +49,56 @@ async function present(url) {
 }
 
 const problems = [];
+
+// The app's own files, which ride along in the build output. Present is not
+// enough: a deploy that shipped an old `lists.txt` would look fine and answer
+// `{list:…}` from a stale catalogue, so the served size has to match the built
+// one. A size is a weak hash and a strong enough one for "did this get
+// uploaded" — the failure being guarded against is a forgotten file, not a
+// corrupted byte.
+const BUILT = "web/dist";
+if (fs.existsSync(BUILT)) {
+  const assets = fs
+    .readdirSync(BUILT)
+    .filter((f) => /\.(txt|bin|wasm)$/.test(f) || f === "demo.index");
+  for (const file of assets.sort()) {
+    const local = fs.statSync(`${BUILT}/${file}`).size;
+    let served = -1;
+    try {
+      // `identity`, or the length is meaningless: asked with gzip accepted,
+      // Caddy answers a HEAD with `content-length: 20` — the gzip of the body
+      // it did not send. That reported all five text datasets as stale uploads
+      // when every one of them was fine.
+      const r = await fetch(`${BASE}/${file}`, {
+        method: "HEAD",
+        headers: { "Accept-Encoding": "identity" },
+      });
+      if (r.ok) served = Number(r.headers.get("content-length") ?? -1);
+    } catch {
+      // left as -1
+    }
+    const ok = served === local;
+    console.error(
+      `  ${file.padEnd(22)} ${
+        ok
+          ? "ok"
+          : served === -1
+            ? "NOT SERVED"
+            : `STALE: serving ${served} bytes, built ${local}`
+      }`,
+    );
+    if (!ok) {
+      problems.push(
+        served === -1
+          ? `${file} is in the build and not served`
+          : `${file} is served at ${served} bytes but the build has ${local} — a stale upload`,
+      );
+    }
+  }
+} else {
+  console.error(`  (no ${BUILT} — run npm run build to check the app's files too)`);
+}
+
 const indexes = offered();
 if (indexes.length === 0) throw new Error("no indexes found to check");
 

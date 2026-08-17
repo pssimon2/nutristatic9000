@@ -33,9 +33,16 @@ Deployment notes specific to this fork:
       npm run check-deployed
 
   It reads the picker's own list and asks the site, by range request, whether
-  each index, its `.idxz` and its `.head` are served. Not in CI, which has no
-  deployment to look at; run it after uploading, while a gap is still cheap to
-  fix. Without one the site still works and is much slower —
+  each index, its `.idxz` and its `.head` are served — and compares the *size*
+  of every hand-written data file against the build, since a deploy that shipped
+  an old `lists.txt` looks fine and answers `{list:…}` from a stale catalogue.
+  Not in CI, which has no deployment to look at; run it after uploading, while a
+  gap is still cheap to fix.
+
+  It asks for the `identity` encoding, and has to: given `Accept-Encoding: gzip`
+  Caddy answers a `HEAD` with `content-length: 20`, the gzip of the body it did
+  not send, which reported all five text datasets as stale when every one was
+  fine. Without one the site still works and is much slower —
   `{palindrome:A{5}}` goes from half a second to twenty and finds nothing — so
   a deploy that forgets it fails quietly. `?debug=1` says "answered from the
   head of the index" when it is being used, which is the quickest way to tell.
