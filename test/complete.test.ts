@@ -171,3 +171,37 @@ describe("category arguments", () => {
     expect(kindAt("{rot13:abc").kind).toBe("none");
   });
 });
+
+// A construct whose argument comes before the colon.
+//
+// `{anagram countries:A{6}}` names its list before the colon, because the colon
+// introduces the pattern it wraps. Completing it to "anagram:" inserted a form
+// that cannot parse, and the list position offered nothing at all — the menu
+// was leading people into an error on the construct they had just found.
+describe("completing {anagram <list>:…}", () => {
+  it("completes the name to a space, not a colon", () => {
+    const { items } = completionsAt("{anag", 5, null);
+    expect(items[0].insert).toBe("anagram ");
+  });
+
+  it("leaves every other construct completing to a colon", () => {
+    expect(completionsAt("{palind", 7, null).items[0].insert).toBe("palindrome:");
+    expect(completionsAt("{compo", 6, null).items[0].insert).toBe("compound:");
+  });
+
+  it("completes list names in the argument position", () => {
+    const { token, items } = completionsAt("{anagram cou", 12, null);
+    expect(token.kind).toBe("listname");
+    expect(items.map((i) => i.insert)).toContain("countries");
+  });
+
+  it("offers the whole catalogue with nothing typed yet", () => {
+    const { token, items } = completionsAt("{anagram ", 9, null);
+    expect(token.kind).toBe("listname");
+    expect(items.length).toBeGreaterThan(5);
+  });
+
+  it("takes the group prefix here too", () => {
+    expect(completionsAt("{match.anagram gr", 17, null).token.kind).toBe("listname");
+  });
+});

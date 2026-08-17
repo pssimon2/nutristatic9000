@@ -17,6 +17,13 @@ import {
 } from "./constructs.js";
 import { WikiLists, listNames } from "./word-lists.js";
 
+/**
+ * Constructs whose argument is written before the colon, because the colon
+ * introduces the pattern they wrap: `{anagram countries:A{6}}`. Completing one
+ * of these to `name:` would insert something that cannot parse.
+ */
+const SPEC_BEFORE_COLON = new Set(["anagram"]);
+
 export interface Completion {
   /** The text to insert in place of the token being typed. */
   insert: string;
@@ -70,6 +77,16 @@ export function tokenAt(query: string, cursor: number): Token {
       kind: "listname",
       prefix: list[1],
       start: cursor - list[1].length,
+    };
+  }
+
+  // `{anagram cou` — a list name, in the position this construct puts it.
+  const anagramList = /\{\s*(?:[a-z]+\.)?anagram\s+([a-z0-9 ]*)$/i.exec(before);
+  if (anagramList) {
+    return {
+      kind: "listname",
+      prefix: anagramList[1],
+      start: cursor - anagramList[1].length,
     };
   }
 
@@ -129,10 +146,15 @@ function constructCompletions(prefix: string): Completion[] {
     // "ci" was reaching for the cipher family, so completing to a bare "rot:"
     // would silently drop what they wrote.
     const insert = qualScore > bareScore ? qualified : c.name;
+    // `{anagram countries:…}` names its list *before* the colon, so completing
+    // it to "anagram:" inserts a form that errors. A construct whose argument
+    // precedes the colon completes to a space instead, and the list names then
+    // complete in that position — see `anagramList` in tokenAt.
+    const tail = SPEC_BEFORE_COLON.has(c.name) ? " " : ":";
     out.push({
       score,
-      insert: `${insert}:`,
-      label: `${insert}:`,
+      insert: `${insert}${tail}`,
+      label: `${insert}${tail}`,
       detail: c.summary,
       example: c.example,
     });
