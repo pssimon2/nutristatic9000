@@ -13,6 +13,7 @@ import { BufferSink } from "../src/index-writer.js";
 import {
   buildReverseIndex,
   compileConjunctsReversed,
+  reverseFavored,
   unreverseText,
 } from "../src/reverse.js";
 
@@ -79,5 +80,18 @@ describe("the reverse index", () => {
     const { forward, reversed } = await forwardAndReversed('"A{1,8}x"');
     expect(reversed).toEqual(forward);
     expect(forward.size).toBeGreaterThan(0); // fox is in there
+  });
+});
+
+describe("reverseFavored", () => {
+  it("prefers the sidecar exactly when the suffix pins more than the prefix", () => {
+    expect(reverseFavored('"A{1,8}x"', ctx)).toBe(true); // .*x-shaped
+    expect(reverseFavored('"xA{1,8}"', ctx)).toBe(false); // prefix-anchored
+    expect(reverseFavored("A{5}", ctx)).toBe(false); // symmetric
+  });
+
+  it("declines what cannot reverse, and lets the forward path report it", () => {
+    expect(reverseFavored("{~list:alpha,beta}", ctx)).toBe(false); // weighted
+    expect(reverseFavored("A{5", ctx)).toBe(false); // does not parse
   });
 });

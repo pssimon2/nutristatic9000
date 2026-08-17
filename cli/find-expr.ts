@@ -450,6 +450,23 @@ async function runReversed(path: string): Promise<Run> {
   return run;
 }
 
+// The reverse sidecar is picked automatically when it exists beside the
+// index and the query is suffix-anchored (its reversed automaton pins more
+// first letters than the forward one). `--reverse-index` forces a specific
+// file; `--shards` and multi-index runs stay forward.
+if (
+  reverseIndexPath === null &&
+  readers.length === 1 &&
+  shardCount === 1
+) {
+  const { reverseFavored, reverseSidecarName } = await import("../src/reverse.js");
+  const sidecar = reverseSidecarName(indexPaths[0]);
+  if (fs.existsSync(sidecar) && reverseFavored(pattern, ctx)) {
+    console.error(`# suffix-anchored: walking ${sidecar}`);
+    reverseIndexPath = sidecar;
+  }
+}
+
 try {
   const run =
     reverseIndexPath !== null

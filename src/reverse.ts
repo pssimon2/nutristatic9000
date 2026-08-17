@@ -15,9 +15,11 @@
 // backwards. The caller re-reverses for display and runs predicates on the
 // real text.
 
-import { EPSILON, Nfa } from "./automata.js";
+import { ALPHABET, EPSILON, Nfa } from "./automata.js";
 import { Conjunct, isNegated } from "./conjunct.js";
 import { Box, parseExprBox } from "./expr-parse.js";
+import { type Filter, makeFilter } from "./expr-filter.js";
+import { compileConjuncts } from "./find-expr.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import { IndexReader } from "./index-reader.js";
@@ -183,4 +185,35 @@ function appendSpace(nfa: Nfa): void {
   space.setFinal(b);
   space.addArc(a, CODE_SPACE, b);
   nfa.concat(space);
+}
+
+/** How many symbols the filter accepts as a first character. */
+function startFanout(filter: Filter): number {
+  let n = 0;
+  for (const ch of ALPHABET) {
+    if (ch !== EPSILON && filter.transition(filter.startState, ch) >= 0) ++n;
+  }
+  return n;
+}
+
+/**
+ * Would this query walk better reversed? True when the reversed automaton
+ * pins more of its first letters than the forward one — the suffix-anchored
+ * case (`.*tion` opens 37 ways forward and one way reversed). False for
+ * anything that cannot reverse (weighted constructs) or does not parse; the
+ * forward path then reports whatever is wrong.
+ */
+export function reverseFavored(query: string, ctx: SessionContext): boolean {
+  try {
+    const fwd = makeFilter(compileConjuncts(query, ctx));
+    const rev = makeFilter(compileConjunctsReversed(query, ctx));
+    return startFanout(rev) < startFanout(fwd);
+  } catch {
+    return false;
+  }
+}
+
+/** The reverse sidecar's conventional name beside `x.index`: `x.rindex`. */
+export function reverseSidecarName(indexName: string): string {
+  return indexName.replace(/\.index$/, "") + ".rindex";
 }

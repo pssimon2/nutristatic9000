@@ -74,6 +74,12 @@ import {
 } from "../src/result-filter.js";
 import { parseRemoteList, remoteListUrls } from "../src/word-lists.js";
 import { installPack, parsePack } from "../src/packs.js";
+import {
+  compileConjunctsReversed,
+  reverseFavored,
+  reverseSidecarName,
+  unreverseText,
+} from "../src/reverse.js";
 import { compileConjuncts, compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
 import { SearchSession } from "../src/search-session.js";
@@ -163,6 +169,32 @@ let wordChecker: WordCheck | null = null;
 const extraLoads = new Map<string, Promise<void>>();
 /** Pack URLs already fetched, so a re-post costs nothing. */
 const loadedPacks = new Set<string>();
+
+// ---- Reverse sidecar ----
+/**
+ * A reader over the index's `.rindex` sidecar, opened on first use for a
+ * suffix-anchored query over a streamed index. `null` after a probe found no
+ * sidecar; `undefined` before any probe. Reset when the index changes.
+ */
+let reverseReader: IndexReader | null | undefined = undefined;
+/** True while the live session walks the reverse sidecar. */
+let reversedSearch = false;
+
+/** Open (or reuse) the reverse sidecar's reader; null when there is none. */
+async function reverseReaderFor(url: string): Promise<IndexReader | null> {
+  if (reverseReader !== undefined) return reverseReader;
+  reverseReader = null;
+  try {
+    const revUrl = reverseSidecarName(url);
+    if (revUrl === url) return null;
+    const src = await HttpRangeSource.open(revUrl, {});
+    if (!src.supportsRanges) return null;
+    reverseReader = await IndexReader.open(src);
+  } catch {
+    // No sidecar (404) or an unusable one: the forward walk answers.
+  }
+  return reverseReader;
+}
 
 // ---- Reuse across queries in one session ----
 /**
@@ -956,8 +988,13 @@ async function runSession(
   // may fetch bytes, so results are collected and verified after the run
   // rather than streamed.
   const pending: Array<{ score: number; text: string }> = [];
-  const emit = (r: { score: number; text: string }) => {
+  const emit = (raw: { score: number; text: string }) => {
     if (token !== runToken) return; // superseded: stop talking to the UI
+    // A reversed walk emits mirrored text; everything downstream — dedup,
+    // predicates, the page — sees it forward.
+    const r = reversedSearch
+      ? { score: raw.score, text: unreverseText(raw.text) }
+      : raw;
     emitted.add(r.text);
     if (resultFilters.length > 0 || nearOrder) {
       pending.push(r);
@@ -1135,12 +1172,14 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // Another corpus: cached results are not answers here.
         recentRuns.length = 0;
         runFps = null;
+        reverseReader = undefined;
         await openIndex(msg.url, msg.early);
         break;
       case "open-file":
         ++runToken;
         recentRuns.length = 0;
         runFps = null;
+        reverseReader = undefined;
         await openFile(msg.file);
         break;
       case "search": {
@@ -1285,7 +1324,36 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           /\{\s*~|\{\s*(?:edit\.)?edit\s*(?:\([a-z0-9]+\))?\s*:/.test(
             currentQuery,
           );
+        // A suffix-anchored query over a streamed index walks the reverse
+        // sidecar when the server has one: the anchor becomes a prefix and
+        // the walk prunes instead of fetching the world. Local indexes stay
+        // forward — they are fast either way, and the kernel serves them.
+        reversedSearch = false;
+        if (
+          indexIsRemote() &&
+          currentUrl !== null &&
+          !weightedQuery &&
+          reverseFavored(currentQuery, ctx)
+        ) {
+          const revReader = await reverseReaderFor(currentUrl);
+          if (token !== runToken) return;
+          if (revReader !== null) {
+            try {
+              session = new SearchSession(
+                revReader,
+                makeFilter(compileConjunctsReversed(currentQuery, ctx)),
+                ctx,
+                undefined,
+                { prefetchDepth: PREFETCH_DEPTH },
+              );
+              reversedSearch = true;
+            } catch {
+              session = null; // the forward path reports any real error
+            }
+          }
+        }
         const wasmEligible =
+          !session &&
           !wasmBroken &&
           !weightedQuery &&
           (memBytes !== null ||
@@ -1364,6 +1432,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             // waiting on a done that will not come.
             throw new Error("no search to continue");
           }
+          reversedSearch = false;
           session = new SearchSession(reader, currentQuery, ctx, undefined, {
             prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
             filterCache,
