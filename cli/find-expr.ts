@@ -1,7 +1,14 @@
 // Port of upstream find-expr.cpp + search-printer.cpp: stream results for an
 // expression against an index, with '# N' progress lines every 100k steps.
 
-import { compileQuery, formatScore, makeDriver, ParseError } from "../src/find-expr.js";
+import {
+  compileConjuncts,
+  compileQuery,
+  formatScore,
+  makeDriver,
+  ParseError,
+} from "../src/find-expr.js";
+import { finiteStrategy } from "../src/finite-strategy.js";
 import { FilterCapacityError } from "../src/expr-filter.js";
 import { cliOpenIndex } from "../src/node-io.js";
 import { applyExtract } from "../src/extract-spec.js";
@@ -27,11 +34,14 @@ process.stdout.on("error", (e: NodeJS.ErrnoException) => {
 const USAGE =
   "usage: find-expr [--max-steps N] [--stats] [--explain] input.index expression\n" +
   "  N: step limit (default 1000000; 0 = unlimited), applied per slot\n" +
+  "  --walk: always walk the index, even where testing a list would do\n" +
   "  expression: a pattern, or several separated by ';' — each runs in turn,\n" +
   "    and if they say where their letters come from ({at 1:…}) the assembled\n" +
   "    letters are printed after the last one";
 
 const args = process.argv.slice(2);
+const forceWalk = args.includes("--walk");
+if (forceWalk) args.splice(args.indexOf("--walk"), 1);
 const wantStats = args.includes("--stats");
 if (wantStats) args.splice(args.indexOf("--stats"), 1);
 const wantExplain = args.includes("--explain");
@@ -152,7 +162,6 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
     throw e;
   }
 
-  const driver = makeDriver(reader, filter);
   const output = new OutputTransform(slot.extract, slot.rank);
   const run: SlotRun = {
     best: null,
@@ -191,6 +200,24 @@ async function runSlot(slot: SlotPlan): Promise<SlotRun> {
       : `${formatScore(score)} ${shown.text}  (${shown.source})${note}`;
   }
 
+  // A query with one small finite conjunct is a list, and a list can be
+  // tested rather than searched for — same answers, same order, same scores.
+  // See src/finite-strategy.ts; --walk forces the search, for comparing them.
+  if (!forceWalk) {
+    const tested = await finiteStrategy(reader, compileConjuncts(slot.pattern, ctx));
+    if (tested !== null) {
+      for (const r of tested) {
+        const line = await present(r.score, r.text);
+        if (line !== null) {
+          ++run.emitted;
+          process.stdout.write(`${line}\n`);
+        }
+      }
+      return run;
+    }
+  }
+
+  const driver = makeDriver(reader, filter);
   for (;;) {
     if (maxSteps > 0 && run.steps >= maxSteps) {
       process.stdout.write(`# computation limit reached (${run.steps} steps)\n`);

@@ -631,12 +631,23 @@ Goal: mechanical, low-risk changes that everything later depends on.
   enumerator returned one string per *path*, so `{del1:{list:greek}}` reported
   "gama" twice (either M of GAMMA deletes to it) and eight results too many.
   Engine parity caught it before the differential test did.
-- [ ] **P5. Phrase factoring + best-first join.** A pattern that is a
-  concatenation of word-level pieces separated by spaces: solve each word
-  independently → scored candidate lists → join by probing the phrase trie
-  (P2), best-first on score product using the existing Frontier heap as a
-  lazy k-best join. Fall back to the monolithic walk when factoring
-  doesn't apply.
+- [~] **P5. Phrase factoring + best-first join.** *(deferred 2026-08-17 —
+  premise overtaken, and exactness is the problem.)* Two things changed under
+  it. Measured on the deployed site, the phrase patterns it targets are already
+  fast: `A{4} A{5}` settles in 955 ms with 999 results and `A{6} A{6}` in
+  820 ms with 996, because the head sidecar answers the common phrases outright
+  and the stall cap bounds what the index adds. The slow ones — `C* V* C*` at
+  6.9 s, `solar s_stem` at 6.3 s — are slow because their answers are genuinely
+  rare, and return 37 and 36 results respectively.
+  The harder problem is that a factored join cannot reproduce what the walk
+  reports. A two-word phrase present in the index is scored as that entry, not
+  as a product of its words, so the join has to probe each pair (P2 does this);
+  but a k-best enumeration in *product* order can miss a common bigram made of
+  two individually-rare words, so matching the walk's order and set would need
+  unbounded enumeration. Every other strategy here is exactly equivalent to the
+  walk and tested against it; this one would be an approximation, and that is a
+  different kind of change from the rest of Phase P.
+  Worth revisiting if a measurement shows phrase patterns hurting again.
 - [x] **E10. Say when a pattern cannot match anything.**
   *(done 2026-08-16, not previously on the list; overlaps P6.)*
   `A{5}&A{6}` spent the entire million-step budget — ~950ms locally, and tens
@@ -722,15 +733,35 @@ Goal: mechanical, low-risk changes that everything later depends on.
   at all. Start there.
   `MIN_CACHE_BLOCKS = 64` keeps it out of reach meanwhile — the default is
   4096 — so nothing real is exposed.
-- [ ] **P6. Plan diagnostics.** Static analysis on the plan: infinite
-  pattern language + only predicate-level narrowing ⇒ warn "unbounded
-  search; the {palindrome} filter cannot prune — add a length or a
-  value ceiling" (automating the folklore documented in
-  `value-constraint.ts` comments). Surface in UI status line and CLI.
-- [ ] **P7. Strategy choice wiring.** Planner picks per slot: trie walk /
-  generate-and-test / factored join, using P3 estimates + index mode
-  (range mode weights fetch cost). `--explain` shows the decision; a
-  query flag forces a strategy for debugging.
+- [~] **P6. Plan diagnostics.** *(deferred 2026-08-17 — the advice it proposes
+  is measurably wrong now.)* The warning it specifies is "unbounded search; the
+  {palindrome} filter cannot prune — add a length or a value ceiling". The
+  first half is true and already said: `formatPlan` notes when every conjunct
+  is unbounded. The second half is advice, and on the deployed site it does not
+  hold: `{palindrome:A*}` settles in 6.9 s with 80 results and
+  `{palindrome:A{5}}` in 6.8 s with 60 — adding the length made it no faster
+  and gave *fewer* answers, because the head sidecar answers first either way
+  and the stall cap ends both. Telling a reader to add a ceiling would send
+  them to a worse query.
+  What the item is really about — saying early that a predicate cannot prune —
+  is worth having; what to advise instead needs a measurement nobody has taken
+  yet.
+- [x] **P7. Strategy choice wiring.** The plan says how each slot will
+  actually be answered — "strategy: walk the index best-first", or "strategy:
+  test 103 candidates (21 to look up)" — in `--explain` and the debug panel.
+  Decided by `testPlan`, which calls the same `finiteCandidates` the search
+  calls, so the plan cannot describe a strategy the search then declines to
+  use. Both numbers are free: enumerating an automaton and running strings
+  through a filter touch no index.
+  `--walk` forces the trie walk, which is what makes the two comparable. The
+  CLI gained the strategy at the same time — it drives the raw driver rather
+  than a SearchSession, so P4 had not reached it — and the two agree byte for
+  byte on `{rhyme:night}&A{5}` and on `{del1:{list:greek}}`, the case whose
+  duplicate strings broke parity when P4 landed.
+  Not done: the factored join (P5, deferred above) as a third choice, and
+  weighting the decision by index mode. The current decision is a
+  where-it-applies test rather than a cost model, which is the right shape
+  while there are two strategies.
 
 ## Phase A — Search smarts
 

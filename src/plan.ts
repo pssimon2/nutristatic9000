@@ -20,6 +20,7 @@ import { topLevelConjuncts } from "./explain.js";
 import { ParseError } from "./parse-error.js";
 import { type SlotPlan, planSlots } from "./slot-plan.js";
 import { providersFor } from "./data-providers.js";
+import { testPlan } from "./finite-strategy.js";
 
 /** Above this the count is reported as "many" rather than enumerated. */
 const COUNT_CAP = 1_000_000;
@@ -58,6 +59,18 @@ export interface QueryPlan {
   transforms: string[];
   /** Side datasets this query needs loaded before it can compile. */
   dataNeeds: string[];
+  /**
+   * How this slot will actually be answered.
+   *
+   * "test" enumerates a small finite conjunct and tests each string against
+   * the rest, touching the index once per survivor; "walk" is the best-first
+   * trie search. Which one runs is decided by the same function that decides
+   * it at search time, so the plan cannot describe a strategy the search then
+   * declines to use.
+   */
+  strategy:
+    | { kind: "walk" }
+    | { kind: "test"; candidates: number; survivors: number };
 }
 
 const SPACE = " ".charCodeAt(0);
@@ -217,6 +230,7 @@ function planOneSlot(
     };
   });
 
+  const test = testPlan(compiled);
   return {
     slot: named ? slot.query : null,
     pattern,
@@ -230,6 +244,10 @@ function planOneSlot(
     predicates: slot.filters.map((f) => f.kind),
     transforms,
     dataNeeds: dataNeedsOf(slot.query),
+    strategy:
+      test === null
+        ? { kind: "walk" }
+        : { kind: "test", candidates: test.candidates, survivors: test.survivors },
   };
 }
 
@@ -262,6 +280,12 @@ export function formatPlan(plan: QueryPlan): string[] {
   if (plan.dataNeeds.length > 0) {
     out.push(`needs: ${plan.dataNeeds.join(", ")}`);
   }
+  out.push(
+    plan.strategy.kind === "walk"
+      ? "strategy: walk the index best-first"
+      : `strategy: test ${plan.strategy.candidates} candidates ` +
+        `(${plan.strategy.survivors} to look up)`,
+  );
   // The observation that most often explains a slow query.
   if (plan.conjuncts.length > 0 && plan.conjuncts.every((c) => !c.finite)) {
     out.push(

@@ -12,8 +12,21 @@ import { formatPlan, languageSize, planQuery,
 import { innerNfa } from "../src/conjunct.js";
 import { compileConjuncts } from "../src/find-expr.js";
 import { SessionContext } from "../src/session-context.js";
+import * as fs from "node:fs";
+import { parseCategories } from "../src/categories.js";
+import { parsePhonetics } from "../src/phonetics.js";
+import { parseWikiLists } from "../src/word-lists.js";
 
 const ctx = new SessionContext();
+// The strategy tests need the datasets the constructs read; the rest of the
+// file compiles patterns that need none.
+ctx.phonetics = parsePhonetics(
+  fs.readFileSync("web/public/phonetics.txt", "utf8"),
+);
+ctx.categories = parseCategories(
+  fs.readFileSync("web/public/categories.txt", "utf8"),
+);
+ctx.lists = parseWikiLists(fs.readFileSync("web/public/lists.txt", "utf8"));
 const plan = (q: string) => planQuery(q, ctx);
 
 /** Language size of a query's single conjunct. */
@@ -94,8 +107,23 @@ describe("the plan", () => {
 
   it("lists the side datasets the query will need", () => {
     expect(plan("A{5}").dataNeeds).toEqual([]);
-    // Not compiled here — needing the data is exactly why it cannot be.
-    expect(() => plan("{kind:bird}")).toThrow();
+    expect(plan("{kind:bird}").dataNeeds).toEqual(["categories"]);
+    // `greek` is compiled into the bundle, so it needs no catalogue —
+    // `romandeities` is harvested and does.
+    expect(plan("{rhyme:night}&{list:greek}").dataNeeds).toEqual(["phonetics"]);
+    expect(plan("{rhyme:night}&{list:romandeities}").dataNeeds.sort()).toEqual([
+      "lists",
+      "phonetics",
+    ]);
+    // Reported for the prefixed form too, which five of the six dataset tests
+    // used to miss — see C6.
+    expect(plan("{word.rhyme:night}").dataNeeds).toEqual(["phonetics"]);
+  });
+
+  it("cannot be planned at all without the data it names", () => {
+    // Needing the dataset is exactly why the query will not compile without
+    // it, which is what makes `dataNeeds` worth reporting.
+    expect(() => planQuery("{kind:bird}", new SessionContext())).toThrow();
   });
 });
 
@@ -151,5 +179,37 @@ describe("planning a query with several slots", () => {
     const p = planQuery("A{5}&C*", ctx);
     expect(p.pattern).toBe("A{5}&C*");
     expect(p.conjuncts.length).toBe(2);
+  });
+});
+
+// Which strategy will actually run (P7).
+//
+// There are two ways to answer a query now, and the plan has to say which one
+// this query gets — decided by the same function that decides it at search
+// time, so the plan cannot describe a strategy the search then declines.
+describe("the strategy in the plan", () => {
+  it("says it will test a list when the query is one", () => {
+    const p = planQuery("{rhyme:night}&A{5}", ctx);
+    expect(p.strategy.kind).toBe("test");
+    if (p.strategy.kind !== "test") return;
+    expect(p.strategy.candidates).toBe(103);
+    // Far fewer are actually looked up: the rest fail the length.
+    expect(p.strategy.survivors).toBeLessThan(p.strategy.candidates);
+    expect(p.strategy.survivors).toBeGreaterThan(0);
+  });
+
+  it("says it will walk when nothing is enumerable", () => {
+    expect(planQuery("A{5}&C*", ctx).strategy.kind).toBe("walk");
+  });
+
+  it("says it will walk when the candidates are phrases", () => {
+    // {kind:bird} is mostly phrases, which a probe cannot price — so the
+    // strategy declines and the plan has to say so.
+    expect(planQuery("{kind:bird}", ctx).strategy.kind).toBe("walk");
+  });
+
+  it("appears in the formatted plan", () => {
+    const lines = formatPlan(planQuery("{list:greek}", ctx));
+    expect(lines.some((l) => /^strategy: test 24 candidates/.test(l))).toBe(true);
   });
 });

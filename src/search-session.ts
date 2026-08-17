@@ -51,8 +51,16 @@ export class SearchSession {
     query: string | Filter,
     ctx: SessionContext,
     restart = DEFAULT_RESTART,
-    opts: SearchDriverOptions = {},
+    opts: SearchDriverOptions & {
+      /**
+       * Force the trie walk even where testing a list would apply. For
+       * comparing the two — they are meant to give identical answers, and a
+       * way to run both is how that stays true.
+       */
+      forceWalk?: boolean;
+    } = {},
   ) {
+    this.forceWalk = opts.forceWalk === true;
     // Kept, not discarded into the filter: a query with one small finite
     // conjunct can be answered by testing that list rather than walking the
     // index, and the list is the conjunct. A caller that hands over a
@@ -66,6 +74,7 @@ export class SearchSession {
     this.driver = makeDriver(reader, this.filter, restart, opts);
   }
 
+  private readonly forceWalk: boolean;
   private readonly conjuncts: Conjunct[] | null;
   private readonly reader: IndexReader;
   /** Results from the finite strategy, once it has been tried. */
@@ -125,7 +134,7 @@ export class SearchSession {
     // searched for — same answers, same order, same scores, and the index
     // touched once per survivor instead of once per node. Null means the
     // query is not that shape, which is the common case.
-    if (!this.finiteTried && this.conjuncts !== null) {
+    if (!this.finiteTried && this.conjuncts !== null && !this.forceWalk) {
       this.finiteTried = true;
       this.finite = await finiteStrategy(this.reader, this.conjuncts);
     }

@@ -135,6 +135,28 @@ export interface FiniteResult {
 }
 
 /**
+ * What testing this query would cost, without touching the index.
+ *
+ * Both numbers are free to work out — enumerating an automaton and running
+ * strings through a filter are memory operations — which is what lets the
+ * plan say which strategy will run before anything is searched.
+ */
+export function testPlan(
+  conjuncts: Conjunct[],
+  cap: number = CANDIDATE_CAP,
+): { candidates: number; survivors: number } | null {
+  const found = finiteCandidates(conjuncts, cap);
+  if (found === null) return null;
+  const rest = conjuncts.filter((_, i) => i !== found.index);
+  const filter = rest.length > 0 ? makeFilter(rest) : null;
+  const survivors = filter
+    ? found.strings.filter((t) => accepts(filter, `${t} `)).length
+    : found.strings.length;
+  if (survivors > PROBE_LIMIT) return null;
+  return { candidates: found.strings.length, survivors };
+}
+
+/**
  * Run the query by testing candidates, or return null if that does not apply.
  *
  * Null means "use the walk" and is the common answer: most queries have no
