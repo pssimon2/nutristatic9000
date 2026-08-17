@@ -15,7 +15,7 @@ import {
   emptyStats,
   formatStats,
 } from "../src/stats.js";
-import { formatPlan, planQuery } from "../src/plan.js";
+import { formatPlan, planSlotQueries } from "../src/plan.js";
 import { OutputTransform } from "../src/output.js";
 import { type SlotPlan, planSlots } from "../src/slot-plan.js";
 
@@ -105,7 +105,11 @@ for (const provider of providersFor(expr)) {
 if (wantExplain) {
   // Before the search, and on stderr: this describes what is about to run.
   try {
-    for (const line of formatPlan(planQuery(expr, ctx))) console.error(`# ${line}`);
+    // One plan per slot: planning the whole string fails on the wrappers,
+    // which insist on covering what they wrap.
+    for (const plan of planSlotQueries(expr, ctx)) {
+      for (const line of formatPlan(plan)) console.error(`# ${line}`);
+    }
   } catch (e) {
     console.error(`error: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(2);

@@ -593,9 +593,23 @@ Goal: mechanical, low-risk changes that everything later depends on.
   "nutrimatic", is not in the demo index, so the search found nothing and the
   oracle expected nothing. It uses a needle that is in the haystack now, and
   checks that it is.
-- [ ] **P3. Cardinality estimation.** For each conjunct: finite ⇔ acyclic
-  NFA; estimate |language| with a capped path count (anagram conjuncts:
-  cap kicks in). Attach estimates to the SlotPlan; show in `--explain`.
+- [x] **P3. Cardinality estimation.** *(the estimate landed with the plan;
+  attaching it per slot done 2026-08-17.)* `languageSize` decides finite ⇔
+  acyclic and counts paths to a 1,000,000 cap, so a conjunct reads as
+  "finite, 17,576 strings", "finite, very large" or "unbounded", and
+  `--explain` and the debug panel have shown it since E7.
+  What was missing is that a query can be several slots, and the planner was
+  handed the whole string: `--explain '{at 1:A{5}};{at 2:B{6}}'` came back as
+  *{at …} must wrap the whole pattern* and exited 2, so adding `--explain` to a
+  multi-slot query that ran perfectly well broke it. `planSlotQueries` gives
+  one plan per slot, headed by the slot when there is more than one; a
+  single-slot query's output is unchanged.
+  Two things fixed on the way. The plan reported one predicate when C1 made
+  them stack, so `{palindrome:{syllables=1:A{3}}}` showed "palindrome" and
+  hid "syllables" — it is `predicates: string[]` now. And `dataNeedsOf` was a
+  seventh hand-written list of the six side datasets, in the same shape as the
+  five C6 found disagreeing; it goes through `providersFor` now, so the
+  group-prefixed forms it used to miss are reported.
 - [ ] **P4. Finite-list generate-and-test strategy.** When one conjunct's
   language is finite and below threshold (`{kind:…}`, `{list:…}`,
   `{near:…}`, `{rhyme:…}`, small anagrams): enumerate entries, test the

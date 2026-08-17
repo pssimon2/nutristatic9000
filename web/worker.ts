@@ -29,7 +29,7 @@ import {
 import type { Filter } from "../src/expr-filter.js";
 import { conflictText } from "../src/emptiness.js";
 import { explainMatch } from "../src/explain.js";
-import { formatPlan, planQuery } from "../src/plan.js";
+import { formatPlan, planSlotQueries } from "../src/plan.js";
 import type {
   InMsg,
   OpenMsg,
@@ -1288,7 +1288,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
       case "plan": {
         let lines: string[] = [];
         try {
-          lines = formatPlan(planQuery(msg.query, ctx));
+          lines = planSlotQueries(msg.query, ctx).flatMap((p) => formatPlan(p));
         } catch (e) {
           lines = [`cannot plan: ${e instanceof Error ? e.message : String(e)}`];
         }

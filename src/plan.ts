@@ -17,14 +17,9 @@ import { compileConjuncts } from "./find-expr.js";
 import { makeFilter } from "./expr-filter.js";
 import { SessionContext } from "./session-context.js";
 import { topLevelConjuncts } from "./explain.js";
-import { shapeOfQuery } from "./query-shape.js";
-import { parseFilterWrapper } from "./result-filter.js";
-import { needsCategories } from "./categories.js";
-import { needsPhonetics } from "./phonetics.js";
-import { needsStress } from "./stress.js";
-import { needsThesaurus } from "./thesaurus.js";
-import { needsNeighbours } from "./neighbours.js";
-import { needsWikiLists } from "./word-lists.js";
+import { ParseError } from "./parse-error.js";
+import { type SlotPlan, planSlots } from "./slot-plan.js";
+import { providersFor } from "./data-providers.js";
 
 /** Above this the count is reported as "many" rather than enumerated. */
 const COUNT_CAP = 1_000_000;
@@ -47,13 +42,18 @@ export interface ConjunctPlan {
 }
 
 export interface QueryPlan {
+  /** The slot as written, when the query has more than one. */
+  slot: string | null;
   /** The pattern the engine sees, wrappers peeled. */
   pattern: string;
   conjuncts: ConjunctPlan[];
   /** One conjunct compiles to a plain lazy DFA; several to a lazy product. */
   filterKind: "single" | "product" | "empty";
-  /** The whole-query result filter, if any — checked per match, not searched. */
-  predicate: string | null;
+  /**
+   * The result filters — checked per match, not searched. Plural since C1
+   * made them stack: `{palindrome:{syllables=1:A{3}}}` is two.
+   */
+  predicates: string[];
   /** Output wrappers, outermost first. */
   transforms: string[];
   /** Side datasets this query needs loaded before it can compile. */
@@ -146,32 +146,57 @@ function arcCount(nfa: Nfa): number {
 }
 
 /** Which side datasets the query needs; the same sniffers the worker uses. */
+/**
+ * The side datasets this query needs, from the one table that knows them.
+ *
+ * This was a seventh hand-written list of the six datasets, in the same shape
+ * and the same order as the others — which is exactly how five of them came to
+ * disagree about whether a construct may carry its group prefix.
+ */
 function dataNeedsOf(query: string): string[] {
-  const needs: string[] = [];
-  if (needsPhonetics(query)) needs.push("phonetics");
-  if (needsStress(query)) needs.push("stress");
-  if (needsCategories(query)) needs.push("categories");
-  if (needsNeighbours(query)) needs.push("neighbours");
-  if (needsThesaurus(query)) needs.push("thesaurus");
-  if (needsWikiLists(query)) needs.push("lists");
-  return needs;
+  return providersFor(query).map((p) => p.key);
 }
 
 /** Analyse a query without searching it. Throws what compiling would throw. */
+/**
+ * Plan every slot of a query.
+ *
+ * A query may be several patterns separated by `;`, and each is its own
+ * search with its own conjuncts and its own cost — so each gets its own plan.
+ * Planning the whole string instead fails outright: the output wrappers insist
+ * on covering what they wrap, so `{at 1:A{5}};{at 2:B{6}}` came back as
+ * *{at …} must wrap the whole pattern* rather than as two plans.
+ */
+export function planSlotQueries(
+  query: string,
+  ctx: SessionContext,
+): QueryPlan[] {
+  const slots = planSlots(query, 12);
+  return slots.map((slot) => planOneSlot(slot, ctx, slots.length > 1));
+}
+
+/**
+ * Plan a single-slot query.
+ *
+ * Kept for callers that know they have one; it is `planSlotQueries` with the
+ * first plan taken, and throws the same way if the query does not parse.
+ */
 export function planQuery(query: string, ctx: SessionContext): QueryPlan {
+  const plans = planSlotQueries(query, ctx);
+  if (plans.length === 0) throw new ParseError(query);
+  return plans[0];
+}
+
+function planOneSlot(
+  slot: SlotPlan,
+  ctx: SessionContext,
+  named: boolean,
+): QueryPlan {
   const transforms: string[] = [];
-  const shaped = shapeOfQuery(query, 12);
-  if (shaped.extract) transforms.push("at");
-  if (shaped.rank) transforms.push("rank");
+  if (slot.extract) transforms.push("at");
+  if (slot.rank) transforms.push("rank");
 
-  let pattern = shaped.pattern;
-  let predicate: string | null = null;
-  const wrapper = parseFilterWrapper(pattern);
-  if (wrapper) {
-    predicate = wrapper.spec.kind;
-    pattern = wrapper.inner;
-  }
-
+  const pattern = slot.pattern;
   const compiled = compileConjuncts(pattern, ctx);
   // The textual split lines up with the compiled conjuncts only when the query
   // is a plain intersection; anything else (a union, a construct expanding to
@@ -193,6 +218,7 @@ export function planQuery(query: string, ctx: SessionContext): QueryPlan {
   });
 
   return {
+    slot: named ? slot.query : null,
     pattern,
     conjuncts,
     filterKind:
@@ -201,15 +227,16 @@ export function planQuery(query: string, ctx: SessionContext): QueryPlan {
         : compiled.length === 1
           ? "single"
           : "product",
-    predicate,
+    predicates: slot.filters.map((f) => f.kind),
     transforms,
-    dataNeeds: dataNeedsOf(query),
+    dataNeeds: dataNeedsOf(slot.query),
   };
 }
 
 /** The plan as lines a person can read. */
 export function formatPlan(plan: QueryPlan): string[] {
   const out: string[] = [];
+  if (plan.slot !== null) out.push(`slot: ${plan.slot}`);
   out.push(`pattern: ${plan.pattern}`);
   out.push(
     `${plan.conjuncts.length} conjunct${plan.conjuncts.length === 1 ? "" : "s"}` +
@@ -226,8 +253,8 @@ export function formatPlan(plan: QueryPlan): string[] {
         ` — ${language}${c.source ? `   ${c.source}` : ""}`,
     );
   });
-  if (plan.predicate) {
-    out.push(`predicate: ${plan.predicate} (checked per match, not searched)`);
+  for (const predicate of plan.predicates) {
+    out.push(`predicate: ${predicate} (checked per match, not searched)`);
   }
   if (plan.transforms.length > 0) {
     out.push(`transforms: ${plan.transforms.join(", ")}`);

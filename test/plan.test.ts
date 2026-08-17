@@ -6,7 +6,9 @@
 // nothing, so most of these tests are about that judgement.
 
 import { describe, expect, it } from "vitest";
-import { formatPlan, languageSize, planQuery } from "../src/plan.js";
+import { formatPlan, languageSize, planQuery,
+  planSlotQueries,
+} from "../src/plan.js";
 import { innerNfa } from "../src/conjunct.js";
 import { compileConjuncts } from "../src/find-expr.js";
 import { SessionContext } from "../src/session-context.js";
@@ -79,7 +81,7 @@ describe("the plan", () => {
     const p = plan("{at 1:{rank 2-3:{palindrome:A{5}}}}");
     expect(p.pattern).toBe("A{5}");
     expect(p.transforms).toEqual(["at", "rank"]);
-    expect(p.predicate).toBe("palindrome");
+    expect(p.predicates).toEqual(["palindrome"]);
   });
 
   it("says a predicate is checked per match rather than searched", () => {
@@ -107,5 +109,47 @@ describe("formatting", () => {
     const lines = formatPlan(plan("{list:greek}")).join("\n");
     expect(lines).not.toContain("every conjunct is unbounded");
     expect(lines).toContain("finite, 24 strings");
+  });
+});
+
+// Slots, which the planner used to refuse outright.
+//
+// `{at 1:A{5}};{at 2:B{6}}` came back as *{at …} must wrap the whole pattern*,
+// because the whole string was handed to the wrapper parsers — so `--explain`
+// failed on exactly the queries C5 had just made runnable, and exited before
+// searching at all.
+describe("planning a query with several slots", () => {
+  it("gives one plan per slot", () => {
+    const plans = planSlotQueries("{at 1:A{5}};{at 2:A{6}&C*}", ctx);
+    expect(plans.length).toBe(2);
+    expect(plans.map((p) => p.pattern)).toEqual(["A{5}", "A{6}&C*"]);
+    expect(plans[0].transforms).toEqual(["at"]);
+    expect(plans[1].conjuncts.length).toBe(2);
+  });
+
+  it("names the slot only when there is more than one", () => {
+    const [one] = planSlotQueries("A{5}", ctx);
+    expect(one.slot).toBeNull();
+    const many = planSlotQueries("A{5};A{6}", ctx);
+    expect(many.map((p) => p.slot)).toEqual(["A{5}", "A{6}"]);
+  });
+
+  it("plans a wrapper written around all the slots", () => {
+    const plans = planSlotQueries("{at 1:A{5};A{6}}", ctx);
+    expect(plans.map((p) => p.pattern)).toEqual(["A{5}", "A{6}"]);
+    for (const p of plans) expect(p.transforms, p.slot ?? "").toEqual(["at"]);
+  });
+
+  it("reports stacked predicates, not just the outermost", () => {
+    // C1 made these stack; the plan reported one.
+    const [p] = planSlotQueries("{palindrome:{syllables=1:A{3}}}", ctx);
+    expect(p.predicates).toEqual(["palindrome", "syllables"]);
+    expect(p.pattern).toBe("A{3}");
+  });
+
+  it("still plans a single query the way planQuery always did", () => {
+    const p = planQuery("A{5}&C*", ctx);
+    expect(p.pattern).toBe("A{5}&C*");
+    expect(p.conjuncts.length).toBe(2);
   });
 });
