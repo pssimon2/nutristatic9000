@@ -15,8 +15,8 @@
 //     differently, and then it fails as an undefined class at run time.
 //
 // A script rather than a dependency: the repository has six devDependencies
-// and this is sixty lines. The finer engine/data/io split the roadmap wants
-// (S4) needs the files moved first; these two rules are the part that can be
+// and this is sixty lines. A finer engine/data/io split
+// needs the files moved first; these two rules are the part that can be
 // enforced today, and they are the ones that catch real drift.
 
 import * as fs from "node:fs";

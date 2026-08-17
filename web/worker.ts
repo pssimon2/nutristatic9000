@@ -161,17 +161,17 @@ let wordChecker: WordCheck | null = null;
 // The pronouncing dictionary is ~400 KB over the wire and only some queries
 // need it, so it is fetched the first time one does and kept thereafter.
 const extraLoads = new Map<string, Promise<void>>();
-/** Pack URLs already fetched (F4), so a re-post costs nothing. */
+/** Pack URLs already fetched, so a re-post costs nothing. */
 const loadedPacks = new Set<string>();
 
-// ---- A4 + A3: reuse across queries in one session ----
+// ---- Reuse across queries in one session ----
 /**
- * Per-conjunct lazy-DFA cache (A4): a changed query reuses the filters it
+ * Per-conjunct lazy-DFA cache: a changed query reuses the filters it
  * shares with earlier ones, warm state tables and all.
  */
 const filterCache = new FilterCache();
 
-/** One finished query, kept for refinement (A3). */
+/** One finished query, kept for refinement. */
 interface FinishedRun {
   /** Conjunct fingerprints + predicate signature: the run's identity. */
   sig: string;
@@ -180,7 +180,7 @@ interface FinishedRun {
   results: Array<{ score: number; text: string; note?: string }>;
 }
 /**
- * The last few completed runs (A3). A new query whose conjuncts are a
+ * The last few completed runs. A new query whose conjuncts are a
  * superset of a cached run's — the iterate-on-anagram loop — answers its
  * first paint by filtering the cached results through only the *added*
  * conjuncts, then the real search fills the tail. Cleared when the index
@@ -1015,7 +1015,7 @@ async function runSession(
   try {
     let status;
     try {
-      // Anything already on screen — the head's page, or A3's refinement
+      // Anything already on screen — the head's page, or the refinement
       // paint — will be re-found by the walk. Suppress the duplicates and
       // widen the budget by exactly that many, the same arithmetic the WASM
       // replay below uses, so suppression cannot eat the new page.
@@ -1178,7 +1178,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           }
           if (token !== runToken) return;
         }
-        // Remote word lists (F3): fetched before compilation, kept for the
+        // Remote word lists: fetched before compilation, kept for the
         // session. A failure stays unfetched and the compile explains it.
         for (const url of remoteListUrls(currentQuery)) {
           if (ctx.remoteLists.has(url)) continue;
@@ -1217,7 +1217,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         runCollected = [];
         runFps = null;
         runSpecsSig = JSON.stringify(resultFilters);
-        // A3: a cached run whose conjuncts are a subset of this query's, with
+        // A cached run whose conjuncts are a subset of this query's, with
         // the same predicates, answers the first paint instantly — its
         // results filtered through only the conjuncts this query *added*.
         // The search then runs as normal and fills the tail; everything

@@ -74,7 +74,7 @@ describe("a promised chunk survives a concurrent prefetch", () => {
     for (let c = 0; c < 3; ++c) expect(src.byte(c * CHUNK), `chunk ${c}`).toBe(c);
   });
 
-  it("holds several pins at once — the E13 case the one-span pin lost", async () => {
+  it("holds several pins at once — the case a one-span pin loses", async () => {
     const src = await source();
     // Two reads pending at once, each pinning its own span. The one-span pin
     // was overwritten by whichever ensure ran last, so the first read's

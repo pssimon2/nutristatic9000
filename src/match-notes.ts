@@ -15,7 +15,7 @@
 // does less.
 //
 // So the rule lives here and each front end formats it — the same arrangement
-// `result-predicate.ts` already uses for the other kind. M5 wants both kinds on
+// `result-predicate.ts` already uses for the other kind. Both kinds belong on
 // one mechanism; this is the half that was duplicated-by-omission.
 
 import type { QueryShape } from "./query-shape.js";

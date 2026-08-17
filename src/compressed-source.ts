@@ -138,7 +138,7 @@ export class CompressedRangeSource implements ByteSource {
   // Span of the most recent ensure(); empty until the first call.
   private pinFirst = 0;
   private pinLast = -1;
-  /** Explicitly held spans (E13): token -> [firstBlock, lastBlock]. */
+  /** Explicitly held spans: token -> [firstBlock, lastBlock]. */
   private readonly pins = new Map<number, [number, number]>();
   private nextPin = 1;
   private readonly inflight = new Map<number, Promise<void>>();

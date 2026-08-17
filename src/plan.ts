@@ -8,8 +8,8 @@
 // That distinction is the difference between a search that ends and one that
 // wanders: `{list:countries}` is 197 strings and the walk stops when they are
 // exhausted, while `A*` is infinite and only a length or a value ceiling
-// bounds it. The roadmap's planner (Phase P) wants to *choose strategies* from
-// this; the numbers themselves are useful long before anything acts on them.
+// bounds it. The strategy choice below acts on these numbers; they are also
+// worth reading on their own.
 
 import { Nfa, trim } from "./automata.js";
 import { innerNfa, isNegated } from "./conjunct.js";
@@ -48,8 +48,8 @@ export interface QueryPlan {
   /** One conjunct compiles to a plain lazy DFA; several to a lazy product. */
   filterKind: "single" | "product" | "empty";
   /**
-   * The result filters — checked per match, not searched. Plural since C1
-   * made them stack: `{palindrome:{syllables=1:A{3}}}` is two.
+   * The result filters — checked per match, not searched. They stack:
+   * `{palindrome:{syllables=1:A{3}}}` is two.
    */
   predicates: string[];
   /** Side datasets this query needs loaded before it can compile. */

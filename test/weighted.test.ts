@@ -1,6 +1,6 @@
-// Weighted search (W1): acceptance weights on filters, exact deferred-order
-// emission in the driver, the graded {edit:…} form (W3) and the soft {~…}
-// constructs (W2).
+// Weighted search: acceptance weights on filters, exact deferred-order
+// emission in the driver, the graded {edit:…} form and the soft {~…}
+// constructs.
 
 import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";

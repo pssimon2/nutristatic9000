@@ -1,4 +1,4 @@
-// Declarative construct packs (F4): table-driven constructs as JSON, loaded
+// Declarative construct packs: table-driven constructs as JSON, loaded
 // per session — a custom keyboard layout, a variant tile-value table, a
 // cipher — without writing code.
 //

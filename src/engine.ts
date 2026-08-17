@@ -1,4 +1,4 @@
-// The public surface (F8): what an embedder — an MCP server, a solving
+// The public surface: what an embedder — an MCP server, a solving
 // script, another UI — may import. Everything else under src/ is internal
 // and free to change without notice.
 //

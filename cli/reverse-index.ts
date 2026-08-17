@@ -1,4 +1,4 @@
-// Build the reverse-index sidecar (F7): every stored phrase reversed, as an
+// Build the reverse-index sidecar: every stored phrase reversed, as an
 // ordinary .index file. Serve it beside the original and hand it to
 // `find-expr --reverse-index` for suffix-anchored patterns.
 

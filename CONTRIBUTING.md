@@ -1,7 +1,7 @@
 # Working on Nutristatic 9000
 
 This is the doctrine the codebase is built to, and the reasoning behind the
-parts that look odd. `ROADMAP.md` is what to build next; this is how.
+parts that look odd. This document is about how to build, not what.
 
 ## What "green" means
 
@@ -136,9 +136,10 @@ confirmed to produce the exact CI error when the fix is removed.
 "generation I Pokémon has 151 members" does not, because 151 is either right or
 wrong.
 
-**Measure before a large refactor.** S4's directory move was deferred after
-measuring that there were no layering violations to fix — the enforcement was
-the value, and it cost sixty lines instead of rewriting every import path.
+**Measure before a large refactor.** A directory reshape was once deferred
+after measuring that there were no layering violations to fix — the
+enforcement was the value, and it cost sixty lines instead of rewriting every
+import path.
 
 **A passing browser test does not mean it is visible.** Playwright clicks a
 fully transparent button perfectly well, which is how the "why?" button shipped

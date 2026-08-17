@@ -28,14 +28,12 @@ Deployment notes specific to this fork:
   `web/dist/` as part of every deploy — `cp web/heads/*.head web/dist/` before
   the rsync. They must NOT live only in `web/dist/`: a rebuild empties dist,
   and a deploy with `--delete` then removes every head from the server, which
-  fails in the quiet way described below. That is not hypothetical; it
-  happened, and check-deployed is what caught it.
+  fails in the quiet way described below.
 
   12 MB on disk, 3.8 MB over the wire, a few seconds to build; the 23 streamed
   indexes come to 272 MB on the server. A loop over `*-merged.index` misses
-  `simple-wiki.index`, which is built differently and is not named that way —
-  which is exactly how it went live with no head for two days. Check the
-  deployment rather than the loop:
+  `simple-wiki.index`, which is built differently and is not named that way.
+  Check the deployment, not the loop:
 
       npm run check-deployed
 
@@ -80,19 +78,22 @@ Deployment notes specific to this fork:
 
 ## The query language
 
-[GRAMMAR.md](GRAMMAR.md) describes the language as it actually is — three stacked
-levels, a fixed skeleton, and a measured table of what composes with what. The
-table is generated (`npx tsx scripts/grammar-matrix.mjs`) and the claims around
-it are tested (`test/grammar.test.ts`), so the description cannot drift from the
-parser. It ends with the open questions the exercise turned up.
+[GRAMMAR.md](GRAMMAR.md) describes the language as it is: two levels that are
+execution phases rather than syntax, predicates that compose anywhere via
+hull-and-verify, and a measured table of what composes with what. The table is
+generated (`npx tsx scripts/grammar-matrix.mjs`) and the claims around it are
+tested (`test/grammar.test.ts`), so the description cannot drift from the
+parser.
 
-## Added so far
+## Features beyond upstream
 
 | Feature | Syntax | Notes |
 |---|---|---|
 | Repeated-phrase folding | *(none)* | Collapses overlapping index windows of one phrase; a link restores them |
-| Output extraction | `{at 3:expr}` | Shows the Nth letter of each match (negative counts from the end; lists allowed) |
-| Rank windows | `{rank 200-2000:expr}` | Reaches mid-frequency answers without scrolling |
+| Nested predicates | `{palindrome:A{5}} {kind:bird}` | Every predicate is an atom: intersect, alternate, quantify, negate, nest. The search runs on the predicate's hull; each match is re-parsed and the predicate asked of the span its node covers (`src/span-verify.ts`) |
+| Captures + relations | `{rev a,b:{=a:A{4}} {=b:A{4}}}` | `{=name:…}` names a span; `{eq…}`, `{rev…}`, `{shift…}` relate two — semordnilaps, doubled words, Caesar pairs. Unknown `{shift}` reports the matched shift |
+| Soft constructs | `{~near:king}`, `{~list:red,green,blue}` | Boost instead of filter: members surface at full weight, everything else at a hundredth, ordered exactly by the engine |
+| Graded edit distance | `{edit:cargo}` | No bound = up to three edits, results strictly tiered by damage: CARGO, then every one-edit word, then two |
 | Letter-value arithmetic | `{sum=100:expr}`, `{scrabble>25:expr}` | A1Z26 or tile values; `=`, `<`, `<=`, `>`, `>=`, `a..b`. A finite ceiling bounds the search (`{sum<=25:A*}` terminates; bare `A*` does not) |
 | Letter banks / sub-anagrams | `<<washington>>`, `{bank:…}`, `{sub:cryptography}` | Per-letter bounds plus an alphabet restriction |
 | Structural / keyboard classes | `{roman:…}`, `{rot180:…}`, `{mirror:…}`, `{sevenseg:…}`, `{row1:…}`, `{holes=0:…}`, `{ascending:…}`, `{descending:…}` | Letter-set restrictions and monotone chains |
@@ -106,14 +107,20 @@ parser. It ends with the open questions the exercise turned up.
 | Autocomplete + inline checking | *(the query box)* | Completes construct, group and list names from the same catalogue the parser dispatches on, with each one's summary and a runnable example. `{list:…}` offers the harvested catalogue as well as the built-ins, and `{kind:…}` is answered by the worker, which holds all 124,980 WordNet names — too many to hand the page a copy of; a query the engine cannot parse is underlined as you type, checked by `compileQuery` itself in the worker so the box and the search cannot disagree |
 | Generated reference | *(usage.html)* | The construct table is rendered from `src/constructs.ts` by `scripts/build-docs.mjs`; `npm run check-docs` fails CI if it drifts, so an undocumented construct cannot ship |
 | Match explanation | *(click a result)* | Rebuilds, per conjunct, why a result matched — the source word and letter behind an edit, the shift behind a cipher, the total behind a count. Post-hoc in `src/explain.ts`, so the search carries no cost |
-| Multi-slot | `pattern ; pattern ; …` | Runs each slot in turn and assembles the `{at …}` letters, with any candidate selectable; batching, not cross-slot constraint solving |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
-| Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton and no reverse index |
+| Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton |
 | Harvested list catalogue | `{list:romandeities}` | Several hundred more categories mined from a Wikipedia dump by `scripts/build-wiki-lists.mjs`, ranked by incoming links (importance) and by how much of each list the index actually knows (usefulness). Fetched on demand, browsable at `/lists.html`; an unknown name suggests the nearest real one |
 | Named + inline lists | `{list:countries}`, `{list:greek}`, `{list:red,green,blue}` | 30 shipped categories — countries, capitals, US states, elements, constellations, presidents, dog breeds, Greek/Norse gods, Bible books, Shakespeare plays, tarot, moons, gemstones… — or your own written in the query and shared in the URL. The large ones are generated from Wikidata (CC0) by `scripts/build-lists.mjs` and committed, so no network is needed at build or run time |
 | Ciphers | `{caesar:kdhv}`, `{rot13:…}`, `{caesar+5:…}`, `{atbash:…}` | Desugars to an alternation of literals; the UI reports the matched shift |
 | Edit distance | `{del1:beast}`, `{add1:…}`, `{subst1:…}`, `{edit<=2:…}`, `{del1(a):…}` | Levenshtein automaton over a word **or any inner pattern** — `{del1:{kind:instrument}}` is "one letter off some instrument", and `{kind:instrument}&{add1:{kind:bird}}` is "an instrument that becomes a bird when you drop a letter". A parenthesised set names the letter involved (`{del1(a):…}`, `{add1(vowel):…}`), which also shrinks the automaton. Edits are letters/digits only, never spaces |
 | Occurrence / multiset | `{count(e)=2:expr}`, `{distinct:expr}`, `{maxrep=2:expr}`, `{all(aeiou):expr}`, `{letters=11:expr}`, `{words=3:expr}` | Same counter machinery; multiset forms decompose into one small automaton per letter |
+| Remote word lists | `{list:https://…/birds.txt}` | One entry per line, fetched per session; the server must allow CORS |
+| Construct packs | `?pack=URL`, `--pack FILE` | JSON-declared letter classes, value tables and substitutions per session (`src/packs.ts`); packs cannot shadow built-ins |
+| Index manifests | `my.index.meta.json` | Per-index description and transliteration rules, so a custom index folds diacritics the way its corpus did |
+| Multi-index search | `find-expr a.index,b.index` | One query over several corpora, scores normalized and merged exactly, results tagged by source (`src/merged-driver.ts`) |
+| Parallel sharding | `find-expr --shards 4` | First-letter shards across worker threads, merged exactly; restart phrases stay in the shard of their first letter (`src/shards.ts`) |
+| Reverse-index sidecar | `reverse-index in.index out.rindex`, `find-expr --reverse-index` | Suffix-anchored patterns (`.*tion`) walk a reversed index at prefix speed — identical results and scores, ~50× fewer steps (`src/reverse.ts`) |
+| Score floor | `--score-floor 1e-6` | Optional frontier budget: drops entries that can no longer beat `floor × best`; bounds memory, truncates only the deep tail |
 
 ### Construct groups
 
@@ -134,12 +141,12 @@ reinterpretation.
 | `cipher.` | decode a literal that has been shifted or reflected | `cipher.caesar`, `cipher.rot`, `cipher.rot13`, `cipher.atbash` |
 | `spell.` | spell the match some other way | `spell.t9`, `spell.enum`, `spell.morse`, `spell.elements` |
 | `shape.` | restrict letters by how they look or where they are typed | `shape.roman`, `shape.rot180`, `shape.mirror`, `shape.sevenseg`, `shape.holes`, `shape.row1`, `shape.row2`, `shape.row3`, `shape.ascending`, `shape.descending` |
-| `match.` | ask a question of each finished match | `match.compound`, `match.palindrome`, `match.reversible`, `match.syllables`, `match.stress` |
-| `out.` | change what is shown rather than what matches | `out.at`, `out.rank` |
+| `match.` | ask a question of each finished match | `match.compound`, `match.palindrome`, `match.reversible`, `match.syllables`, `match.stress`, `match.anagram`, `match.eq`, `match.rev`, `match.shift` |
 
 A construct whose name is its own group is written bare: `{edit<=2:…}`, not
-`{edit.edit<=2:…}`. `match.` and `out.` constructs wrap the whole query; the
-rest compose anywhere. The catalogue lives in `src/constructs.ts`.
+`{edit.edit<=2:…}`. Every family composes anywhere; a `match.` construct
+written inside a pattern is checked on the span it covers. The catalogue
+lives in `src/constructs.ts`.
 
 The phrase-frequency indexes are built from Wikipedia database dumps, and the
 harvested `{list:…}` categories are extracted from the English Wikipedia; both
@@ -151,7 +158,6 @@ meaning data from WordNet 3.1 (Copyright 2011 The Trustees of Princeton
 University, used under the WordNet licence); both are reduced to lookup
 artifacts at build time and fetched only when a query needs them.
 
-`{at …}` and `{rank …}` are output wrappers stripped before the engine runs.
 `{sum …}` / `{scrabble …}` compile to conjunct NFAs, so the WASM kernel runs
 them with no C-side work — locked in by a parity test.
 
@@ -178,17 +184,13 @@ The index file format is **byte-compatible with upstream**: indexes built by
 the original C++ tools work here, and indexes built by these TypeScript tools
 work with the C++ binaries.
 
-How far that is actually *verified* is worth being precise about, because it
-is the one property this project promises forever. CI runs a writer→reader
-round-trip (`test/index-format.test.ts`) and a port of upstream's own
-expression suite (`test/expr-search.test.ts`, from `test-expr.cpp`), so the
-node encodings and the query semantics are both pinned. But the round-trip
-compares this repo's writer against this repo's reader — it asserts decoded
-*meaning*, not bytes — and no upstream-generated index is checked in to
-compare against. The one genuine byte-level comparison was done by hand and
-recorded as an expectation (see the note in `test/merge.test.ts`). A committed
-upstream-built fixture would close the gap; until then, treat byte
-compatibility as carefully maintained rather than continuously proven.
+That compatibility is tested against upstream's own output, not just against
+this repo's: `test/upstream-format.test.ts` reads fixtures built by the C++
+`make-index` and requires this reader to decode them to what upstream's
+`dump-index` reports *and* this writer to reproduce their bytes exactly;
+`test/index-format.test.ts` round-trips the writer and reader; and
+`test/expr-search.test.ts` is a port of upstream's expression suite, pinning
+the query semantics.
 
 Working on this: see [CONTRIBUTING.md](CONTRIBUTING.md) for the layering
 rules, the two-speed code doctrine, what counts as "green", and how to add a
@@ -261,15 +263,20 @@ npm run find-expr -- web/public/demo.index '<aaagmnr>'
 npm run find-expr -- --max-steps 10000000 my.index '"C*aC*eC*iC*oC*uC*yC*"'
 ```
 
-The CLI accepts the same queries as the site, including the wrappers that are
-not part of the automaton — `{at 3:…}` and `{rank …}` shape the output,
-`{compound …}`, `{palindrome:…}` and `{reversible:…}` ask the index about
-finished matches:
+The CLI accepts the same queries as the site, including the predicates that
+are not part of the automaton — `{compound …}`, `{palindrome:…}`,
+`{reversible:…}` and friends ask the index about finished matches:
 
 ```sh
-npm run find-expr -- web/public/demo.index '{at 1:<aaagmnr>}'   # a  (anagram)
 npm run find-expr -- web/public/demo.index '{compound 2:A{9}}'  # copyright  copy·right
+npm run find-expr -- web/public/demo.index 'A{5}&{palindrome:A*}'
 ```
+
+Beyond queries it takes `--shards N` (parallel walk across threads),
+`--reverse-index FILE` (walk a reversed sidecar; see `reverse-index`),
+`--score-floor F`, `--pack FILE|URL`, and comma-separated index paths for a
+merged multi-corpus search. `--explain` and `--stats` describe the plan and
+the cost.
 
 ## Building an index
 

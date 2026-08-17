@@ -236,7 +236,7 @@ export class IndexReader {
       }
     }
 
-    // Pinned before the fetch and released after the synchronous read (E13):
+    // Pinned before the fetch and released after the synchronous read:
     // the read cannot re-fetch, and between ensure() resolving and the read
     // running, an unrelated ensure or prefetch completing is otherwise free
     // to evict exactly these blocks. The legacy last-ensure pin protects only

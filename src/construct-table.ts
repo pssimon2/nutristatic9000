@@ -9,7 +9,7 @@
 // Here the ceremony is the parser's and the meaning is a row. A construct is a
 // name, how its argument is read, and a function from that argument to
 // conjunct automata. The name and level already live in constructs.ts; this is
-// the compile half the roadmap's C4 asks for, and `construct-table.test.ts`
+// the compile half of the catalogue, and `construct-table.test.ts`
 // holds the two sides together — every automaton-level name has a row here,
 // and every row here is a name there.
 //
@@ -164,7 +164,7 @@ const wordLookups: Record<string, ConstructBuild> = {
   list: {
     argKind: "literal",
     build: ({ arg, ctx, text }) => {
-      // A URL is a remote list (F3): the host fetched it before compiling —
+      // A URL is a remote list: the host fetched it before compiling —
       // see remoteListUrls — and a miss here means the fetch failed or has
       // not landed, both retryable.
       const url = arg.trim();
@@ -336,14 +336,14 @@ const valueOrClass: ConstructBuild = {
     namedConstraint(name, spec) ?? classConstraint(name, spec),
 };
 
-/** W2: the constructs that have a soft (`{~name:…}`) variant. */
+/** The constructs that have a soft (`{~name:…}`) variant. */
 export const SOFT_NAMES = ["near", "rhyme", "homo", "like", "kind", "list"];
 
 /** Score multiplier for a match the soft construct does not know. */
 export const SOFT_PENALTY = 0.01;
 
 /**
- * A soft construct's automaton (W2): matches *everything*, weighting members
+ * A soft construct's automaton: matches *everything*, weighting members
  * of the looked-up set at (near) 1 and everything else at SOFT_PENALTY — a
  * boost-not-filter version of the word lookups. `{~near:king}` additionally
  * decays the weight down the closeness ranking, so nearer words surface

@@ -1,4 +1,4 @@
-// Multi-index merged search (F5): one query, several corpora, one stream in
+// Multi-index merged search: one query, several corpora, one stream in
 // normalized score order, duplicates collapsed to their best reading.
 
 import { describe, expect, it } from "vitest";

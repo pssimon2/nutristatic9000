@@ -289,7 +289,7 @@ export interface EditOps {
  */
 export const MAX_EDIT_ARCS = 800_000;
 
-/** W3: per-edit score multiplier for the graded `{edit:…}` form. */
+/** Per-edit score multiplier for the graded `{edit:…}` form. */
 export const GRADED_EDIT_DAMAGE = 1e-12;
 
 /** Arcs `editNfaOver` would generate, so the cost is known before paying it. */
@@ -326,7 +326,7 @@ export function editNfaOver(
   inner: Nfa,
   ops: EditOps,
   range: ValueRange,
-  /** W3: weight per edit spent; finals at level e weigh damage^e. */
+  /** Weight per edit spent; finals at level e weigh damage^e. */
   damage?: number,
 ): Nfa | null {
   if (inner.start === -1) return null;
@@ -431,7 +431,7 @@ export function editConstraint(
   const split = splitEditSpec(spec);
   if (!split) return null;
   if (name === "edit") {
-    // `{edit:beast}` with no bound is the graded form (W3): up to three
+    // `{edit:beast}` with no bound is the graded form: up to three
     // edits of any kind, each multiplying the score by GRADED_EDIT_DAMAGE —
     // so results stream exact first, one edit next, two, then three. The
     // damage dwarfs corpus-frequency ratios, which is what "ordered by

@@ -41,7 +41,7 @@ export interface Filter {
   /** Lazy DFA states built so far, for Stats. Free to read. */
   readonly stateCount: number;
   /**
-   * Acceptance weight (W1): ≤ 1, multiplied into an accepted match's score.
+   * Acceptance weight: ≤ 1, multiplied into an accepted match's score.
    * Absent on unweighted filters, which is the zero-overhead path — the
    * driver checks once, not per step. Only meaningful on accepting states.
    */
@@ -411,7 +411,7 @@ export class ProductFilter implements Filter {
 }
 
 /**
- * A structural fingerprint of a conjunct's NFA (A4's "conjunct identity").
+ * A structural fingerprint of a conjunct's NFA — its identity for caching.
  *
  * Two parses of the same query fragment build byte-identical NFAs — same
  * construction sequence, same arc order, same finals insertion order — so
@@ -446,7 +446,7 @@ export function fingerprintConjunct(c: Conjunct): string {
 }
 
 /**
- * A small LRU of per-conjunct filters (A4), owned by whoever lives long
+ * A small LRU of per-conjunct filters, owned by whoever lives long
  * enough to profit — the worker keeps one per session. A changed query
  * rebuilds its lazy DFAs from zero even when conjuncts are shared with the
  * previous query; with the cache, `<huge-anagram>&newthing` reuses the

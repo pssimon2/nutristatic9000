@@ -1,7 +1,7 @@
 // The byte-format contract, against bytes this project did not write.
 //
-// GR1 says the index format is byte-compatible with upstream Nutrimatic,
-// forever. Nothing tested it. `index-format.test.ts` runs this repo's writer
+// The index format is byte-compatible with upstream Nutrimatic, forever.
+// Nothing tested it. `index-format.test.ts` runs this repo's writer
 // into this repo's reader and asserts decoded *meaning*, which a coordinated
 // writer-and-reader bug passes green; `fixtures.test.ts` locks results over
 // `demo.index`, which this repo also produced. There was no upstream-generated

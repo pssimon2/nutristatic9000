@@ -1,4 +1,4 @@
-// The A4 conjunct-filter cache: the same conjunct gets the same lazy DFA
+// The conjunct-filter cache: the same conjunct gets the same lazy DFA
 // back, and reusing one cannot change what a search answers.
 
 import { describe, expect, it } from "vitest";

@@ -1,4 +1,4 @@
-// The A2 score-floor knob: an optional frontier budget.
+// The score-floor knob: an optional frontier budget.
 //
 // Priority is an upper bound on any score a frontier entry can still reach,
 // so dropping entries below `floor × best-emitted-score` can only cost

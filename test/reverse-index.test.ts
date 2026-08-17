@@ -1,4 +1,4 @@
-// The reverse-index sidecar (F7): searching it returns the same strings at
+// The reverse-index sidecar: searching it returns the same strings at
 // the same scores as the forward index, spelled backwards — including phrase
 // counts, which a naive per-entry reversal gets wrong at window boundaries.
 

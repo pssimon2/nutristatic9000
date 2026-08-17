@@ -305,7 +305,7 @@ export function suggestList(
  * run on categories nobody could ship in advance, and an inline list needs no
  * settings screen and travels in the URL like the rest of the query.
  */
-/** The remote-list URLs a query names (F3), in order of appearance. */
+/** The remote-list URLs a query names, in order of appearance. */
 export function remoteListUrls(query: string): string[] {
   const out: string[] = [];
   const re = /\{\s*~?\s*(?:word\.)?list\s*:\s*(https?:\/\/[^}\s]+)\s*\}/gi;

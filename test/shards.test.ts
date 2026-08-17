@@ -1,4 +1,4 @@
-// First-letter sharding (X1): shards are disjoint and complete, including
+// First-letter sharding: shards are disjoint and complete, including
 // the phrases only a restart can reach — the case a naive root filter loses.
 
 import { describe, expect, it } from "vitest";

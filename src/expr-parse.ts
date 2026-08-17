@@ -736,7 +736,7 @@ function parseNamedConstraint(
   quoted: boolean,
   ctx: SessionContext,
 ): number | null {
-  // `{~name:…}` — a soft construct (W2): boost instead of filter.
+  // `{~name:…}` — a soft construct: boost instead of filter.
   const soft = /^\{\s*~\s*([a-z]+)\s*([^:}]*):/i.exec(s.slice(i));
   if (soft) {
     const close = s.indexOf("}", i);
@@ -778,7 +778,7 @@ function parseNamedConstraint(
   const name = folded.name;
   spec = folded.spec;
   const construct = CONSTRUCTS[name];
-  // A construct pack's name (F4), folded like the built-ins — digits lex
+  // A construct pack's name, folded like the built-ins — digits lex
   // into the spec, so a pack's {row9:…} arrives as "row" + "9". Checked
   // before the built-in table because a pack cannot shadow a built-in name
   // (parsePack refuses), so a hit here is unambiguous even when the bare

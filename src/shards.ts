@@ -1,4 +1,4 @@
-// First-letter sharding (X1): split one search into N disjoint, complete
+// First-letter sharding: split one search into N disjoint, complete
 // walks that can run in parallel.
 //
 // A result's partition is fixed by the first letter of the whole phrase: the

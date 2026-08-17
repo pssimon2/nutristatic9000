@@ -1,4 +1,4 @@
-// Remote word lists (F3) and the index manifest (F1).
+// Remote word lists and the index manifest.
 
 import { describe, expect, it } from "vitest";
 import {

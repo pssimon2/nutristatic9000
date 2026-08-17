@@ -170,7 +170,7 @@ export interface SearchDriverOptions {
    */
   prefetchDepth?: number;
   /**
-   * Optional frontier budget (A2): once a result has been emitted, frontier
+   * Optional frontier budget: once a result has been emitted, frontier
    * entries whose priority falls below `scoreFloor × best-emitted-score` are
    * not pushed, and are skipped if popped. Priority is an upper bound on any
    * score the entry can still reach, so nothing scoring above the floor is
@@ -180,7 +180,7 @@ export interface SearchDriverOptions {
    */
   scoreFloor?: number;
   /**
-   * First-letter sharding (X1): this driver owns only results whose *whole
+   * First-letter sharding: this driver owns only results whose *whole
    * phrase* starts with one of these character codes. Applied to the seed
    * entry's expansion ONLY — a restart re-enters the root mid-walk carrying
    * its crumb, and its result's partition is fixed by the phrase's first
@@ -206,9 +206,9 @@ export class SearchDriver {
   private readonly seen = new Set<string>();
   private readonly prefetchDepth: number;
   private readonly scoreFloor: number;
-  /** Set when the filter carries acceptance weights (W1). */
+  /** Set when the filter carries acceptance weights. */
   private readonly weighted: boolean;
-  /** X1: allowed first letters for the seed expansion, or null for all. */
+  /** Sharding: allowed first letters for the seed expansion; null = all. */
   private readonly seedMask: Uint8Array | null;
   /** Best score emitted so far, for the score-floor cutoff. */
   private best = 0;
@@ -232,7 +232,7 @@ export class SearchDriver {
     this.frontier.push(-1, startState, 0, 1.0, reader.count(), reader.root());
   }
 
-  /** The A2 cutoff: 0 until a result exists or when the knob is off. */
+  /** The score-floor cutoff: 0 until a result exists or the knob is off. */
   private cutoff(): number {
     return this.scoreFloor > 0 ? this.scoreFloor * this.best : 0;
   }
@@ -257,7 +257,7 @@ export class SearchDriver {
     // were above the floor when pushed and sank as `best` rose.)
     if (f.topCount * f.topScale < this.cutoff()) return false;
 
-    // A deferred emission (W1), marked by a bit-flipped (negative) state —
+    // A deferred emission, marked by a bit-flipped (negative) state —
     // a leaf's `next` can legitimately be negative, so `next` cannot be the
     // marker. An accepted match whose weight pushed its score below its walk
     // priority re-entered the heap at its *exact* weighted score, so popping

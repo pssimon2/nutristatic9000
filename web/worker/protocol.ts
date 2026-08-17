@@ -150,7 +150,7 @@ export interface CompleteKindMsg {
 }
 
 /**
- * Construct packs (F4): URLs the page found in `?pack=` and the index
+ * Construct packs: URLs the page found in `?pack=` and the index
  * manifest. The worker fetches, parses and installs them on its session; a
  * pack that fails to parse is reported once as a non-fatal error.
  */

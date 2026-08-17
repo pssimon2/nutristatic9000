@@ -17,7 +17,7 @@ export interface ByteSource {
   /** Make bytes [start, end) available for byte(). May resolve synchronously. */
   ensure(start: number, end: number): void | Promise<void>;
   /**
-   * Hold the span un-evictable until `unpin` (E13). Several reads may hold
+   * Hold the span un-evictable until `unpin`. Several reads may hold
    * pins at once; a source with no eviction may omit both. `ensure`'s
    * legacy last-span pin remains for callers that do not pin explicitly.
    */
@@ -275,7 +275,7 @@ export class HttpRangeSource implements ByteSource {
   // first call.
   private pinFirst = 0;
   private pinLast = -1;
-  /** Explicitly held spans (E13): token -> [firstChunk, lastChunk]. */
+  /** Explicitly held spans: token -> [firstChunk, lastChunk]. */
   private readonly pins = new Map<number, [number, number]>();
   private nextPin = 1;
   bytesFetched = 0;

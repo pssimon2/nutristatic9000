@@ -471,7 +471,7 @@ function actionButton(label: string, onClick: () => void): HTMLButtonElement {
  */
 let indexManifest: IndexManifest | null = null;
 
-// The manifest sidecar (F1): `<index>.meta.json` beside the index. Optional,
+// The manifest sidecar: `<index>.meta.json` beside the index. Optional,
 // fetched in the background; queries before it arrives use the file-name
 // heuristic, which is what every query used before manifests existed.
 if (!OFFLINE) {
@@ -498,7 +498,7 @@ function transliterate(query: string): string {
   return transliterateQuery(query, indexManifest, basename);
 }
 
-// Construct packs named in the URL (F4): ?pack=https://…/dvorak.json, once
+// Construct packs named in the URL: ?pack=https://…/dvorak.json, once
 // per pack. The worker fetches and installs them; queries typed before the
 // install lands are re-checked on the next keystroke.
 {

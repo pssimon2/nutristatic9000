@@ -36,7 +36,7 @@ export class Nfa {
   finals = new Set<number>();
   /**
    * Optional per-final acceptance weight (≤ 1), for the weighted constructs
-   * (W1): a match's score is multiplied by its accepting state's weight.
+   *: a match's score is multiplied by its accepting state's weight.
    * Absent means every final weighs 1. Weighted NFAs are conjunct-level only
    * — the parser refuses to materialize them into unions, concatenations or
    * quantifiers, where renumbering would silently drop the weights — so the

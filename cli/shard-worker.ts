@@ -1,4 +1,4 @@
-// One shard of a `find-expr --shards N` run (X1): walk the index owning only
+// One shard of a `find-expr --shards N` run: walk the index owning only
 // the seed letters given, and report every raw match. The parent merges the
 // shards and runs the predicates — this thread only walks.
 

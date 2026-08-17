@@ -1,10 +1,10 @@
-// The reverse-index sidecar (F7): the same corpus with every stored phrase
+// The reverse-index sidecar: the same corpus with every stored phrase
 // reversed, and the machinery to search it.
 //
 // A suffix-anchored pattern (`.*tion`) is the trie's worst case: no prefix to
 // walk down, every path a candidate until its last letter. Reversed, the
 // anchor becomes a prefix (`noit.*`) and the walk prunes like any other
-// query. The index format stays frozen (GR1): the reverse index is an
+// query. The index byte format stays frozen: the reverse index is an
 // ordinary `.index` file built from reversed entries, served beside the
 // original as an opt-in sidecar.
 //

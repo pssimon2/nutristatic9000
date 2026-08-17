@@ -42,9 +42,9 @@ const USAGE =
   "  --score-floor F: drop frontier entries below F x the best score seen\n" +
   "    (e.g. 1e-9) - bounds frontier growth, truncates the deep tail\n" +
   "  --pack FILE|URL: load a construct pack (repeatable)\n" +
-  "  --shards N: split the walk across N threads by first letter (X1);\n" +
+  "  --shards N: split the walk across N threads by first letter;\n" +
   "    results merge exactly, printed once every shard finishes\n" +
-  "  --reverse-index FILE: walk this reversed sidecar instead (F7) - the\n" +
+  "  --reverse-index FILE: walk this reversed sidecar instead - the\n" +
   "    win for suffix-anchored patterns like .*tion; results read forward";
 
 const args = process.argv.slice(2);
@@ -166,7 +166,7 @@ for (const provider of providersFor(expr)) {
   }
 }
 
-// Construct packs (F4): files or URLs, installed before compiling.
+// Construct packs: files or URLs, installed before compiling.
 for (const ref of packRefs) {
   try {
     const text = /^https?:\/\//.test(ref)
@@ -179,7 +179,7 @@ for (const ref of packRefs) {
   }
 }
 
-// Remote word lists (F3): the CLI fetches them like the worker does.
+// Remote word lists: the CLI fetches them like the worker does.
 for (const url of remoteListUrls(expr)) {
   try {
     const r = await fetch(url);
@@ -201,7 +201,7 @@ if (wantExplain) {
   }
 }
 
-// F5: several indexes at once, comma-separated. Results merge in normalized
+// Several indexes at once, comma-separated. Results merge in normalized
 // score order, each tagged with the index it came from.
 const indexPaths = indexPath.split(",").map((x) => x.trim()).filter((x) => x !== "");
 const readers = await Promise.all(indexPaths.map((x) => cliOpenIndex(x)));
@@ -340,7 +340,7 @@ async function runQuery(): Promise<Run> {
 }
 
 /**
- * X1: run the walk across N threads, each owning a first-letter shard, and
+ * Run the walk across N threads, each owning a first-letter shard, and
  * merge exactly. Shards stream in descending order, so a K-way merge over
  * their finished result lists is the unsharded order; each result then goes
  * through the same predicates as a single-threaded run.
@@ -410,7 +410,7 @@ async function runSharded(): Promise<Run> {
 }
 
 /**
- * F7: walk the reversed sidecar. The pattern's automata are reversed, the
+ * Walk the reversed sidecar. The pattern's automata are reversed, the
  * walk prunes on what is now a prefix, and each match is re-reversed before
  * the predicates and the printout — same strings, same scores, read forward.
  */

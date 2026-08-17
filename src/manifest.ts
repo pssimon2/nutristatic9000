@@ -1,4 +1,4 @@
-// The index manifest sidecar (F1): `<index>.meta.json`, the one per-index
+// The index manifest sidecar: `<index>.meta.json`, the one per-index
 // configuration channel.
 //
 // An index is a bare file, and everything the page needs to know about it —
@@ -18,15 +18,14 @@
 //
 // `transliterate` maps characters the corpus normalized away to what they
 // became; `language` selects a built-in rule set ("de" is the digraph
-// convention) when explicit pairs are not given. Data-pack URLs (F2,
-// per-language phonetics and categories) are reserved fields, not yet read.
+// convention) when explicit pairs are not given.
 
 export interface IndexManifest {
   description?: string;
   language?: string;
   /** Character → replacement, applied before the generic diacritic fold. */
   transliterate?: Array<[string, string]>;
-  /** Construct-pack URLs (F4) to load alongside this index. */
+  /** Construct-pack URLs to load alongside this index. */
   constructPacks?: string[];
 }
 

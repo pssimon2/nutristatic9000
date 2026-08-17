@@ -25,7 +25,7 @@ import { WikiLists } from "./word-lists.js";
  *
  * Not included: the built-in word lists (`word-lists.ts`), whose cache memoizes
  * a compile-time constant and so is identical in every context. Per-session
- * lists arrive with remote lists (F3), and belong here when they do.
+ * lists arrive with remote lists, and belong here when they do.
  */
 export class SessionContext {
   phonetics: Phonetics | null = null;
@@ -40,14 +40,14 @@ export class SessionContext {
   neighbours: Neighbours | null = null;
   thesaurus: Thesaurus | null = null;
   /**
-   * Remote word lists (F3): `{list:https://…/birds.txt}`, fetched by the host
+   * Remote word lists: `{list:https://…/birds.txt}`, fetched by the host
    * before compilation — the worker and the CLI each fetch the URLs
    * `remoteListUrls` finds in the query — and cached here for the session.
    * Keyed by the URL as written.
    */
   remoteLists = new Map<string, string[]>();
   /**
-   * Construct packs (F4): table-driven constructs installed by the host —
+   * Construct packs: table-driven constructs installed by the host —
    * the page fetches pack JSON and hands it to the worker, the CLI takes
    * --pack. Keyed by construct name; see src/packs.ts.
    */

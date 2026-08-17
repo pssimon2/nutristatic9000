@@ -17,9 +17,8 @@
 //               node covers. Wrapping the whole query remains the cheap path
 //               — peeled textually, no reparse per match.
 //
-// This is the seed of the construct registry (roadmap C4): the compile
-// functions and per-construct docs join it there. Grouping for the UI hangs
-// off the same table.
+// The compile functions live in construct-table.ts; the per-construct docs
+// and the UI's grouping hang off this same table.
 
 export type ConstructLevel = "automaton" | "predicate";
 

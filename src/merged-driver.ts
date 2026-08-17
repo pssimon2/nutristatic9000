@@ -1,4 +1,4 @@
-// Multi-index merged search (F5): one query over several indexes at once,
+// Multi-index merged search: one query over several indexes at once,
 // results interleaved in true relevance order.
 //
 // Raw scores are occurrence counts scaled by restarts, so they are only

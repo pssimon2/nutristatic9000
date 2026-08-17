@@ -1,4 +1,4 @@
-// Declarative construct packs (F4): parsed, installed on a session, and
+// Declarative construct packs: parsed, installed on a session, and
 // dispatched by the parser exactly like the built-ins they generalize.
 
 import { describe, expect, it } from "vitest";

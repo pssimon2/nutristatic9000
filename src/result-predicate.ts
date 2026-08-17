@@ -8,9 +8,8 @@
 // how the two front ends drift apart, so the rule lives here and each caller
 // formats the verdict its own way.
 //
-// This is also the shape the roadmap's predicate list (C1) needs: one
-// (text -> keep + note) decision that can be stacked, rather than a single
-// filter slot hardcoded into two pipelines.
+// The shape is one (text -> keep + note) decision that stacks, rather than
+// a single filter slot hardcoded into two pipelines.
 
 import { SessionContext } from "./session-context.js";
 import { listKey, wordList } from "./word-lists.js";

@@ -67,7 +67,7 @@ export class SearchSession {
        */
       forceWalk?: boolean;
       /**
-       * A per-conjunct filter cache (A4) owned by the caller, so a session's
+       * A per-conjunct filter cache owned by the caller, so a session's
        * shared conjuncts reuse the lazy DFAs a previous query built.
        */
       filterCache?: FilterCache;

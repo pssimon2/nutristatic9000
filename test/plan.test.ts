@@ -112,8 +112,8 @@ describe("the plan", () => {
       "lists",
       "phonetics",
     ]);
-    // Reported for the prefixed form too, which five of the six dataset tests
-    // used to miss — see C6.
+    // Reported for the prefixed form too, which five of the six dataset
+    // sniffers used to miss.
     expect(plan("{word.rhyme:night}").dataNeeds).toEqual(["phonetics"]);
   });
 
@@ -139,7 +139,7 @@ describe("formatting", () => {
 
 describe("stacked and nested predicates", () => {
   it("reports stacked predicates, not just the outermost", () => {
-    // C1 made these stack; the plan reported one.
+    // Predicates stack; the plan reports each.
     const p = planQuery("{palindrome:{syllables=1:A{3}}}", ctx);
     expect(p.predicates).toEqual(["palindrome", "syllables"]);
     expect(p.pattern).toBe("A{3}");
@@ -152,7 +152,7 @@ describe("stacked and nested predicates", () => {
   });
 });
 
-// Which strategy will actually run (P7).
+// Which strategy will actually run.
 //
 // There are two ways to answer a query now, and the plan has to say which one
 // this query gets — decided by the same function that decides it at search
