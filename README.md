@@ -71,6 +71,14 @@ Deployment notes specific to this fork:
   — which is why a rebuild should go up under a *new* name first, with only this
   deployment's picker moved to it, rather than swapped in place.
 
+## The query language
+
+[GRAMMAR.md](GRAMMAR.md) describes the language as it actually is — three stacked
+levels, a fixed skeleton, and a measured table of what composes with what. The
+table is generated (`npx tsx scripts/grammar-matrix.mjs`) and the claims around
+it are tested (`test/grammar.test.ts`), so the description cannot drift from the
+parser. It ends with the open questions the exercise turned up.
+
 ## Added so far
 
 | Feature | Syntax | Notes |

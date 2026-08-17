@@ -51,13 +51,40 @@ export interface SlotPlan {
 }
 
 /** One slot: peel its wrappers, and fall back to the query's own if it has none. */
+interface Outer {
+  extract: ExtractSpec | null;
+  rank: RankSpec | null;
+  filters: FilterSpec[];
+}
+
+const NOTHING_OUTSIDE: Outer = { extract: null, rank: null, filters: [] };
+
+/** The predicate kinds a slot writes for itself, or none if it does not parse. */
+function ownKinds(
+  part: string,
+  minLiteralChars: number,
+): Array<FilterSpec["kind"]> {
+  try {
+    return parseFilterWrappers(shapeOfQuery(part, minLiteralChars).pattern)
+      .specs.map((f) => f.kind);
+  } catch {
+    return [];
+  }
+}
+
 function planOne(
   written: string,
   minLiteralChars: number,
-  outer: { extract: ExtractSpec | null; rank: RankSpec | null },
+  outer: Outer,
 ): SlotPlan {
   const shape = shapeOfQuery(written, minLiteralChars);
   const filtered = parseFilterWrappers(shape.pattern);
+  // A predicate written around all the slots applies to each, the same way an
+  // output wrapper does — and a slot's own wins, so a kind it already carries is
+  // not added twice. (`parseFilterWrappers` refuses the same kind twice within
+  // one query; merging must not smuggle a duplicate past that.)
+  const own = new Set(filtered.specs.map((f) => f.kind));
+  const inherited = outer.filters.filter((f) => !own.has(f.kind));
   return {
     query: written,
     shape,
@@ -66,7 +93,7 @@ function planOne(
     // all of them: the outer one is the default, not an override.
     extract: shape.extract ?? outer.extract,
     rank: shape.rank ?? outer.rank,
-    filters: filtered.specs,
+    filters: [...filtered.specs, ...inherited],
   };
 }
 
@@ -79,23 +106,61 @@ function planOne(
  * cue to show the message rather than search.
  */
 export function planSlots(query: string, minLiteralChars: number): SlotPlan[] {
-  const none = { extract: null, rank: null };
   const top = splitSlots(query);
   if (top.length > 1) {
     // A wrapper per slot: each carries its own, and there is nothing outside
     // them to inherit.
-    return top.map((part) => planOne(part, minLiteralChars, none));
+    return top.map((part) => planOne(part, minLiteralChars, NOTHING_OUTSIDE));
   }
 
   // One top-level piece. It may still be several slots inside a wrapper, and
   // that is the only way to find out — the wrapper parsers insist on covering
   // the whole string, so this cannot be asked before the split above.
+  //
+  // Both kinds of wrapper are peeled here, in the order they nest: an output
+  // wrapper outside a predicate outside the pattern. Only the output wrappers
+  // used to be, so `{at 1:A{5};A{6}}` was two slots and
+  // `{palindrome:A{5};A{6}}` was a parse error — the same shape, one of them
+  // working, for no reason a reader could see.
   const shape = shapeOfQuery(top[0] ?? query, minLiteralChars);
-  const inside = splitSlots(shape.pattern);
+  const filtered = parseFilterWrappers(shape.pattern);
+  const inside = splitSlots(filtered.inner);
   if (inside.length > 1) {
-    const outer = { extract: shape.extract, rank: shape.rank };
+    const outer: Outer = {
+      extract: shape.extract,
+      rank: shape.rank,
+      filters: [],
+    };
+    // A predicate is distributed by rewriting the *text* around each slot,
+    // not by copying the parsed spec onto it. The worker is handed
+    // `shape.pattern` and peels the predicates itself, so a slot whose text had
+    // lost its wrapper searched unfiltered — `{palindrome:A{5};A{6}}` answered
+    // "of the" and "and the", which are not palindromes. Rewriting the text
+    // means every slot reaches the worker looking exactly like the single-slot
+    // query it is.
+    const at = shape.pattern.indexOf(filtered.inner);
+    if (at >= 0) {
+      const before = shape.pattern.slice(0, at);
+      const after = shape.pattern.slice(at + filtered.inner.length);
+      const outerKinds = new Set<FilterSpec["kind"]>(
+        filtered.specs.map((f) => f.kind),
+      );
+      return inside.map((part) => {
+        // A slot that restates one of the outer predicates keeps its own text
+        // untouched. Wrapping it anyway would produce
+        // `{palindrome:{palindrome:A{7}}}`, which the language refuses as
+        // "applied twice" — and the rule everywhere else is that a slot which
+        // says something means it, the outer wrapper being the default. Same as
+        // `{at …}`, where a slot's own position wins without complaint.
+        const restates = ownKinds(part, minLiteralChars).some((k) =>
+          outerKinds.has(k),
+        );
+        const text = restates ? part : `${before}${part}${after}`;
+        return planOne(text, minLiteralChars, outer);
+      });
+    }
     return inside.map((part) => planOne(part, minLiteralChars, outer));
   }
 
-  return [planOne(top[0] ?? query, minLiteralChars, none)];
+  return [planOne(top[0] ?? query, minLiteralChars, NOTHING_OUTSIDE)];
 }

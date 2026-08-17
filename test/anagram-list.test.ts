@@ -203,3 +203,33 @@ describe("rearranging a single word", () => {
     expect((await check("{anagram beast:A*}", "beast")).keep).toBe(false);
   });
 });
+
+// An intersection as the argument.
+describe("rearranging an intersection", () => {
+  it("lists out the smallest part and filters by the rest", async () => {
+    // Twenty-four Greek letters narrowed to five characters: THETA and DELTA.
+    // Refused before, for being written as two conjuncts rather than for being
+    // large.
+    expect((await check("{anagram {list:greek}&A{5}:A*}", "at the")).notes)
+      .toEqual(["← theta"]);
+    expect((await check("{anagram {list:greek}&A{5}:A*}", "dealt")).notes)
+      .toEqual(["← delta"]);
+  });
+
+  it("honours the narrowing rather than ignoring it", async () => {
+    // PI is Greek but not five characters, so nothing rearranges it here.
+    expect((await check("{anagram {list:greek}&A{5}:A*}", "ip")).keep).toBe(false);
+    // ...and it does when the narrowing allows it.
+    expect((await check("{anagram {list:greek}:A*}", "ip")).notes).toEqual(["← pi"]);
+  });
+
+  it("keeps phrases, which the search strategy's own rule would drop", async () => {
+    // `finiteCandidates` refuses a candidate set containing spaces, because the
+    // walk may assemble a phrase from several index entries and a probe cannot
+    // price that. Here only the letters matter, and 68% of WordNet's birds are
+    // phrases — reusing that rule dropped {kind:bird} entirely.
+    expect((await check("{anagram {kind:bird}:A*}", "garden")).notes).toEqual([
+      "← gander",
+    ]);
+  });
+});

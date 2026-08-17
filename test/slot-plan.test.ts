@@ -84,3 +84,59 @@ describe("several slots", () => {
     expect(() => plan("{at 0:A{5}};B{6}")).toThrow(/1-based/);
   });
 });
+
+// A predicate written around all the slots, which an output wrapper could
+// already do.
+//
+// `{at 1:A{5};A{6}}` was two slots and `{palindrome:A{5};A{6}}` was a parse
+// error — the same shape, one working, for no reason a reader could see. Only
+// the output wrappers were peeled before the split.
+describe("a predicate around all the slots", () => {
+  it("applies to each of them", () => {
+    const slots = plan("{palindrome:A{5};A{6}}");
+    expect(slots.map((s) => s.pattern)).toEqual(["A{5}", "A{6}"]);
+    for (const s of slots) {
+      expect(s.filters.map((f) => f.kind), s.query).toEqual(["palindrome"]);
+    }
+  });
+
+  it("adds to what a slot already carries", () => {
+    const slots = plan("{palindrome:A{5};{compound 2:A{9}}}");
+    expect(slots[0].filters.map((f) => f.kind)).toEqual(["palindrome"]);
+    // Outermost first, because the slot's text really is
+    // `{palindrome:{compound 2:A{9}}}` — the wrapper is distributed by
+    // rewriting the text, so what the worker is handed looks exactly like the
+    // single-slot query it is.
+    expect(slots[1].filters.map((f) => f.kind)).toEqual(["palindrome", "compound"]);
+    expect(slots[1].pattern).toBe("A{9}");
+    expect(slots[1].query).toBe("{palindrome:{compound 2:A{9}}}");
+  });
+
+  it("leaves a slot alone when it restates the outer predicate", () => {
+    // Wrapping it anyway would give `{palindrome:{palindrome:A{7}}}`, which the
+    // language refuses as "applied twice". The rule everywhere else is that a
+    // slot which says something means it, so its own text stands.
+    const slots = plan("{palindrome:A{5};{palindrome:A{7}}}");
+    expect(slots[1].filters.map((f) => f.kind)).toEqual(["palindrome"]);
+    expect(slots[1].query).toBe("{palindrome:A{7}}");
+  });
+
+  it("hands the worker a slot whose text still carries the predicate", () => {
+    // The bug this shape had: the plan named the right filters but the page
+    // sends `shape.pattern` to the worker, which peels predicates itself — so a
+    // slot whose *text* had lost its wrapper searched unfiltered, and
+    // `{palindrome:A{5};A{6}}` answered "of the" and "and the".
+    for (const s of plan("{palindrome:A{5};A{6}}")) {
+      expect(s.shape.pattern, s.query).toMatch(/^\{palindrome:/);
+    }
+  });
+
+  it("nests under an output wrapper, in the order they peel", () => {
+    const slots = plan("{at 1:{palindrome:A{5};A{6}}}");
+    expect(slots.length).toBe(2);
+    for (const s of slots) {
+      expect(s.filters.map((f) => f.kind), s.query).toEqual(["palindrome"]);
+      expect(s.extract?.positions, s.query).toEqual([1]);
+    }
+  });
+});

@@ -18,6 +18,7 @@ import { FilterError } from "./result-filter.js";
 import { compileConjuncts } from "./find-expr.js";
 import { innerNfa } from "./conjunct.js";
 import { enumerateLanguage } from "./finite-strategy.js";
+import { makeFilter } from "./expr-filter.js";
 import {
   FilterSpec,
   isPalindrome,
@@ -207,12 +208,43 @@ function enumeratedSet(pattern: string, ctx: SessionContext): string[] | null {
   // like. Falls back to the query as written, in case quoting is what fails.
   let conjuncts = compiled(`"${pattern}"`, ctx) ?? compiled(pattern, ctx);
   if (conjuncts === null) return null;
-  // One conjunct, because an intersection cannot be enumerated by enumerating
-  // one of its parts: `{anagram A{5}&C*:…}` would need the product.
-  if (conjuncts.length !== 1) return null;
-  const strings = enumerateLanguage(innerNfa(conjuncts[0]), ANAGRAM_SET_CAP);
-  // Compiled conjuncts carry the boundary space the search requires.
-  return strings === null ? null : strings.map((t) => t.replace(/ $/, ""));
+  // An intersection is listed out by listing its smallest finite part and
+  // keeping what the rest accept. Requiring a single conjunct refused
+  // `{anagram {list:greek}&A{5}:…}`, whose language is twenty-four Greek letters
+  // narrowed to five characters, for being written as two conjuncts rather than
+  // for being large.
+  //
+  // Not `finiteCandidates`, which looks like the same thing and is not: it
+  // refuses a candidate set containing spaces, because the *search* strategy
+  // cannot price a phrase that the walk would assemble from several index
+  // entries. Here only the letters matter, and refusing phrases would drop
+  // `{kind:bird}`, 68% of which are phrases.
+  let best: { at: number; strings: string[] } | null = null;
+  for (let i = 0; i < conjuncts.length; ++i) {
+    const strings = enumerateLanguage(innerNfa(conjuncts[i]), ANAGRAM_SET_CAP);
+    if (strings === null) continue; // cyclic, or past the cap
+    if (best === null || strings.length < best.strings.length) {
+      best = { at: i, strings };
+    }
+  }
+  if (best === null) return null;
+  // Compiled conjuncts carry the boundary space the search requires; the
+  // entries are compared without it.
+  const trimmed = best.strings.map((t) => t.replace(/ $/, ""));
+  const rest = conjuncts.filter((_, i) => i !== best!.at);
+  if (rest.length === 0) return trimmed;
+  const filter = makeFilter(rest);
+  return trimmed.filter((t) => accepts(filter, `${t} `));
+}
+
+/** Does the filter accept this exact string? */
+function accepts(filter: ReturnType<typeof makeFilter>, text: string): boolean {
+  let state = filter.startState;
+  for (let i = 0; i < text.length; ++i) {
+    state = filter.transition(state, text.charCodeAt(i));
+    if (state < 0) return false;
+  }
+  return filter.isAccepting(state);
 }
 
 /** Compile, or null if it does not parse. */
