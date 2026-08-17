@@ -13,6 +13,7 @@
 // filter slot hardcoded into two pipelines.
 
 import { SessionContext } from "./session-context.js";
+import { listKey, wordList } from "./word-lists.js";
 import {
   FilterSpec,
   isPalindrome,
@@ -86,8 +87,84 @@ export async function applyResultFilter(
       }
       return { keep: true, note: `← ${back}` };
     }
+    case "anagram": {
+      const entry = anagramOf(filter.list, text, ctx);
+      return entry === null ? DROP : { keep: true, note: `← ${entry}` };
+    }
   }
 }
+
+/**
+ * Which entry of `list` the match rearranges, or null if none does.
+ *
+ * `<…>` rearranges the parts written between the brackets, so it cannot
+ * rearrange a *set* — there is no way to spell out "any country". Asked of a
+ * finished match instead it is a lookup: sort the match's letters and see
+ * whether any entry sorts the same.
+ *
+ * The keyed index is built once per list and kept on the context, because a
+ * predicate runs per candidate and a query sifts thousands.
+ */
+function anagramOf(
+  list: string,
+  text: string,
+  ctx: SessionContext,
+): string | null {
+  const mine = letters(text);
+  const key = mine.split("").sort().join("");
+  const entries = anagramKeys(list, ctx)?.get(key);
+  if (entries === undefined) return null;
+  // Not the entry itself: every list member trivially rearranges to itself, and
+  // "canada ← canada" is not an answer. Same rule as `{reversible:…}`, which
+  // excludes a palindrome for trivially reversing to itself.
+  return entries.find((e) => letters(e) !== mine) ?? null;
+}
+
+/**
+ * Sorted-letters -> the entries with those letters, for one named list. Null if
+ * there is no such list.
+ *
+ * A list of entries rather than one, because two members can share a key —
+ * and if one of them is the match itself, the other is the answer.
+ */
+function anagramKeys(
+  list: string,
+  ctx: SessionContext,
+): Map<string, string[]> | null {
+  const name = listKey(list);
+  // Kept beside the context rather than on it: `DataKey` is `keyof
+  // SessionContext`, so a field there would make this look like a seventh side
+  // dataset to the provider registry.
+  let perCtx = ANAGRAM_KEYS.get(ctx);
+  if (perCtx === undefined) {
+    perCtx = new Map();
+    ANAGRAM_KEYS.set(ctx, perCtx);
+  }
+  const cached = perCtx.get(name);
+  if (cached !== undefined) return cached;
+  // Bundled lists first, then the harvested catalogue — the same order
+  // `{list:…}` resolves in, so the two agree about what a list contains.
+  const entries =
+    wordList(name) ?? ctx.lists?.entries.get(name) ?? null;
+  let built: Map<string, string[]> | null = null;
+  if (entries !== null) {
+    built = new Map();
+    for (const e of entries) {
+      const k = letters(e).split("").sort().join("");
+      const at = built.get(k);
+      if (at) at.push(e);
+      else built.set(k, [e]);
+    }
+  }
+  perCtx.set(name, built);
+  return built;
+}
+
+/** Per-session anagram indexes, by list name. See anagramKeys. */
+const ANAGRAM_KEYS = new WeakMap<
+  SessionContext,
+  Map<string, Map<string, string[]> | null>
+>();
 
 /**
  * Sort key for `{near:…}` ordering: the position of the match's closest word

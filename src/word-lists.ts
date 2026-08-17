@@ -233,11 +233,15 @@ export function listKey(name: string): string {
  * has to be fetched before compiling, which is synchronous.
  */
 export function needsWikiLists(query: string): boolean {
-  // Any group prefix, not just the right one: see mentionsConstruct.
-  const re = /\{\s*(?:[a-z]+\.)?list\s*:\s*([^}]*)\}/gi;
+  // Any group prefix, not just the right one: see mentionsConstruct. `{anagram
+  // <name>:…}` names a list the same way and needs it fetched the same way —
+  // its argument is before the colon rather than after, since the colon
+  // introduces the pattern it wraps.
+  const re =
+    /\{\s*(?:[a-z]+\.)?(?:list\s*:\s*([^}]*)|anagram\s+([a-z0-9 ]+?)\s*:)/gi;
   let m;
   while ((m = re.exec(query)) !== null) {
-    const arg = m[1];
+    const arg = m[1] ?? m[2] ?? "";
     if (arg.includes(",")) continue; // an inline list needs nothing
     if (wordList(listKey(arg)) === null) return true;
   }

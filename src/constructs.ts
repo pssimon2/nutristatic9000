@@ -132,6 +132,7 @@ const GROUPS: Array<
     ["reversible", "its reversal is a word the corpus knows too", "{reversible:A{4}}"],
     ["syllables", "how many syllables, by pronunciation", "{syllables=3:A{7}}"],
     ["stress", "a metrical stress shape, 1 strong 0 weak", "{stress 010:A{8}}"],
+    ["anagram", "rearranges some entry of a named list", "{anagram countries:A{6}}"],
   ]],
   ["out", "transform", [
     ["at", "show the Nth letter of each match", "{at 3:A{7}}"],

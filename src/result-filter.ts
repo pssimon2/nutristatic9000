@@ -16,7 +16,8 @@ export type FilterSpec =
   | { kind: "palindrome" }
   | { kind: "reversible" }
   | { kind: "syllables"; lo: number; hi: number }
-  | { kind: "stress"; shape: string };
+  | { kind: "stress"; shape: string }
+  | { kind: "anagram"; list: string };
 
 export class FilterError extends Error {}
 
@@ -116,6 +117,18 @@ export function parseFilterWrapper(
       throw new FilterError("{compound N:…} takes 2 to 5 pieces");
     }
     return { spec: { kind: "compound", pieces }, inner };
+  }
+  if (name === "anagram") {
+    // `<…>` rearranges the letters you write between the brackets, so it cannot
+    // rearrange a set — there is no way to spell out "any country". Asked of a
+    // finished match instead, it is one lookup: sort the letters and see
+    // whether any entry of the list sorts the same.
+    if (arg === "") {
+      throw new FilterError(
+        "{anagram …} needs a list to rearrange — e.g. {anagram countries:A{6}}",
+      );
+    }
+    return { spec: { kind: "anagram", list: arg }, inner };
   }
   if (name === "syllables") {
     // Same comparisons the counting constraints take.
