@@ -55,6 +55,13 @@ full search takes over as before.</p>
   <tr><td class="want">Phone keypad 2665<div class="note">BOOK, COOL, COOK — the corpus decides.</div></td><td><a href="./?q=%7Bt9%3A2665%7D"><tt>{t9:2665}</tt></a></td></tr>
   <tr><td class="want">Unspaced Morse</td><td><a href="./?q=%7Bmorse%3A.....--.-..%7D"><tt>{morse:.....--.-..}</tt></a></td></tr>
   <tr><td class="want">Spellable in chemical symbols<div class="note">SEARCH is Se·Ar·C·H.</div></td><td><a href="./?q=%7Belements%3AA%7B6%7D%7D"><tt>{elements:A{6}}</tt></a></td></tr>
+  <tr><td class="want">Numbers to letters, digits run together, and it names a bird<div class="note">85181514 could split many ways — 8·5·18·15·14 is the one that spells a bird: HERON. The most-used code in hunt history, with the corpus doing the splitting.</div></td><td><a href="./?q=%7Ba1z26%3A85181514%7D%26%7Bkind%3Abird%7D"><tt>{a1z26:85181514}&amp;{kind:bird}</tt></a></td></tr>
+  <tr><td class="want">Caesar-shifted, and the answer is a kind of cat<div class="note">TIGER, at shift 19. All 25 shifts race, the category eliminates 24 of them.</div></td><td><a href="./?q=%7Bcaesar%3Aapnly%7D%26%7Bkind%3Acat%7D"><tt>{caesar:apnly}&amp;{kind:cat}</tt></a></td></tr>
+  <tr><td class="want">Two independent encodings of the same word<div class="note">Phone keys say 7245; a Caesar shift of VDLO says the same word. Only SAIL satisfies both — codes constrain each other like any other conjuncts.</div></td><td><a href="./?q=%7Bt9%3A7245%7D%26%7Bcaesar%3Avdlo%7D"><tt>{t9:7245}&amp;{caesar:vdlo}</tt></a></td></tr>
+  <tr><td class="want">Baconian, read under both tables at once<div class="note">CAT — and CAU/CAV from the classic 24-letter table, where U and V share a code. Both conventions are tried; the corpus votes.</div></td><td><a href="./?q=%7Bbacon%3Aaaaba%20aaaaa%20baabb%7D"><tt>{bacon:aaaba aaaaa baabb}</tt></a></td></tr>
+  <tr><td class="want">Braille cells, dots in any order<div class="note">ROSE.</div></td><td><a href="./?q=%7Bbraille%3A1235%20135%20234%2015%7D"><tt>{braille:1235 135 234 15}</tt></a></td></tr>
+  <tr><td class="want">Vigenère with the key you know<div class="note">ATTACK, key LEMON — the textbook pair.</div></td><td><a href="./?q=%7Bvigenere(lemon)%3Alxfopv%7D"><tt>{vigenere(lemon):lxfopv}</tt></a></td></tr>
+  <tr><td class="want">Playfair digraphs, key square and all<div class="note">INSTRUMENTS from the textbook ciphertext. The trailing X was padding, so it is allowed to vanish; a decoded I would offer J too.</div></td><td><a href="./?q=%7Bplayfair(monarchy)%3Agatlmzclrqxa%7D"><tt>{playfair(monarchy):gatlmzclrqxa}</tt></a></td></tr>
 </table>
 <h2>Shape and sound</h2>
 <table class="recipes">
@@ -64,6 +71,24 @@ full search takes over as before.</p>
   <tr><td class="want">Letter values total 100<div class="note">a=1 … z=26.</div></td><td><a href="./?q=%7Bsum%3D100%3AA%2A%7D"><tt>{sum=100:A*}</tt></a></td></tr>
   <tr><td class="want">No repeated letter, six long</td><td><a href="./?q=%7Bdistinct%3AA%7B6%7D%7D"><tt>{distinct:A{6}}</tt></a></td></tr>
   <tr><td class="want">Only top-row QWERTY letters<div class="note">TYPEWRITER is the famous one.</div></td><td><a href="./?q=%7Brow1%3AA%7B6%7D%7D"><tt>{row1:A{6}}</tt></a></td></tr>
+</table>
+<h2>Cryptograms</h2>
+<p>A substitution cipher preserves the letter pattern of its text, so a
+cryptogram is a search: everything with that pattern under a one-to-one
+mapping, most plausible first, the recovered key beside each answer.</p>
+<table class="recipes">
+  <tr><td class="want">Solve a cryptogram word<div class="note">MURMUR, TOMTOM — everything with the ciphertext's letter pattern under a one-to-one key, most common first, the key beside each answer.</div></td><td><a href="./?q=%7Biso%3Azyxzyx%7D"><tt>{iso:zyxzyx}</tt></a></td></tr>
+  <tr><td class="want">Solve a two-word cryptogram<div class="note">ALL TOO, SEE ALL, OFF ALL — one consistent key across both words.</div></td><td><a href="./?q=%7Biso%3Autt%20qrr%7D"><tt>{iso:utt qrr}</tt></a></td></tr>
+  <tr><td class="want">A cryptogram that decodes to a bird<div class="note">HOOPOE is the only bird shaped a·bb·c·b·d. The pattern search and the category share the work.</div></td><td><a href="./?q=%7Biso%3Aabbcbd%7D%26%7Bkind%3Abird%7D"><tt>{iso:abbcbd}&amp;{kind:bird}</tt></a></td></tr>
+</table>
+<h2>Captures and relations</h2>
+<p><tt>{=name:&hellip;}</tt> remembers the span it matched;
+<tt>{eq}</tt>, <tt>{rev}</tt> and <tt>{shift}</tt> relate two named
+spans inside the pattern they wrap.</p>
+<table class="recipes">
+  <tr><td class="want">Two words, one the mirror of the other<div class="note">SAW WAS. {=a:…} names a span; {rev a,b:…} demands the second reads as the first reversed.</div></td><td><a href="./?q=%7Brev%20a%2Cb%3A%7B%3Da%3AA%7B3%2C5%7D%7D%20%7B%3Db%3AA%7B3%2C5%7D%7D%7D"><tt>{rev a,b:{=a:A{3,5}} {=b:A{3,5}}}</tt></a></td></tr>
+  <tr><td class="want">A word said twice<div class="note">ROOT ROOT, THAT THAT — the same span, captured and demanded equal.</div></td><td><a href="./?q=%7Beq%20a%2Cb%3A%7B%3Da%3AA%7B4%7D%7D%20%7B%3Db%3AA%7B4%7D%7D%7D"><tt>{eq a,b:{=a:A{4}} {=b:A{4}}}</tt></a></td></tr>
+  <tr><td class="want">Two words that are Caesar shifts of each other<div class="note">THE and MAX are shift 19 apart; the shift found is reported. Fix it with {shift13 a,b:…} for exact ROT13 pairs.</div></td><td><a href="./?q=%7Bshift%20a%2Cb%3A%7B%3Da%3AA%7B3%7D%7D%20%7B%3Db%3AA%7B3%7D%7D%7D"><tt>{shift a,b:{=a:A{3}} {=b:A{3}}}</tt></a></td></tr>
 </table>
 <h2>Several at once</h2>
 <p>The constructs are not a menu of separate tools: they compose, and a
@@ -85,11 +110,15 @@ survives.</p>
   <tr><td class="want">...and it may land in more than one word<div class="note">IS REAL from ISRAEL, WAR AND from RWANDA, A VITAL from LATVIA. The letters are what matter, not where the spaces fall.</div></td><td><a href="./?q=%7Banagram%20countries%3AA%2A%20A%2A%7D"><tt>{anagram countries:A* A*}</tt></a></td></tr>
   <tr><td class="want">A word that rearranges a bird<div class="note">GARDEN from GANDER, SECTOR from SCOTER, DRIVEN from VERDIN. The argument is any pattern with few enough matches to list out, not just a named list — so anything that names a set can be rearranged.</div></td><td><a href="./?q=%7Banagram%20%7Bkind%3Abird%7D%3AA%7B6%7D%7D"><tt>{anagram {kind:bird}:A{6}}</tt></a></td></tr>
   <tr><td class="want">A word that rearranges another word<div class="note">BEATS and BATES from BEAST, SILENT from LISTEN. The argument may be a list name, a single word, or any pattern with few enough matches to list out — and the word itself is never offered back.</div></td><td><a href="./?q=%7Banagram%20beast%3AA%2A%7D"><tt>{anagram beast:A*}</tt></a></td></tr>
+  <tr><td class="want">A zodiac sign hiding inside a longer word<div class="note">LIBRARY hides LIBRA. Any list drops into the same shape: .*{list:greek}.* finds hidden Greek letters.</div></td><td><a href="./?q=.*%7Blist%3Azodiac%7D.*%26A%7B7%2C9%7D"><tt>.*{list:zodiac}.*&amp;A{7,9}</tt></a></td></tr>
+  <tr><td class="want">A bird hiding after the first letter<div class="note">WHEN hides a HEN. The bird category is an ordinary pattern piece, so letters may sit around it.</div></td><td><a href="./?q=A%2B%7Bkind%3Abird%7DA*"><tt>A+{kind:bird}A*</tt></a></td></tr>
+  <tr><td class="want">An insect whose reversal is also a word<div class="note">GNAT ← TANG. The category feeds the walk; the reversal is asked of each survivor.</div></td><td><a href="./?q=%7Breversible%3A%7Bkind%3Ainsect%7D%7D"><tt>{reversible:{kind:insect}}</tt></a></td></tr>
+  <tr><td class="want">An anagram of an NBA team<div class="note">SENT and NEST from NETS, HATE from HEAT — the team it came from is shown.</div></td><td><a href="./?q=%7Banagram%20nbateams%3AA%7B4%2C6%7D%7D"><tt>{anagram nbateams:A{4,6}}</tt></a></td></tr>
+  <tr><td class="want">An NBA team with one letter deleted<div class="note">SUN, NET, KING — the pluralless teams fall out on their own.</div></td><td><a href="./?q=%7Bdel1%3A%7Blist%3Anbateams%7D%7D"><tt>{del1:{list:nbateams}}</tt></a></td></tr>
+  <tr><td class="want">Ends in -TION and is spellable in chemical symbols<div class="note">SECTION is S·E·C·Ti·O·N; the suffix walk is served by the reverse sidecar.</div></td><td><a href="./?q=%7Belements%3AA*tion%7D"><tt>{elements:A*tion}</tt></a></td></tr>
+  <tr><td class="want">Closest in meaning first, keep everything<div class="note">ROYAL, then QUEEN — the tilde boosts instead of filtering, so the rest of the five-letter words still follow, just later. Quoted so the shape is one word.</div></td><td><a href="./?q=%7B~near%3Aroyal%7D%26%22A%7B5%7D%22"><tt>{~near:royal}&amp;"A{5}"</tt></a></td></tr>
+  <tr><td class="want">Everything within two edits of PUZZLE, nearest first<div class="note">PUZZLE exact, then one edit, then two — a graded stream rather than a cutoff.</div></td><td><a href="./?q=%7Bedit%3Apuzzle%7D"><tt>{edit:puzzle}</tt></a></td></tr>
 </table>
-<h2>Reading an extraction</h2>
-<table class="recipes">
-        </table>
-
 <hr>
 <p><a href="./">« Back to search</a> · <a href="./usage.html">Usage guide</a></p>
 </body></html>
