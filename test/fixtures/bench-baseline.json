@@ -104,10 +104,10 @@
     "indexLookups": 0
   },
   "huge-list": {
-    "steps": 7930,
-    "results": 397,
-    "dfaStates": 6502,
-    "frontierPeak": 471,
+    "steps": 19540,
+    "results": 1407,
+    "dfaStates": 14415,
+    "frontierPeak": 2024,
     "candidatesTested": 0,
     "indexLookups": 0
   },

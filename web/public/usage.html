@@ -43,7 +43,8 @@
       <a href="#edits">edit distance</a>
   <li><a href="#ciphers">Ciphers</a> &middot;
       <a href="#shapes">shape &amp; keyboard classes</a> &middot;
-      <a href="#morse">Morse &amp; the periodic table</a>
+      <a href="#morse">Morse &amp; the periodic table</a> &middot;
+      <a href="#codes">the hunt codes</a>
   <li><a href="#rhyme">Rhyme &amp; homophones</a> &middot;
       <a href="#meaning">meaning</a> &middot;
       <a href="#syllables">syllables &amp; metre</a> &middot;
@@ -323,6 +324,13 @@ result</b>, so you get the key as well as the plaintext.
 Transforms take a literal, never a character class: rotating <tt>C</tt> would
 mean "the class you get by shifting the consonants", which is no use to
 anyone.
+<br>Two keyed ciphers decode when you know the key:
+<tt><a href="./?q=%7Bvigenere(key)%3Adlc%7D">{vigenere(key):dlc}</a></tt>
+runs a repeating key backwards, and
+<tt><a href="./?q=%7Bplayfair(monarchy)%3Agatlmzclrqxa%7D">{playfair(monarchy):gatlmzclrqxa}</a></tt>
+undoes the 5×5 digraph square — a decoded X may be padding, so it is
+skippable, and a decoded I offers J too, which is how INSTRUMENTS comes back
+out of the textbook example.
 
 <li id="shapes"><b>Structural, keyboard and encoding classes.</b> Each is a small letter
 set or chain, and each turns up constantly in hunts:
@@ -451,6 +459,33 @@ keeps only matches spellable in chemical symbols: SEARCH is Se·Ar·C·H,
 BACON is Ba·C·O·N. All 118 symbols are known; spelling is a segmentation, so
 it stays regular and composes (<tt>{elements:A*}&amp;.*con</tt>).
 
+<li id="codes"><b>The hunt codes — <tt>{a1z26:…}</tt>, <tt>{braille:…}</tt>,
+<tt>{bacon:…}</tt>, <tt>{semaphore:…}</tt>, <tt>{ascii:…}</tt>,
+<tt>{polybius:…}</tt></b>. The encodings that head the
+Mystery&nbsp;Hunt index, each taken in the notation solvers already write,
+each decoded to <i>every</i> reading so the corpus can pick the one that is a
+word. The star is
+<tt><a href="./?q=%7Ba1z26%3A2085%7D">{a1z26:2085}</a></tt>: numbers-to-letters
+is the most used code in hunt history, and an unseparated digit string is
+read as every way of cutting it into 1–26 — the "does 112 mean AAB, AL or
+KB?" grind, done by the index. Separated numbers work too
+(<tt>{a1z26:20 8 5}</tt>), <tt>/</tt> marks a word break, and the "why?"
+button shows the split that matched.
+<tt><a href="./?q=%7Bbraille%3A2345%20125%2015%7D">{braille:2345 125 15}</a></tt>
+takes dot numbers in any order;
+<tt><a href="./?q=%7Bbacon%3Abaabb%20aabbb%20aabaa%7D">{bacon:baabb aabbb aabaa}</a></tt>
+reads A/B strings under both the classic 24-letter table and the modern one
+(and <tt>{bin5:10100 01000 00101}</tt> is its 1-indexed binary cousin);
+<tt><a href="./?q=%7Bsemaphore%3An-nw%20sw-w%20ne-s%7D">{semaphore:n-nw sw-w ne-s}</a></tt>
+takes flag arms as compass pairs in either order;
+<tt><a href="./?q=%7Bascii%3A116%20104%20101%7D">{ascii:116 104 101}</a></tt>
+accepts decimal, <tt>0x</tt>-hex or 8-bit binary;
+<tt><a href="./?q=%7Bpolybius%3A44%2023%2015%7D">{polybius:44 23 15}</a></tt>
+reads 5×5 row-column pairs, with the I/J and C/K cells offering both letters,
+which covers the tap-code square too. All of them are ordinary automaton
+constructs, so they intersect, nest and combine with everything else:
+<tt>{a1z26:2085}&amp;{kind:article}</tt>.
+
 <li id="categories"><b>Categories — <tt>{kind:bird}</tt></b>. "A seven-letter bird" is the
 shape of half the crossword clues ever written, and it is a question about a
 category rather than a pattern.
@@ -545,6 +580,8 @@ covers.
 <tr><td><tt>cipher.rot</tt></td><td>a literal shifted by a known amount</td><td><tt><a href="./?q=%7Brot13%3Acvmmn%7D">{rot13:cvmmn}</a></tt></td></tr>
 <tr><td><tt>cipher.rot13</tt></td><td>a literal shifted by thirteen</td><td><tt><a href="./?q=%7Brot13%3Acvmmn%7D">{rot13:cvmmn}</a></tt></td></tr>
 <tr><td><tt>cipher.atbash</tt></td><td>a literal with the alphabet reflected</td><td><tt><a href="./?q=%7Batbash%3Agsv%7D">{atbash:gsv}</a></tt></td></tr>
+<tr><td><tt>cipher.vigenere</tt></td><td>decode with a repeating key</td><td><tt><a href="./?q=%7Bvigenere(key)%3Adlc%7D">{vigenere(key):dlc}</a></tt></td></tr>
+<tr><td><tt>cipher.playfair</tt></td><td>decode digraphs with a key square</td><td><tt><a href="./?q=%7Bplayfair(monarchy)%3Agatlmzclrqxa%7D">{playfair(monarchy):gatlmzclrqxa}</a></tt></td></tr>
 </table>
 <h3 class="grp">spell<span class="gb"> — spell the match some other way</span></h3>
 <table class="ref">
@@ -552,6 +589,13 @@ covers.
 <tr><td><tt>spell.enum</tt></td><td>a crossword enumeration</td><td><tt><a href="./?q=%7Benum%3A4%2C3%2C5%7D">{enum:4,3,5}</a></tt></td></tr>
 <tr><td><tt>spell.morse</tt></td><td>every word those dots and dashes spell</td><td><tt><a href="./?q=%7Bmorse%3A...-...%7D">{morse:...-...}</a></tt></td></tr>
 <tr><td><tt>spell.elements</tt></td><td>spellable from chemical symbols</td><td><tt><a href="./?q=%7Belements%3AA%7B6%7D%7D">{elements:A{6}}</a></tt></td></tr>
+<tr><td><tt>spell.a1z26</tt></td><td>numbers to letters, every split of the digits</td><td><tt><a href="./?q=%7Ba1z26%3A2085%7D">{a1z26:2085}</a></tt></td></tr>
+<tr><td><tt>spell.braille</tt></td><td>dot-number cells to letters</td><td><tt><a href="./?q=%7Bbraille%3A2345%20125%2015%7D">{braille:2345 125 15}</a></tt></td></tr>
+<tr><td><tt>spell.bacon</tt></td><td>Baconian a/b strings, both tables</td><td><tt><a href="./?q=%7Bbacon%3Abaabb%20aabbb%20aabaa%7D">{bacon:baabb aabbb aabaa}</a></tt></td></tr>
+<tr><td><tt>spell.bin5</tt></td><td>five-bit binary to letters</td><td><tt><a href="./?q=%7Bbin5%3A10100%2001000%2000101%7D">{bin5:10100 01000 00101}</a></tt></td></tr>
+<tr><td><tt>spell.semaphore</tt></td><td>flag positions as compass pairs</td><td><tt><a href="./?q=%7Bsemaphore%3An-nw%20sw-w%20ne-s%7D">{semaphore:n-nw sw-w ne-s}</a></tt></td></tr>
+<tr><td><tt>spell.ascii</tt></td><td>character codes to letters</td><td><tt><a href="./?q=%7Bascii%3A116%20104%20101%7D">{ascii:116 104 101}</a></tt></td></tr>
+<tr><td><tt>spell.polybius</tt></td><td>5x5 row-column pairs, tap code included</td><td><tt><a href="./?q=%7Bpolybius%3A44%2023%2015%7D">{polybius:44 23 15}</a></tt></td></tr>
 </table>
 <h3 class="grp">shape<span class="gb"> — restrict letters by how they look or where they are typed</span></h3>
 <table class="ref">

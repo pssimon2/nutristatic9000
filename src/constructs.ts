@@ -106,12 +106,21 @@ const GROUPS: Array<
     ["rot", "a literal shifted by a known amount", "{rot13:cvmmn}"],
     ["rot13", "a literal shifted by thirteen", "{rot13:cvmmn}"],
     ["atbash", "a literal with the alphabet reflected", "{atbash:gsv}"],
+    ["vigenere", "decode with a repeating key", "{vigenere(key):dlc}"],
+    ["playfair", "decode digraphs with a key square", "{playfair(monarchy):gatlmzclrqxa}"],
   ]],
   ["spell", "automaton", [
     ["t9", "every word those phone keys could spell", "{t9:2665}"],
     ["enum", "a crossword enumeration", "{enum:4,3,5}"],
     ["morse", "every word those dots and dashes spell", "{morse:...-...}"],
     ["elements", "spellable from chemical symbols", "{elements:A{6}}"],
+    ["a1z26", "numbers to letters, every split of the digits", "{a1z26:2085}"],
+    ["braille", "dot-number cells to letters", "{braille:2345 125 15}"],
+    ["bacon", "Baconian a/b strings, both tables", "{bacon:baabb aabbb aabaa}"],
+    ["bin5", "five-bit binary to letters", "{bin5:10100 01000 00101}"],
+    ["semaphore", "flag positions as compass pairs", "{semaphore:n-nw sw-w ne-s}"],
+    ["ascii", "character codes to letters", "{ascii:116 104 101}"],
+    ["polybius", "5x5 row-column pairs, tap code included", "{polybius:44 23 15}"],
   ]],
   ["shape", "automaton", [
     ["roman", "only Roman-numeral letters", "{roman:A*}"],
@@ -194,7 +203,7 @@ export function qualifiedName(info: ConstructInfo): string {
 
 /**
  * Names lex as letters, so trailing digits land in the spec — that is what
- * makes `{del1:…}` and `{rot13:…}` work. Two names are genuinely
+ * makes `{del1:…}` and `{rot13:…}` work. A few names are genuinely
  * digit-bearing and have to be folded back before dispatch.
  *
  * This is the one copy of that rule: the parser and the group check must agree
@@ -209,6 +218,9 @@ export function foldName(
   if (name === "t" && trimmed === "9") return { name: "t9", spec: "" };
   // The visual class, not a 180-place shift.
   if (name === "rot" && trimmed === "180") return { name: "rot180", spec: "" };
+  // The A=1 code lexes as name "a", the rest of its own name as spec.
+  if (name === "a" && trimmed === "1z26") return { name: "a1z26", spec: "" };
+  if (name === "bin" && trimmed === "5") return { name: "bin5", spec: "" };
   return { name, spec };
 }
 

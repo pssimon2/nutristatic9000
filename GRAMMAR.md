@@ -107,7 +107,7 @@ error, and every construct is part of the language of matches.
 
 ## 3. Constructs
 
-47 of them, all spelled `{name spec:argument}`, all grouped and documented in
+56 of them, all spelled `{name spec:argument}`, all grouped and documented in
 the generated reference at `/usage.html#reference`. A construct's *level* says
 how it runs — intersected into the search, or checked on finished matches —
 and its *argument kind* says what may appear inside it. Neither restricts
@@ -176,6 +176,7 @@ planned, compiled and ran its predicates.
 | `{list:greek}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
 | `{del1:beast}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
 | `{caesar:kdhv}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
+| `{a1z26:2085}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
 | `{elements:A{6}}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | – | ok |
 | `{palindrome:A{5}}` | ok | ok | ok | ok | ok | ok | ok | ok | – | – | – |
 | `{compound 2:A{9}}` | ok | ok | ok | ok | ok | ok | ok | ok | – | – | ok |

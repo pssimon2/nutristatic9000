@@ -246,6 +246,14 @@ function detailFor(
     // is what the solver wanted.
     if (c.name === "elements") return spellOut(letters(text), ELEMENT_SET);
     if (c.name === "morse") return morseSplit(text);
+    // The split of the digits is what the solver was after: the same string
+    // of numbers reads many ways, and this is the way that made a word.
+    if (c.name === "a1z26") {
+      const nums = [...letters(text)]
+        .filter((ch) => ch !== " ")
+        .map((ch) => ch.charCodeAt(0) - 96);
+      return nums.some((n) => n < 1 || n > 26) ? null : nums.join(" ");
+    }
   }
   return null;
 }

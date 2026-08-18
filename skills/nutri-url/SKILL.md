@@ -56,8 +56,20 @@ can):
   `(letters)` pins the letter: `{del1(d):…}`. Argument may be a pattern:
   `{del1:{kind:instrument}}`. Predicates may NOT sit inside edit arguments.
 - Ciphers/encodings: `{caesar:kdhv}` (reports shift), `{rot13:…}`,
-  `{atbash:…}`, `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`,
+  `{atbash:…}`, `{vigenere(key):dlc}`, `{playfair(monarchy):gatlmzclrqxa}`
+  (keyed; a decoded X is skippable padding, decoded I also reads J),
+  `{t9:2665}`, `{enum:4,3,5}`, `{morse:...-...}`,
   `{elements:…}` (chemical symbols).
+- Hunt codes (decode to every reading; the corpus picks the word):
+  `{a1z26:2085}` (numbers→letters; unseparated digits try every split
+  into 1-26 — also `{a1z26:20 8 5}`, `/` = word break),
+  `{braille:2345 125 15}` (dot numbers, any order),
+  `{bacon:baabb aabbb aabaa}` (A/B strings, both 24- and 26-letter tables),
+  `{bin5:10100 01000 00101}` (a=00001…z=11010),
+  `{semaphore:n-nw sw-w ne-s}` (compass pairs, arms either order),
+  `{ascii:116 104 101}` (decimal, 0x-hex, or 8-bit binary),
+  `{polybius:44 23 15}` (5x5 row-col; I/J and C/K cells read both ways —
+  covers tap code).
 - Shapes: `{roman:…}` `{rot180:…}` `{mirror:…}` `{sevenseg:…}` `{holes=1:…}`
   `{row1:…}` `{row2:…}` `{row3:…}` `{ascending:…}` `{descending:…}`.
 

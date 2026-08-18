@@ -60,7 +60,9 @@ const CASES = [
   // candidate until its last letter.
   { name: "suffix-anchored", query: ".*tion", steps: 200000 },
   { name: "heavy-anagram", query: "<aaeilmnorstu>", steps: 300000 },
-  { name: "huge-list", query: "{list:vulnerablebirds}", steps: 200000 },
+  // The biggest built-in list, now that the harvested catalogue is curated
+  // (this slot used a 600-entry harvested list that the curation removed).
+  { name: "huge-list", query: "{list:instruments}", steps: 200000 },
   // The other strategy: this one is answered by listing a conjunct out rather
   // than walking, so its step count is zero and the numbers that describe it
   // are the candidates tested and looked up. Without it the gate covers only

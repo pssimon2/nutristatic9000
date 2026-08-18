@@ -55,6 +55,17 @@ import {
   morseNfa,
   namedConstraint,
 } from "./value-constraint.js";
+import {
+  a1z26Nfa,
+  asciiNfa,
+  baconNfa,
+  bin5Nfa,
+  brailleNfa,
+  playfairNfa,
+  polybiusNfa,
+  semaphoreNfa,
+  vigenereNfa,
+} from "./spell-codes.js";
 import { dispatchName, namesAtLevel } from "./constructs.js";
 import { EPSILON } from "./automata.js";
 import { normalizeEntry as normalize } from "./word-lists.js";
@@ -265,6 +276,41 @@ const encoding: ConstructBuild = {
   },
 };
 
+/**
+ * The hunt codes: a literal in some encoding, decoded to every reading it
+ * has. Each row differs only in its decoder and in what notation to name
+ * when the argument is not in the encoding at all.
+ */
+const decodes = (
+  decode: (arg: string) => Nfa | null,
+  notation: string,
+): ConstructBuild => ({
+  argKind: "literal",
+  build: ({ name, spec, arg, text }) => {
+    const nfa = spec.trim() === "" ? decode(arg) : null;
+    if (!nfa) {
+      throw new ParseError(text, `{${name}:…} takes ${notation}`);
+    }
+    return [nfa];
+  },
+});
+
+/** Keyed ciphers read their key from the spec: `{vigenere(lemon):…}`. */
+const keyed = (
+  decode: (key: string, arg: string) => Nfa | null,
+  notation: string,
+): ConstructBuild => ({
+  argKind: "literal",
+  build: ({ name, spec, arg, text }) => {
+    const m = /^\(\s*([a-z]+)\s*\)$/i.exec(spec.trim());
+    const nfa = m ? decode(m[1].toLowerCase(), arg) : null;
+    if (!nfa) {
+      throw new ParseError(text, `{${name}(key):…} takes ${notation}`);
+    }
+    return [nfa];
+  },
+});
+
 const morse: ConstructBuild = {
   argKind: "literal",
   build: ({ spec, arg, text }) => {
@@ -463,9 +509,49 @@ export const CONSTRUCTS: Record<string, ConstructBuild> = (() => {
     elements,
     t9: encoding,
     enum: encoding,
+    a1z26: decodes(
+      a1z26Nfa,
+      "numbers 1-26 — separated ({a1z26:3 12 15 3 11}) or run together, " +
+        "which reads every possible split; / is a word break",
+    ),
+    braille: decodes(
+      brailleNfa,
+      "dot numbers 1-6 per cell — e.g. {braille:2345 125 15}; / is a word break",
+    ),
+    bacon: decodes(
+      baconNfa,
+      "a/b strings, five per letter — e.g. {bacon:baaba aabbb aabaa}",
+    ),
+    bin5: decodes(
+      bin5Nfa,
+      "five-bit binary, a=00001 to z=11010 — e.g. {bin5:10100 01000 00101}",
+    ),
+    semaphore: decodes(
+      semaphoreNfa,
+      "two compass directions per letter — e.g. {semaphore:n-nw s-w ne-s}; " +
+        "/ is a word break",
+    ),
+    ascii: decodes(
+      asciiNfa,
+      "character codes in decimal, 0x-hex or 8-bit binary — " +
+        "e.g. {ascii:116 104 101}",
+    ),
+    polybius: decodes(
+      polybiusNfa,
+      "row-column digit pairs from the 5x5 square — e.g. {polybius:44 23 15}",
+    ),
     caesar: cipher,
     rot: cipher,
     atbash: cipher,
+    vigenere: keyed(
+      vigenereNfa,
+      "a letter key and ciphertext — e.g. {vigenere(lemon):lxfopv}",
+    ),
+    playfair: keyed(
+      playfairNfa,
+      "a letter key and an even count of ciphertext letters — " +
+        "e.g. {playfair(monarchy):gatlmz}",
+    ),
     sub: bag("sub"),
     bank: bag("bank"),
     // The lexer takes a name as letters only, so `{row1:…}` arrives here as
