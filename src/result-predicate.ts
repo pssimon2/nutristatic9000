@@ -12,6 +12,7 @@
 // a single filter slot hardcoded into two pipelines.
 
 import { SessionContext } from "./session-context.js";
+import { isoMapping } from "./isomorph.js";
 import { listKey, resolveListKey, wordList } from "./word-lists.js";
 import { FilterError } from "./result-filter.js";
 import { compileConjuncts } from "./find-expr.js";
@@ -98,6 +99,12 @@ export async function applyResultFilter(
     case "anagram": {
       const entry = await anagramOf(filter.list, text, ctx, checkWith(ctx, isWord));
       return entry === null ? DROP : { keep: true, note: `← ${entry}` };
+    }
+    case "iso": {
+      // The mapping is the recovered key, which is the answer as much as the
+      // plaintext is.
+      const mapping = isoMapping(filter.cipher, text);
+      return mapping === null ? DROP : { keep: true, note: mapping };
     }
     case "where": {
       // The pattern carries predicates inside it. The search ran on their

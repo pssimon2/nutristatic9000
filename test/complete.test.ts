@@ -9,7 +9,11 @@ import { describe, expect, it } from "vitest";
 import { completionsAt, tokenAt } from "../src/complete.js";
 import { parseWikiLists } from "../src/word-lists.js";
 import { compileQuery } from "../src/find-expr.js";
-import { CONSTRUCTS, isRelationName } from "../src/constructs.js";
+import {
+  CONSTRUCTS,
+  isRelationName,
+  predicateTakesData,
+} from "../src/constructs.js";
 import { parseFilterWrapper } from "../src/result-filter.js";
 import { SessionContext } from "../src/session-context.js";
 
@@ -135,7 +139,13 @@ describe("every completion is something the engine accepts", () => {
     for (const c of CONSTRUCTS) {
       let err: unknown = null;
       try {
-        if (c.level === "automaton" || isRelationName(c.name)) {
+        // Relations and data-argument predicates skip the peel by design, so
+        // their examples go through the pattern parser like the automatons'.
+        if (
+          c.level === "automaton" ||
+          isRelationName(c.name) ||
+          predicateTakesData(c.name)
+        ) {
           compileQuery(c.example, ctx);
         } else expect(parseFilterWrapper(c.example), c.name).not.toBeNull();
       } catch (e) {

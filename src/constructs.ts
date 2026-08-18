@@ -141,6 +141,7 @@ const GROUPS: Array<
     ["syllables", "how many syllables, by pronunciation", "{syllables=3:A{7}}"],
     ["stress", "a metrical stress shape, 1 strong 0 weak", "{stress 010:A{8}}"],
     ["anagram", "rearranges a word, a list or whatever a pattern names", "{anagram countries:A{6}}"],
+    ["iso", "a cryptogram: same letter pattern, one-to-one mapping", "{iso:xjxj}"],
     ["eq", "two parts named with {=a:…} read the same", "{eq a,b:{=a:A{2,4}} {=b:A{2,4}}}"],
     ["rev", "one named part is the other reversed", "{rev a,b:{=a:A{2,4}} {=b:A{2,4}}}"],
     ["shift", "one named part is the other Caesar-shifted", "{shift13 a,b:{=a:A{3}} {=b:A{3}}}"],
@@ -157,6 +158,16 @@ export const RELATION_NAMES = ["eq", "rev", "shift"] as const;
 
 export function isRelationName(name: string): boolean {
   return (RELATION_NAMES as readonly string[]).includes(name);
+}
+
+/**
+ * Predicates whose argument is data rather than the pattern they hold of —
+ * `{iso:xjxj}` carries ciphertext after its colon. They are never peeled as
+ * whole-query wrappers (peeling would search for the data literally); the
+ * pattern parser reads them in place and synthesizes their hull.
+ */
+export function predicateTakesData(name: string): boolean {
+  return name === "iso";
 }
 
 export const CONSTRUCTS: ConstructInfo[] = GROUPS.flatMap(

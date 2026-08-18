@@ -107,7 +107,7 @@ error, and every construct is part of the language of matches.
 
 ## 3. Constructs
 
-56 of them, all spelled `{name spec:argument}`, all grouped and documented in
+57 of them, all spelled `{name spec:argument}`, all grouped and documented in
 the generated reference at `/usage.html#reference`. A construct's *level* says
 how it runs — intersected into the search, or checked on finished matches —
 and its *argument kind* says what may appear inside it. Neither restricts
@@ -124,6 +124,9 @@ Three argument kinds, from `src/construct-table.ts`:
 
 Two constructs take their argument *before* the colon, because the colon
 introduces the pattern they wrap: `{compound 2:…}` and `{anagram countries:…}`.
+One predicate takes *data* after the colon instead of a pattern: `{iso:xjxj}`
+carries ciphertext, and its search pattern — the hull — is synthesized from
+it, so it is the one predicate that is never peeled as a whole-query wrapper.
 A predicate's spec is validated by the same `parseFilterSpec` whether it wraps
 the query or sits nested, so `{compound 9:…}` says "2 to 5 pieces" in both
 places.
@@ -177,6 +180,7 @@ planned, compiled and ran its predicates.
 | `{del1:beast}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
 | `{caesar:kdhv}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
 | `{a1z26:2085}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok | ok |
+| `{iso:xjxj}` | ok | ok | ok | ok | ok | ok | ok | ok | – | ok | ok |
 | `{elements:A{6}}` | ok | ok | ok | ok | ok | ok | ok | ok | ok | – | ok |
 | `{palindrome:A{5}}` | ok | ok | ok | ok | ok | ok | ok | ok | – | – | – |
 | `{compound 2:A{9}}` | ok | ok | ok | ok | ok | ok | ok | ok | – | – | ok |

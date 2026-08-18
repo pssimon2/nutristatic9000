@@ -75,6 +75,7 @@ const SUBJECTS = [
   ["{del1:beast}", "automaton"],
   ["{caesar:kdhv}", "automaton"],
   ["{a1z26:2085}", "automaton"],
+  ["{iso:xjxj}", "predicate"],
   ["{elements:A{6}}", "automaton"],
   ["{palindrome:A{5}}", "predicate"],
   ["{compound 2:A{9}}", "predicate"],

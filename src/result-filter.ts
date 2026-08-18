@@ -13,6 +13,7 @@ import {
   isRelationName,
   mentionsConstruct,
   namesAtLevel,
+  predicateTakesData,
   resolveConstruct,
 } from "./constructs.js";
 
@@ -23,6 +24,14 @@ export type FilterSpec =
   | { kind: "syllables"; lo: number; hi: number }
   | { kind: "stress"; shape: string }
   | { kind: "anagram"; list: string }
+  /**
+   * `{iso:xjxj}` — isomorphic to a ciphertext: same letter pattern under a
+   * one-to-one mapping. Its argument is data, not a pattern, and its hull is
+   * synthesized from the ciphertext (see isomorph.ts), so unlike the other
+   * predicates it is never peeled as a whole-query wrapper — it always parses
+   * in place and verifies through `where`.
+   */
+  | { kind: "iso"; cipher: string }
   /**
    * The pattern carries predicates *inside* it — `{palindrome:A{5}} {kind:bird}`
    * — so each finished match is parsed against the pattern again, exactly, with
@@ -137,7 +146,10 @@ export function parseFilterWrapper(
   // A relation constrains named spans inside the pattern it wraps, so it
   // cannot be peeled and asked of the match text alone: the pattern parser
   // reads it where it stands and the verifier evaluates it with the parse.
-  if (isRelationName(name)) return null;
+  // A data-argument predicate is unpeelable for the opposite reason: what
+  // follows its colon is ciphertext, not the pattern to search — peeling
+  // would search for the ciphertext literally.
+  if (isRelationName(name) || predicateTakesData(name)) return null;
   // The closing brace must be *this* wrapper's. Checking only that the query
   // ends in "}" let `{palindrome:A}{bank:xyz}` through as one wrapper whose
   // inner pattern was `A}{bank:xyz`, which then failed as a pattern error

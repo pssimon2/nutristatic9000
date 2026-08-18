@@ -44,7 +44,8 @@
   <li><a href="#ciphers">Ciphers</a> &middot;
       <a href="#shapes">shape &amp; keyboard classes</a> &middot;
       <a href="#morse">Morse &amp; the periodic table</a> &middot;
-      <a href="#codes">the hunt codes</a>
+      <a href="#codes">the hunt codes</a> &middot;
+      <a href="#cryptogram">cryptograms</a>
   <li><a href="#rhyme">Rhyme &amp; homophones</a> &middot;
       <a href="#meaning">meaning</a> &middot;
       <a href="#syllables">syllables &amp; metre</a> &middot;
@@ -486,6 +487,25 @@ which covers the tap-code square too. All of them are ordinary automaton
 constructs, so they intersect, nest and combine with everything else:
 <tt>{a1z26:2085}&amp;{kind:article}</tt>.
 
+<li id="cryptogram"><b>Cryptograms — <tt>{iso:xjxj}</tt></b>. A substitution
+cipher preserves the <i>pattern</i> of its text, so "solve the cryptogram" is
+"find corpus text with this letter pattern under a one-to-one mapping" — and
+that is a search this index can run. <tt><a
+href="./?q=%7Biso%3Aqzmzmz%7D">{iso:qzmzmz}</a></tt> answers BANANA;
+<tt>{iso:uijt jt ju}</tt> on English Wikipedia answers THIS IS IT, in about a
+second, with the recovered key shown beside each result
+(<tt>u→t&nbsp;i→h&nbsp;j→i&nbsp;t→s</tt>). Results stream by corpus
+frequency, so the most plausible plaintext arrives first. It also answers
+plain letter-pattern questions — <tt>{iso:abcba}</tt> is every
+five-letter word shaped like a palindrome-with-distinct-arms — and composes
+like any predicate: <tt>{iso:xjxjy}&amp;{kind:bird}</tt>. The constraint
+itself is beyond a finite automaton, so the search runs on a synthesized
+hull — exact shape plus the most-repeated cipher letters tried 26 ways each,
+the <tt>{caesar:…}</tt> trick — and each match is verified exactly. One
+limit follows from the design: the whole ciphertext must be something the
+corpus could contain, so it works for words and short phrases, not
+paragraph-long ciphers.
+
 <li id="categories"><b>Categories — <tt>{kind:bird}</tt></b>. "A seven-letter bird" is the
 shape of half the crossword clues ever written, and it is a question about a
 category rather than a pattern.
@@ -618,6 +638,7 @@ covers.
 <tr><td><tt>match.syllables</tt></td><td>how many syllables, by pronunciation</td><td><tt><a href="./?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt></td></tr>
 <tr><td><tt>match.stress</tt></td><td>a metrical stress shape, 1 strong 0 weak</td><td><tt><a href="./?q=%7Bstress%20010%3AA%7B8%7D%7D">{stress 010:A{8}}</a></tt></td></tr>
 <tr><td><tt>match.anagram</tt></td><td>rearranges a word, a list or whatever a pattern names</td><td><tt><a href="./?q=%7Banagram%20countries%3AA%7B6%7D%7D">{anagram countries:A{6}}</a></tt></td></tr>
+<tr><td><tt>match.iso</tt></td><td>a cryptogram: same letter pattern, one-to-one mapping</td><td><tt><a href="./?q=%7Biso%3Axjxj%7D">{iso:xjxj}</a></tt></td></tr>
 <tr><td><tt>match.eq</tt></td><td>two parts named with {=a:…} read the same</td><td><tt><a href="./?q=%7Beq%20a%2Cb%3A%7B%3Da%3AA%7B2%2C4%7D%7D%20%7B%3Db%3AA%7B2%2C4%7D%7D%7D">{eq a,b:{=a:A{2,4}} {=b:A{2,4}}}</a></tt></td></tr>
 <tr><td><tt>match.rev</tt></td><td>one named part is the other reversed</td><td><tt><a href="./?q=%7Brev%20a%2Cb%3A%7B%3Da%3AA%7B2%2C4%7D%7D%20%7B%3Db%3AA%7B2%2C4%7D%7D%7D">{rev a,b:{=a:A{2,4}} {=b:A{2,4}}}</a></tt></td></tr>
 <tr><td><tt>match.shift</tt></td><td>one named part is the other Caesar-shifted</td><td><tt><a href="./?q=%7Bshift13%20a%2Cb%3A%7B%3Da%3AA%7B3%7D%7D%20%7B%3Db%3AA%7B3%7D%7D%7D">{shift13 a,b:{=a:A{3}} {=b:A{3}}}</a></tt></td></tr>

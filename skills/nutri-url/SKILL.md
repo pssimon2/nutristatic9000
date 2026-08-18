@@ -70,6 +70,12 @@ can):
   `{ascii:116 104 101}` (decimal, 0x-hex, or 8-bit binary),
   `{polybius:44 23 15}` (5x5 row-col; I/J and C/K cells read both ways —
   covers tap code).
+- Cryptograms: `{iso:CIPHERTEXT}` matches everything with the same letter
+  pattern under a one-to-one substitution, most plausible first, key shown
+  per result. `{iso:qzmzmz}` → BANANA; `{iso:uijt jt ju}` → THIS IS IT.
+  Ciphertext is letters+spaces only (after the colon, no pattern). Works for
+  words and short phrases (must fit a corpus phrase), not paragraphs. Also a
+  word-pattern search: `{iso:abcab}`.
 - Shapes: `{roman:…}` `{rot180:…}` `{mirror:…}` `{sevenseg:…}` `{holes=1:…}`
   `{row1:…}` `{row2:…}` `{row3:…}` `{ascending:…}` `{descending:…}`.
 

@@ -189,7 +189,11 @@ describe("every construct is at the level the catalogue claims", () => {
                   ? `{${name} a,b:{=a:A{3}} {=b:A{3}}}`
                   : name === "shift"
                     ? "{shift13 a,b:{=a:A{3}} {=b:A{3}}}"
-                    : `{${name}:A{5}}`;
+                    : name === "iso"
+                      // Its argument is ciphertext, not a pattern; four
+                      // letters so the A{4} intersection can hold.
+                      ? "{iso:xjxw}"
+                      : `{${name}:A{5}}`;
       expect(await works(`A{4}&${spec}`), `${spec} intersected`).toBe(true);
     }
   }, 120000);

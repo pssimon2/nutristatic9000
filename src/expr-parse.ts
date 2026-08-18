@@ -39,6 +39,7 @@ import { packAdvice, packConjuncts } from "./packs.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import { FilterError, parseFilterSpec } from "./result-filter.js";
+import { isoHull, normalizeCipher } from "./isomorph.js";
 import { PatternAst, hasPred } from "./pattern-ast.js";
 import {
   findConstruct,
@@ -670,6 +671,38 @@ function parseNestedPredicate(
     return null;
   }
   const specText = s.slice(i + head[0].length, colon).trim();
+  // `{iso:…}`: the only predicate whose argument is data rather than a
+  // pattern. What follows the colon is ciphertext; the search pattern — the
+  // hull — is synthesized from it (shape, word breaks, the most-repeated
+  // letters pinned), and the verifier checks full isomorphism per match.
+  if (bare === "iso") {
+    const close = matchingClose(s, i);
+    if (close < 0) return null;
+    const text = constructText(s, i);
+    if (specText !== "") {
+      throw new ParseError(
+        text,
+        "{iso:…} takes just the ciphertext — e.g. {iso:xjxj yjkw}",
+      );
+    }
+    const cipher = normalizeCipher(s.slice(colon + 1, close - 1));
+    if (cipher === null) {
+      throw new ParseError(
+        text,
+        "{iso:…} takes ciphertext of letters and spaces — e.g. {iso:xjxj}",
+      );
+    }
+    const hull = isoHull(cipher);
+    box.and = [hull];
+    if (collectAst) {
+      box.ast = {
+        t: "pred",
+        spec: { kind: "iso", cipher },
+        inner: { t: "nfa", and: [cloneConjunct(hull)] },
+      };
+    }
+    return close;
+  }
   // A relation names two captures inside the pattern it wraps. Parsed apart
   // from the FilterSpec predicates: its verdict needs the parse, not just the
   // match text, so it becomes its own AST node.
