@@ -29,6 +29,33 @@
   <li><a href="#vs">How Nutristatic Differs from Nutrimatic</a>
   <li><a href="#indexes">The Indexes</a>
   </ul>
+<li><a href="#nine">What Nutristatic 9000 Has That the Original Does Not</a>
+  <ul>
+  <li><a href="#packs">Construct packs</a> &middot;
+      <a href="#remotelists">remote word lists</a> &middot;
+      <a href="#manifests">index manifests</a>
+  <li><a href="#weighted">Weighted search</a> &middot;
+      <a href="#captures">captures &amp; relations</a> &middot;
+      <a href="#negation">negation</a>
+  <li><a href="#values">Letter values</a> &middot;
+      <a href="#occurrences">occurrence constraints</a> &middot;
+      <a href="#banks">letter banks</a> &middot;
+      <a href="#edits">edit distance</a>
+  <li><a href="#ciphers">Ciphers</a> &middot;
+      <a href="#shapes">shape &amp; keyboard classes</a> &middot;
+      <a href="#morse">Morse &amp; the periodic table</a>
+  <li><a href="#rhyme">Rhyme &amp; homophones</a> &middot;
+      <a href="#meaning">meaning</a> &middot;
+      <a href="#syllables">syllables &amp; metre</a> &middot;
+      <a href="#selfref">corpus self-reference</a>
+  <li><a href="#categories">Categories</a> &middot;
+      <a href="#lists">named lists</a> &middot;
+      <a href="#palindromes">palindromes &amp; reversals</a> &middot;
+      <a href="#filters">stacking filters</a>
+  <li><a href="#why">“Why?”</a> &middot;
+      <a href="#reference">construct groups &amp; the full reference</a> &middot;
+      <a href="#folding">repeated-phrase folding</a>
+  </ul>
 <li><a href="#claude">Using It from Claude</a>
 <li><a href="#syntax">Pattern Language Syntax</a>
   <ul>
@@ -38,6 +65,14 @@
   <li><a href="#syntax_anagram">&lt;Anagrams&gt;</a>
   </ul>
 <li><a href="#examples">Examples from MSPH 12(3)</a>
+  <ul>
+  <li><a href="#examples_camouflage">Camouflage</a> &middot;
+      <a href="#examples_triple_sec">Triple Sec</a> &middot;
+      <a href="#examples_dice">Dice</a> &middot;
+      <a href="#examples_walkoffame">Walk of Fame</a> &middot;
+      <a href="#examples_murderbydepth">Murder By Depth</a> &middot;
+      <a href="#examples_mortaljeopardy">Mortal Jeopardy</a>
+  </ul>
 <li><a href="#how">How It Works (and What Makes a Query Slow)</a>
 </ul>
 
@@ -148,7 +183,7 @@ crosswords; the search box applies the same folding to whatever you type.
 <p>Everything below is part of this build's query language and tooling:</p>
 
 <ul>
-<li><b>Construct packs — <tt>?pack=https://…/dvorak.json</tt></b>. A JSON
+<li id="packs"><b>Construct packs — <tt>?pack=https://…/dvorak.json</tt></b>. A JSON
 pack declares table-driven constructs for the session: a
 <tt>letter-class</tt> (<tt>{"name":"dvorakrow1","type":"letter-class","letters":"pyfgcrl"}</tt>
 works like <tt>{row1:…}</tt>), a <tt>value-table</tt> (like <tt>{sum…}</tt>,
@@ -158,21 +193,21 @@ parameter, a <tt>constructPacks</tt> list in an index manifest, or
 <tt>--pack</tt> on the CLI. A pack cannot shadow a built-in name, and a pack
 that fails to parse says why instead of silently vanishing.
 
-<li><b>Remote word lists — <tt>{list:https://…/birds.txt}</tt></b>. A URL
+<li id="remotelists"><b>Remote word lists — <tt>{list:https://…/birds.txt}</tt></b>. A URL
 as the list argument fetches the list — one entry per line, <tt>#</tt>
 comments ignored, up to 20,000 entries — and uses it like any named list,
 anagram argument included. The server must allow cross-origin reads
 (CORS: <tt>Access-Control-Allow-Origin</tt>); a fetch that fails says so
 instead of failing as a pattern error. Fetched once per session.
 
-<li><b>Index manifests — <tt>my.index.meta.json</tt></b>. A custom index may
+<li id="manifests"><b>Index manifests — <tt>my.index.meta.json</tt></b>. A custom index may
 put a JSON sidecar beside itself naming its <tt>description</tt>, its
 <tt>language</tt>, and the <tt>transliterate</tt> pairs its text was
 normalized with (<tt>[["ä","ae"], …]</tt>) — so a German-normalized index
 served under any file name still folds umlauts the way its corpus did,
 instead of the page guessing from the file name.
 
-<li><b>Weighted search — <tt>{~near:king}</tt>, <tt>{edit:cargo}</tt></b>.
+<li id="weighted"><b>Weighted search — <tt>{~near:king}</tt>, <tt>{edit:cargo}</tt></b>.
 A soft construct boosts instead of filtering: <tt>{~near:king}</tt>,
 <tt>{~rhyme:day}</tt>, <tt>{~homo:knight}</tt>, <tt>{~like:reluctant}</tt>,
 <tt>{~kind:bird}</tt> and <tt>{~list:red,green,blue}</tt> match everything the
@@ -186,7 +221,7 @@ Both score matches, so they join a query with <tt>&amp;</tt> (or stand alone)
 rather than nesting inside a longer pattern; the engine orders weighted
 results exactly, no re-sorting.
 
-<li><b>Captures and relations — <tt>{=a:…}</tt>, <tt>{eq a,b:…}</tt>,
+<li id="captures"><b>Captures and relations — <tt>{=a:…}</tt>, <tt>{eq a,b:…}</tt>,
 <tt>{rev a,b:…}</tt>, <tt>{shift a,b:…}</tt></b>. Name the span a pattern
 covers with <tt>{=name:…}</tt>, then relate two names: <tt>eq</tt> says they
 read the same, <tt>rev</tt> that one is the other reversed, <tt>shift</tt>
@@ -198,7 +233,7 @@ actually contains. Captures are transparent to the search; the relation is
 checked on each finished match, against the spans some consistent parse
 assigns. Relations nest anywhere a predicate does.
 
-<li><b>Letter-value arithmetic — <tt>{sum=100:expr}</tt>,
+<li id="values"><b>Letter-value arithmetic — <tt>{sum=100:expr}</tt>,
 <tt>{scrabble&gt;25:expr}</tt></b>. Constrains the total of a match's letter
 values: <tt>sum</tt> uses a=1…z=26, <tt>scrabble</tt> uses tile values. Write
 <tt>=100</tt>, <tt>&lt;30</tt>, <tt>&lt;=30</tt>, <tt>&gt;25</tt>,
@@ -219,7 +254,7 @@ its whole step budget looking.
 <br>(Note that a space is a literal character, so write
 <tt>expr&amp;expr</tt> without spaces around the <tt>&amp;</tt>.)
 
-<li><b>Occurrence and multiset constraints.</b> Same machinery, counting
+<li id="occurrences"><b>Occurrence and multiset constraints.</b> Same machinery, counting
 letters instead of scoring them, and taking the same comparisons
 (<tt>=</tt>, <tt>&lt;</tt>, <tt>&lt;=</tt>, <tt>&gt;</tt>, <tt>&gt;=</tt>,
 <tt>a..b</tt>):
@@ -239,7 +274,7 @@ finds six-letter words with no repeated letter. "No letter repeated" is
 expressed as 26 independent two-state counters rather than one machine over
 sets of letters, which is why it costs almost nothing.
 
-<li><b>Letter banks and sub-anagrams.</b>
+<li id="banks"><b>Letter banks and sub-anagrams.</b>
 <tt><a href="./?q=%3C%3Cwashington%3E%3E">&lt;&lt;washington&gt;&gt;</a></tt>
 is a letter bank: only those letters, each reusable as often as you like, and
 every distinct one must appear — it finds "was nothing" and "showing that".
@@ -249,7 +284,7 @@ a sub-anagram: any subset of those letters, respecting how many of each you
 have, so it spells "crypt" but not "ccc". Both take letters, not a pattern,
 and compose like any other atom.
 
-<li><b>Edit distance — <tt>{del1:beast}</tt>, <tt>{add1:cargo}</tt>,
+<li id="edits"><b>Edit distance — <tt>{del1:beast}</tt>, <tt>{add1:cargo}</tt>,
 <tt>{subst1:cargo}</tt>, <tt>{edit&lt;=2:cargo}</tt></b>. Deleted-letter and
 added-letter puzzles otherwise mean brute force or leaving the tool.
 <tt><a href="./?q=%7Bdel1%3Abeast%7D">{del1:beast}</a></tt> finds BEST,
@@ -278,7 +313,7 @@ is "an instrument that becomes a bird when you drop a letter" — CLOCK, because
 COCK is a bird — and adding <tt>(a)</tt> to the <tt>{add1…}</tt> restricts it
 to instruments that gained an A.
 
-<li><b>Ciphers — <tt>{caesar:kdhv}</tt>, <tt>{rot13:cvmmn}</tt>,
+<li id="ciphers"><b>Ciphers — <tt>{caesar:kdhv}</tt>, <tt>{rot13:cvmmn}</tt>,
 <tt>{caesar+5:…}</tt>, <tt>{atbash:gsv}</tt></b>. The unknown-shift form is the
 one that earns its keep: it evaluates all 25 shifts at once and lets the corpus
 say which is a phrase — and <b>the matched shift is shown beside each
@@ -289,7 +324,7 @@ Transforms take a literal, never a character class: rotating <tt>C</tt> would
 mean "the class you get by shifting the consonants", which is no use to
 anyone.
 
-<li><b>Structural, keyboard and encoding classes.</b> Each is a small letter
+<li id="shapes"><b>Structural, keyboard and encoding classes.</b> Each is a small letter
 set or chain, and each turns up constantly in hunts:
 <ul>
 <li><tt>{roman:expr}</tt> spelled only in Roman numerals (CIVIC, MIMIC);
@@ -309,7 +344,7 @@ The ambiguity is exactly what the corpus is for.
 <tt>A{4} A{3} A{5}</tt>.
 </ul>
 
-<li><b>Negation — <tt>!expr</tt></b>. The language already had intersection
+<li id="negation"><b>Negation — <tt>!expr</tt></b>. The language already had intersection
 (<tt>&amp;</tt>); this is its missing dual.
 <tt><a href="./?q=A%7B5%7D%26%21.%2Aee.%2A">A{5}&amp;!.*ee.*</a></tt> is five
 letters with no double E, and <tt>A{4}&amp;!.*[aeiou].*</tt> finds four-letter
@@ -324,7 +359,7 @@ place a limit remains is a negation wrapped in a quantifier, a union or a
 longer pattern — <tt>(!expr)*</tt> — where the complement has to be built out
 in full before the search starts; that says so when it happens.
 
-<li><b>Rhyme and homophones — <tt>{rhyme:tree}</tt>, <tt>{homo:knight}</tt></b>.
+<li id="rhyme"><b>Rhyme and homophones — <tt>{rhyme:tree}</tt>, <tt>{homo:knight}</tt></b>.
 <tt><a href="./?q=%7Brhyme%3Anight%7D%26A%7B5%7D">{rhyme:night}&amp;A{5}</a></tt>
 gives RIGHT, WHITE, LIGHT, WRITE; <tt>{homo:knight}</tt> gives NIGHT and NITE.
 A rhyme runs from the last <em>primary</em>-stressed vowel, which is the
@@ -342,7 +377,7 @@ spellings, so homophone groups are wider than you might expect. It is fetched
 only when a query needs it (about 340 KB), and kept in a cache of its own — so
 it is not re-fetched when the site updates, and rhymes keep working offline.
 
-<li><b>Meaning — <tt>{like:reluctant}</tt></b>. Half of hunt work is "seven
+<li id="meaning"><b>Meaning — <tt>{like:reluctant}</tt></b>. Half of hunt work is "seven
 letters, matches <tt>.a..e..</tt>, and clues something like <em>reluctant</em>",
 where either half alone is useless and together they are decisive. That
 intersection is the whole point, and it is one query here:
@@ -380,7 +415,7 @@ will not find a word that merely feels related, and it knows only words
 WordNet knows. Fetched only when a query needs it (about 590 KB), kept across updates, and
 usable offline once fetched.
 
-<li><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
+<li id="selfref"><b>Corpus self-reference — <tt>{compound 2:A{9}}</tt></b>. Keeps only the
 matches that cut into that many words the index actually knows, and
 <b>shows the cut</b>: COPYRIGHT = COPY·RIGHT, KEYBOARD = KEY·BOARD. Charades,
 compounds and "which nine-letter words are two words joined" fall straight
@@ -395,7 +430,7 @@ FOLLOW·ING is a weak reading you can see for yourself.
 the index: the pattern does the shape and prunes the search, then the index is
 asked, per candidate, whether the pieces are words.
 
-<li><b>Palindromes and reversals — <tt>{palindrome:A{5}}</tt>,
+<li id="palindromes"><b>Palindromes and reversals — <tt>{palindrome:A{5}}</tt>,
 <tt>{reversible:A{6}}</tt></b>. Both are checked on finished matches rather
 than built into the automaton, which is what makes them cheap:
 <tt><a href="./?q=%7Bpalindrome%3AA%7B5%7D%7D">{palindrome:A{5}}</a></tt>
@@ -406,7 +441,7 @@ a tandem walk would need. Palindromes ignore where the words fall, so NEVER
 ODD OR EVEN counts. The reversal is shown beside each match: corpora contain
 junk tokens, and seeing the mirror lets you dismiss a bad one at a glance.
 
-<li><b>Morse and the periodic table — <tt>{morse:...-...}</tt>,
+<li id="morse"><b>Morse and the periodic table — <tt>{morse:...-...}</tt>,
 <tt>{elements:expr}</tt></b>. The two encodings that otherwise send you out of
 the tool. <tt>{morse:…}</tt> takes unspaced dots and dashes and resolves them
 into every letter-splitting at once — <tt>{morse:.....--.-..}</tt> gives HAND
@@ -416,7 +451,7 @@ keeps only matches spellable in chemical symbols: SEARCH is Se·Ar·C·H,
 BACON is Ba·C·O·N. All 118 symbols are known; spelling is a segmentation, so
 it stays regular and composes (<tt>{elements:A*}&amp;.*con</tt>).
 
-<li><b>Categories — <tt>{kind:bird}</tt></b>. "A seven-letter bird" is the
+<li id="categories"><b>Categories — <tt>{kind:bird}</tt></b>. "A seven-letter bird" is the
 shape of half the crossword clues ever written, and it is a question about a
 category rather than a pattern.
 <tt><a href="./?q=%7Bkind%3Abird%7D%26A%7B7%7D">{kind:bird}&amp;A{7}</a></tt>
@@ -426,7 +461,7 @@ WordNet's ~96,000 senses works the same way, so this is the hierarchy rather
 than a list somebody curated. A category covering more than 4000 names (ENTITY,
 say) is refused: at that width it is a way of asking for the dictionary.
 
-<li><b>Syllables and metre — <tt>{syllables=3:…}</tt>, <tt>{stress 100:…}</tt></b>.
+<li id="syllables"><b>Syllables and metre — <tt>{syllables=3:…}</tt>, <tt>{stress 100:…}</tt></b>.
 How a word is <em>said</em> is not a property of how it is spelled, so both are
 checked on finished matches.
 <tt><a href="./?q=%7Bsyllables%3D3%3AA%7B7%7D%7D">{syllables=3:A{7}}</a></tt>
@@ -438,7 +473,7 @@ dactyl (PRIVACY, GENERAL, HISTORY), useful for verse and lyrics. A phrase adds
 up word by word, and a word the dictionary doesn't know is left out rather
 than guessed at.
 
-<li><b>“Why?” — how a match got there</b>. Every result carries a small
+<li id="why"><b>“Why?” — how a match got there</b>. Every result carries a small
 <tt>why?</tt> button. It reports, conjunct by conjunct, what the engine
 checked, and names the thing the search itself threw away: for
 <tt>{kind:instrument}&amp;{add1:{kind:bird}}</tt> the answer CLOCK explains
@@ -448,14 +483,14 @@ total they computed, and a conjunct the match fails is marked rather than
 hidden. The reconstruction runs once, for one word, when you ask — so it can
 be exhaustive in a way the search cannot.
 
-<li><b>Stacking result filters</b>. The <b>match</b> family wraps the whole
+<li id="filters"><b>Stacking result filters</b>. The <b>match</b> family wraps the whole
 query, and they nest: <tt><a href="./?q=%7Bpalindrome%3A%7Bsyllables%3D1%3AA%7B3%7D%7D%7D">{palindrome:{syllables=1:A{3}}}</a></tt>
 is "a three-letter palindrome of one syllable" — DID, NON, POP. Every filter
 must be satisfied, and each contributes its own annotation, so
 <tt>{reversible:{syllables=1:A{4}}}</tt> shows both the mirror word and the
 syllable count. Repeating the same filter is an error rather than a no-op.
 
-<li><b>Construct groups and the full reference</b>. Every
+<li id="reference"><b>Construct groups and the full reference</b>. Every
 <tt>{name:…}</tt> construct belongs to a family and can be written with it:
 <tt><a href="./?q=%7Bcipher.rot13%3Auryyb%7D">{cipher.rot13:uryyb}</a></tt>.
 The bare name still works everywhere, so old links keep working; the prefix is
@@ -467,8 +502,9 @@ right one, rather than a silent reinterpretation.
 same table, shows what each one does, and underlines a query the engine cannot
 parse — using the engine's own parser, so the box and the search can never
 disagree. A construct whose name is its own family is written bare
-(<tt>{edit&lt;=2:…}</tt>). The <b>match</b> and <b>out</b> families wrap the
-whole query; the rest compose anywhere.
+(<tt>{edit&lt;=2:…}</tt>), and every family composes anywhere: a
+<b>match</b> construct written inside a pattern is checked on the span it
+covers.
 
 <!-- REFERENCE:START (generated by scripts/build-docs.mjs) -->
 <h3 class="grp">word<span class="gb"> — look words up in a dictionary or the corpus</span></h3>
@@ -544,42 +580,7 @@ whole query; the rest compose anywhere.
 </table>
 <!-- REFERENCE:END -->
 
-<li><b>“Why?” — how a match got there</b>. Every result carries a small
-<tt>why?</tt> button. It reports, conjunct by conjunct, what the engine
-checked, and names the thing the search itself threw away: for
-<tt>{kind:instrument}&amp;{add1:{kind:bird}}</tt> the answer CLOCK explains
-itself as <i>“clock” is a kind of instrument</i> and <i>“cock” with “l”
-added</i>. Ciphers report the shift they used, counting constraints report the
-total they computed, and a conjunct the match fails is marked rather than
-hidden. The reconstruction runs once, for one word, when you ask — so it can
-be exhaustive in a way the search cannot.
-
-<li><b>Construct groups — <tt>{cipher.rot13:…}</tt></b>. Every
-<tt>{name:…}</tt> construct can be written with a prefix naming its family.
-The bare name still works everywhere, so old links keep working; the prefix is
-there for when two names look related and are not. <tt>rot13</tt> decodes a
-shifted literal and <tt>rot180</tt> is the set of letters that survive being
-turned upside down — written out as
-<tt><a href="./?q=%7Bcipher.rot13%3Auryyb%7D">{cipher.rot13:uryyb}</a></tt>
-and <tt><a href="./?q=%7Bshape.rot180%3AA%7B4%7D%7D">{shape.rot180:A{4}}</a></tt>
-they can no longer be mistaken for each other. Naming the wrong group is an
-error that tells you the right one, rather than a silent reinterpretation.
-<ul>
-<li><b>word</b> — look words up in a dictionary or the corpus: <tt>word.rhyme</tt>, <tt>word.homo</tt>, <tt>word.like</tt>, <tt>word.near</tt>, <tt>word.kind</tt>, <tt>word.list</tt>
-<li><b>count</b> — count letters, values or occurrences: <tt>count.sum</tt>, <tt>count.scrabble</tt>, <tt>count</tt>, <tt>count.letters</tt>, <tt>count.words</tt>, <tt>count.all</tt>, <tt>count.distinct</tt>, <tt>count.maxrep</tt>
-<li><b>bag</b> — restrict which letters are available: <tt>bag.sub</tt>, <tt>bag.bank</tt>
-<li><b>edit</b> — match something a few letters away: <tt>edit.del</tt>, <tt>edit.add</tt>, <tt>edit.subst</tt>, <tt>edit</tt>
-<li><b>cipher</b> — decode a literal that has been shifted or reflected: <tt>cipher.caesar</tt>, <tt>cipher.rot</tt>, <tt>cipher.rot13</tt>, <tt>cipher.atbash</tt>
-<li><b>spell</b> — spell the match some other way: <tt>spell.t9</tt>, <tt>spell.enum</tt>, <tt>spell.morse</tt>, <tt>spell.elements</tt>
-<li><b>shape</b> — restrict letters by how they look or where they are typed: <tt>shape.roman</tt>, <tt>shape.rot180</tt>, <tt>shape.mirror</tt>, <tt>shape.sevenseg</tt>, <tt>shape.holes</tt>, <tt>shape.row1</tt>, <tt>shape.row2</tt>, <tt>shape.row3</tt>, <tt>shape.ascending</tt>, <tt>shape.descending</tt>
-<li><b>match</b> — ask a question of each finished match: <tt>match.compound</tt>, <tt>match.palindrome</tt>, <tt>match.reversible</tt>, <tt>match.syllables</tt>, <tt>match.stress</tt>, <tt>match.anagram</tt>
-</ul>
-A construct whose name is its own group is written bare: <tt>{edit&lt;=2:…}</tt>,
-not <tt>{edit.edit&lt;=2:…}</tt>. Every family composes anywhere: a
-<b>match</b> construct written inside a pattern is checked on the span it
-covers.
-
-<li><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
+<li id="lists"><b>Named category lists — <tt>{list:greek}</tt></b>. Hunts run on
 categories. A list is just a large alternation, so it costs the engine nothing
 and composes with everything:
 <tt><a href="./?q=.%2A%7Blist%3Anato%7D.%2A">.*{list:nato}.*</a></tt> finds a
@@ -626,7 +627,7 @@ normalised the same way — <tt>{list:New York,Los Angeles}</tt> works — and t
 whole thing travels in the URL like the rest of the query, with no settings to
 save.
 
-<li><b>Repeated-phrase folding.</b> The index stores overlapping windows of
+<li id="folding"><b>Repeated-phrase folding.</b> The index stores overlapping windows of
 every phrase, so one piece of text could previously fill the whole first
 screen ("dieses abschnittes wurde", "archivierung dieses abschnittes wurde",
 "abschnittes wurde gewuenscht", and so on). Results that share a substantial
