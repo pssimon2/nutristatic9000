@@ -119,6 +119,17 @@ survives.</p>
   <tr><td class="want">Closest in meaning first, keep everything<div class="note">ROYAL, then QUEEN — the tilde boosts instead of filtering, so the rest of the five-letter words still follow, just later. Quoted so the shape is one word.</div></td><td><a href="./?q=%7B~near%3Aroyal%7D%26%22A%7B5%7D%22"><tt>{~near:royal}&amp;"A{5}"</tt></a></td></tr>
   <tr><td class="want">Everything within two edits of PUZZLE, nearest first<div class="note">PUZZLE exact, then one edit, then two — a graded stream rather than a cutoff.</div></td><td><a href="./?q=%7Bedit%3Apuzzle%7D"><tt>{edit:puzzle}</tt></a></td></tr>
 </table>
+<h2>The deep end</h2>
+<p>Five that use most of the machine at once. Nothing here is a special
+mode &mdash; every one is ordinary constructs composed, which is the point.</p>
+<table class="recipes">
+  <tr><td class="want">Drop a letter from a country, anagram what's left — get a bird<div class="note">CRANE is FRANCE without its F, rearranged; GANDER is GRENADA less an A; MOA is OMAN missing its N. Four layers deep: a curated list, inside an edit, inside an anagram predicate, intersected with a WordNet category — and each answer shows the intermediate it came from.</div></td><td><a href="./?q=%7Banagram%20%7Bdel1%3A%7Blist%3Acountries%7D%7D%3A%7Bkind%3Abird%7D%7D"><tt>{anagram {del1:{list:countries}}:{kind:bird}}</tt></a></td></tr>
+  <tr><td class="want">The one-dollar bird<div class="note">T+U+R+K+E+Y = 20+21+18+11+5+25 = exactly 100. The classic "dollar word" hunt, restricted to an entire taxonomy at once — STARLING and MERGANSER land on the same total.</div></td><td><a href="./?q=%7Bsum%3D100%3A%7Bkind%3Abird%7D%7D"><tt>{sum=100:{kind:bird}}</tt></a></td></tr>
+  <tr><td class="want">A tool, followed by itself in the mirror<div class="note">SAW WAS, RAM MAR, TAP PAT. The capture {=a:…} may wrap any pattern — here a whole WordNet category — and {rev a,b:…} then demands the second word read the first one backwards. Wordplay discovered, not looked up.</div></td><td><a href="./?q=%7Brev%20a%2Cb%3A%7B%3Da%3A%7Bkind%3Atool%7D%7D%20%7B%3Db%3AA%7B3%7D%7D%7D"><tt>{rev a,b:{=a:{kind:tool}} {=b:A{3}}}</tt></a></td></tr>
+  <tr><td class="want">A word that ends with its own beginning, reversed<div class="note">REGISTER opens RE and closes ER; SERVICES opens SER and closes RES. Both captures live inside a single word with anything allowed between them — the relation machinery doesn't care where the spans sit.</div></td><td><a href="./?q=%7Brev%20a%2Cb%3A%7B%3Da%3AA%7B2%2C3%7D%7DA*%7B%3Db%3AA%7B2%2C3%7D%7D%7D%26A%7B6%2C10%7D"><tt>{rev a,b:{=a:A{2,3}}A*{=b:A{2,3}}}&amp;A{6,10}</tt></a></td></tr>
+  <tr><td class="want">Every bird — but the ones rhyming with DAY come first<div class="note">JAY leads, and nothing is thrown away: the tilde makes rhyming a boost instead of a filter, so the rest of the birds still follow in frequency order. For when you suspect a rhyme but wouldn't bet the puzzle on it.</div></td><td><a href="./?q=%7B~rhyme%3Aday%7D%26%7Bkind%3Abird%7D%26A%7B3%2C5%7D"><tt>{~rhyme:day}&amp;{kind:bird}&amp;A{3,5}</tt></a></td></tr>
+</table>
+
 <hr>
 <p><a href="./">« Back to search</a> · <a href="./usage.html">Usage guide</a></p>
 </body></html>
