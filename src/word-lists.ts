@@ -93,6 +93,84 @@ const RAW: Record<string, string> = {
     "alls well that ends well,measure for measure,timon of athens," +
     "coriolanus,antony and cleopatra,pericles,cymbeline,the winters tale",
 
+  // The puzzle-hunt canon: sets that turn up as extraction keys again and
+  // again because they are ordered, complete, and everyone knows them.
+  rainbow: "red,orange,yellow,green,blue,indigo,violet",
+  colors:
+    "red,orange,yellow,green,blue,purple,violet,indigo,pink,brown,black," +
+    "white,gray,grey,cyan,magenta,maroon,navy,teal,olive,lime,silver,gold," +
+    "beige,turquoise,lavender,crimson,scarlet,tan,salmon,coral,khaki,ivory," +
+    "azure,amber,mauve,fuchsia",
+  resistors: "black,brown,red,orange,yellow,green,blue,violet,gray,white",
+  reindeer: "dasher,dancer,prancer,vixen,comet,cupid,donner,blitzen,rudolph",
+  cluesuspects: "scarlett,mustard,white,green,peacock,plum,orchid",
+  clueweapons:
+    "candlestick,knife,dagger,lead pipe,revolver,rope,wrench,spanner",
+  cluerooms:
+    "kitchen,ballroom,conservatory,dining room,billiard room,library," +
+    "lounge,hall,study",
+  monopoly:
+    "mediterranean avenue,baltic avenue,oriental avenue,vermont avenue," +
+    "connecticut avenue,st charles place,states avenue,virginia avenue," +
+    "st james place,tennessee avenue,new york avenue,kentucky avenue," +
+    "indiana avenue,illinois avenue,atlantic avenue,ventnor avenue," +
+    "marvin gardens,pacific avenue,north carolina avenue," +
+    "pennsylvania avenue,park place,boardwalk,reading railroad," +
+    "pennsylvania railroad,b and o railroad,short line,electric company," +
+    "water works",
+  wonders:
+    "great pyramid of giza,hanging gardens of babylon,temple of artemis," +
+    "statue of zeus,mausoleum at halicarnassus,colossus of rhodes," +
+    "lighthouse of alexandria",
+  apostles:
+    "peter,andrew,james,john,philip,bartholomew,thomas,matthew,thaddaeus," +
+    "simon,judas,matthias",
+  knights:
+    "lancelot,gawain,galahad,percival,tristan,kay,bedivere,bors,gareth," +
+    "gaheris,mordred,lamorak,agravain,geraint,lionel,ector,palamedes",
+  virtues:
+    "chastity,temperance,charity,diligence,patience,kindness,humility," +
+    "prudence,justice,fortitude,faith,hope",
+  hogwarts: "gryffindor,hufflepuff,ravenclaw,slytherin",
+  solfege: "do,re,mi,fa,sol,la,ti",
+  mohs:
+    "talc,gypsum,calcite,fluorite,apatite,orthoclase,feldspar,quartz," +
+    "topaz,corundum,diamond",
+  siprefixes:
+    "quetta,ronna,yotta,zetta,exa,peta,tera,giga,mega,kilo,hecto,deca," +
+    "deci,centi,milli,micro,nano,pico,femto,atto,zepto,yocto,ronto,quecto",
+  anniversaries:
+    "paper,cotton,leather,fruit,wood,candy,wool,copper,bronze,pottery,tin," +
+    "aluminum,steel,silk,lace,ivory,crystal,china,silver,pearl,coral,ruby," +
+    "sapphire,gold,emerald,diamond,platinum",
+  dwarfplanets: "ceres,pluto,haumea,makemake,eris",
+  egyptiangods:
+    "ra,amun,osiris,isis,horus,anubis,set,seth,thoth,bastet,sekhmet," +
+    "hathor,ptah,sobek,nephthys,geb,nut,shu,tefnut,aten,khnum,maat,montu," +
+    "neith,khonsu,min,nekhbet,wadjet,taweret,bes,apis,serqet,khepri,atum," +
+    "mut,anhur,apophis",
+  nbateams:
+    "hawks,celtics,nets,hornets,bulls,cavaliers,mavericks,nuggets,pistons," +
+    "warriors,rockets,pacers,clippers,lakers,grizzlies,heat,bucks," +
+    "timberwolves,pelicans,knicks,thunder,magic,seventy sixers,sixers," +
+    "suns,trail blazers,kings,spurs,raptors,jazz,wizards",
+  nflteams:
+    "cardinals,falcons,ravens,bills,panthers,bears,bengals,browns,cowboys," +
+    "broncos,lions,packers,texans,colts,jaguars,chiefs,raiders,chargers," +
+    "rams,dolphins,vikings,patriots,saints,giants,jets,eagles,steelers," +
+    "forty niners,niners,seahawks,buccaneers,titans,commanders",
+  mlbteams:
+    "diamondbacks,braves,orioles,red sox,cubs,white sox,reds,guardians," +
+    "rockies,tigers,astros,royals,angels,dodgers,marlins,brewers,twins," +
+    "mets,yankees,athletics,phillies,pirates,padres,giants,mariners," +
+    "cardinals,rays,rangers,blue jays,nationals",
+  nhlteams:
+    "ducks,bruins,sabres,flames,hurricanes,blackhawks,avalanche," +
+    "blue jackets,stars,red wings,oilers,panthers,golden knights,kings," +
+    "wild,canadiens,predators,devils,islanders,rangers,senators,flyers," +
+    "penguins,sharks,kraken,blues,lightning,maple leafs,canucks,mammoth," +
+    "capitals,jets",
+
   // Sourced from Wikidata; regenerate with `node scripts/build-lists.mjs`.
   ...GENERATED_LISTS,
 };
@@ -141,6 +219,65 @@ const ALIASES: Record<string, string> = {
   weekdays: "days",
   cardsuits: "suits",
   directions: "compass",
+  roygbiv: "rainbow",
+  rainbowcolors: "rainbow",
+  color: "colors",
+  colour: "colors",
+  colours: "colors",
+  resistor: "resistors",
+  resistorcolors: "resistors",
+  reindeers: "reindeer",
+  santasreindeer: "reindeer",
+  suspects: "cluesuspects",
+  cluedosuspects: "cluesuspects",
+  weapons: "clueweapons",
+  cluedoweapons: "clueweapons",
+  rooms: "cluerooms",
+  cluedorooms: "cluerooms",
+  monopolyproperties: "monopoly",
+  monopolysquares: "monopoly",
+  sevenwonders: "wonders",
+  ancientwonders: "wonders",
+  wonder: "wonders",
+  apostle: "apostles",
+  disciples: "apostles",
+  knight: "knights",
+  roundtable: "knights",
+  arthurianknights: "knights",
+  virtue: "virtues",
+  sevenvirtues: "virtues",
+  heavenlyvirtues: "virtues",
+  hogwartshouses: "hogwarts",
+  houses: "hogwarts",
+  solfa: "solfege",
+  notes: "solfege",
+  mohsscale: "mohs",
+  hardness: "mohs",
+  prefixes: "siprefixes",
+  metricprefixes: "siprefixes",
+  siprefix: "siprefixes",
+  anniversary: "anniversaries",
+  anniversarygifts: "anniversaries",
+  weddinganniversaries: "anniversaries",
+  dwarfplanet: "dwarfplanets",
+  egyptian: "egyptiangods",
+  egyptiangod: "egyptiangods",
+  nba: "nbateams",
+  basketballteams: "nbateams",
+  nfl: "nflteams",
+  footballteams: "nflteams",
+  mlb: "mlbteams",
+  baseballteams: "mlbteams",
+  nhl: "nhlteams",
+  hockeyteams: "nhlteams",
+  romangods: "romandeities",
+  pokemon: "generationipokemon",
+  pokemongen1: "generationipokemon",
+  herbs: "culinaryherbsspices",
+  spices: "culinaryherbsspices",
+  languages: "officiallanguages",
+  stars: "brighteststars",
+  starwars: "starwarsplanetsmoons",
 };
 
 const CACHE = new Map<string, string[]>();
@@ -226,6 +363,15 @@ export function parseWikiLists(text: string): WikiLists {
 /** Normalise a written list name to a lookup key. */
 export function listKey(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * A key with its alias resolved, for looking up harvested lists — the alias
+ * table also points at catalogue slugs (`romangods` → `romandeities`), which
+ * `wordList` alone cannot serve because they are not bundled.
+ */
+export function resolveListKey(key: string): string {
+  return ALIASES[key] ?? key;
 }
 
 /**
@@ -344,7 +490,10 @@ export function listNfa(
       nameOrEntries.split(",").map(normalizeEntry).filter((e) => e !== ""),
     );
   }
+  // Aliases resolve before the harvested-catalogue fallback too, so a name
+  // like `romangods` finds the wiki list filed under `romandeities`.
   const key = listKey(nameOrEntries);
-  const entries = wordList(key) ?? lists?.entries.get(key) ?? null;
+  const entries =
+    wordList(key) ?? lists?.entries.get(resolveListKey(key)) ?? null;
   return entries ? entriesNfa(entries) : null;
 }

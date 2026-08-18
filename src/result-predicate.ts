@@ -12,7 +12,7 @@
 // a single filter slot hardcoded into two pipelines.
 
 import { SessionContext } from "./session-context.js";
-import { listKey, wordList } from "./word-lists.js";
+import { listKey, resolveListKey, wordList } from "./word-lists.js";
 import { FilterError } from "./result-filter.js";
 import { compileConjuncts } from "./find-expr.js";
 import { innerNfa } from "./conjunct.js";
@@ -207,7 +207,7 @@ async function anagramKeys(
   // argument shaped like a name, though: `listKey` strips punctuation, so
   // `A*` keys as "a" and could pick up a list by accident.
   const named = wordListLike(list)
-    ? (wordList(name) ?? ctx.lists?.entries.get(name) ?? null)
+    ? (wordList(name) ?? ctx.lists?.entries.get(resolveListKey(name)) ?? null)
     : null;
   // Failing that the argument is a pattern, and its language is the set to
   // rearrange — which is what makes `{anagram {kind:bird}:A{6}}` work, and

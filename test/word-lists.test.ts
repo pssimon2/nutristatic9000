@@ -43,6 +43,20 @@ describe("word lists", () => {
       chesspieces: 6,
       suits: 4,
       compass: 8,
+      rainbow: 7,
+      reindeer: 9,
+      hogwarts: 4,
+      dwarfplanets: 5,
+      wonders: 7,
+      solfege: 7,
+      resistors: 10,
+      cluesuspects: 7,
+      clueweapons: 8,
+      cluerooms: 9,
+      apostles: 12,
+      virtues: 12,
+      monopoly: 28,
+      siprefixes: 24,
     });
   });
 
@@ -283,24 +297,28 @@ describe("the harvested catalogue", () => {
     fs.readFileSync("web/public/lists.txt", "utf8"),
   );
 
-  it("has a breads list made of breads", () => {
-    const breads = lists.entries.get("breads");
-    expect(breads, "no breads list in the catalogue").toBeTruthy();
-    expect(breads!.length).toBeGreaterThan(100);
-    // The countries that used to be in it, from the place-of-origin column.
-    for (const stray of ["japan", "taiwan", "jordan", "france", "poland", "tibet"]) {
-      expect(breads, `${stray} is a place, not a bread`).not.toContain(stray);
+  it("has a cheeses list made of cheeses", () => {
+    // "List of cheeses" is the same table shape that once polluted breads:
+    // columns Name, Type, Place of origin, every cell becoming an entry.
+    const cheeses = lists.entries.get("cheeses");
+    expect(cheeses, "no cheeses list in the catalogue").toBeTruthy();
+    expect(cheeses!.length).toBeGreaterThan(100);
+    for (const stray of ["france", "japan", "italy", "germany", "poland"]) {
+      expect(cheeses, `${stray} is a place, not a cheese`).not.toContain(stray);
     }
   });
 
-  it("does not carry places into other food lists either", () => {
-    // The same table shape, so the same failure would show here.
-    for (const name of ["cheeses", "sausages", "soups"]) {
-      const list = lists.entries.get(name);
-      if (!list) continue;
-      for (const stray of ["france", "japan", "italy", "germany"]) {
-        expect(list, `${name} contains ${stray}`).not.toContain(stray);
-      }
+  it("is curated: every list is one someone would reach for in a puzzle", () => {
+    // The harvest once shipped 397 lists, most of them noise ("data deficient
+    // insects", "Oklahoma ballot measures") that buried the usable ones. The
+    // catalogue is now a reviewed set; growing it is fine, but a regenerated
+    // harvest dumping hundreds of unreviewed lists back in is a regression.
+    expect(lists.entries.size).toBeLessThan(60);
+    for (const gen of ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix"]) {
+      expect(
+        lists.entries.has(`generation${gen}pokemon`),
+        `generation ${gen} pokemon missing`,
+      ).toBe(true);
     }
   });
 });
