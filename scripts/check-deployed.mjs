@@ -60,7 +60,7 @@ const BUILT = "web/dist";
 if (fs.existsSync(BUILT)) {
   const assets = fs
     .readdirSync(BUILT)
-    .filter((f) => /\.(txt|bin|wasm)$/.test(f) || f === "demo.index");
+    .filter((f) => /\.(txt|bin|wasm|zip|md)$/.test(f) || f === "demo.index");
   for (const file of assets.sort()) {
     const local = fs.statSync(`${BUILT}/${file}`).size;
     let served = -1;

@@ -29,6 +29,7 @@
   <li><a href="#vs">How Nutristatic Differs from Nutrimatic</a>
   <li><a href="#indexes">The Indexes</a>
   </ul>
+<li><a href="#claude">Using It from Claude</a>
 <li><a href="#syntax">Pattern Language Syntax</a>
   <ul>
   <li><a href="#syntax_chars">Character Classes</a>
@@ -621,6 +622,32 @@ run of words with one already shown are now folded away, and a link under the
 results restores them. Short results are never affected, and literal text your
 pattern demands does not count as repetition.
 </ul>
+
+<h2><a name="claude">Using It from Claude</a></h2>
+
+<p><b>The nutri-url skill</b> teaches Claude to turn a constraint stated in
+plain words ("a country, minus one letter, anagrammed into an instrument")
+into a query in the language below and hand back a runnable link to this
+site. It is one Markdown file containing the full language reference, worked
+examples, and the pitfalls.</p>
+
+<ul>
+<li><p><b>Claude Code / CLI:</b> save
+<a href="nutri-url-skill.md">nutri-url-skill.md</a> as
+<tt>~/.claude/skills/nutri-url/SKILL.md</tt>:</p>
+<pre>mkdir -p ~/.claude/skills/nutri-url
+curl -o ~/.claude/skills/nutri-url/SKILL.md https://nutristatic.org/9000/nutri-url-skill.md</pre>
+
+<li><p><b>claude.ai:</b> download
+<a href="nutri-url-skill.zip">nutri-url-skill.zip</a> and upload it under
+Settings&nbsp;&rarr;&nbsp;Capabilities&nbsp;&rarr;&nbsp;Skills.</p>
+</ul>
+
+<p>There is also an <b>MCP server</b> in the
+<a href="https://github.com/pssimon2/nutristatic9000">repository</a>
+(<tt>mcp/server.ts</tt>) that runs searches against local index files, so an
+agent can verify a query actually matches before sharing it — see the
+README for setup.</p>
 
 <h2><a name="syntax">Pattern Language Syntax</a></h2>
 

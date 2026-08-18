@@ -275,6 +275,14 @@ claude mcp add nutristatic -- npx tsx /path/to/nutristatic9000/mcp/server.ts \
   /path/to/nutristatic9000/web/public /path/to/index/files
 ```
 
+There is also a **Claude skill** (`skills/nutri-url/SKILL.md`) that teaches
+Claude to translate a constraint stated in words into a query and a shareable
+`nutristatic.org/9000` URL. The build packages it for download —
+[nutri-url-skill.md](https://nutristatic.org/9000/nutri-url-skill.md) for
+`~/.claude/skills/nutri-url/SKILL.md`, and
+[nutri-url-skill.zip](https://nutristatic.org/9000/nutri-url-skill.zip) in the
+folder shape claude.ai's skill upload expects.
+
 ## Searching from the command line
 
 ```sh

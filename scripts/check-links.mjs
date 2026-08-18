@@ -108,7 +108,12 @@ for (const file of FILES) {
 }
 
 /** Files the build produces, so they are absent from the source tree. */
-const GENERATED = new Set(["nutristatic-offline.html"]);
+const GENERATED = new Set([
+  "nutristatic-offline.html",
+  // scripts/build-skill.mjs packages skills/nutri-url/SKILL.md into these.
+  "nutri-url-skill.md",
+  "nutri-url-skill.zip",
+]);
 
 // A relative link must point at something that ships. This is what would have
 // caught indexes.html offering `./en-wiki.index`: relative is not the same as

@@ -18,7 +18,7 @@
     "bench:update": "tsx scripts/bench.mjs --update",
     "dev": "vite web --port 5174",
     "build": "vite build web",
-    "postbuild": "node scripts/build-offline.mjs && node scripts/build-sw.mjs",
+    "postbuild": "node scripts/build-offline.mjs && node scripts/build-skill.mjs && node scripts/build-sw.mjs",
     "preview": "vite preview web --port 4318",
     "find-expr": "tsx cli/find-expr.ts",
     "make-index": "tsx cli/make-index.ts",
