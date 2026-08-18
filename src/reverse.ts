@@ -24,7 +24,7 @@ import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import { IndexReader } from "./index-reader.js";
 import { IndexWalker } from "./index-walker.js";
-import { ByteSink, IndexWriter, writeEntries } from "./index-writer.js";
+import { ByteSink, IndexWriter } from "./index-writer.js";
 
 /** A stored entry, reversed, keeping the trailing-space convention. */
 export function reverseEntry(text: string): string {
@@ -85,6 +85,28 @@ class BigCounter {
   *entries(): IterableIterator<[string, number]> {
     for (const m of this.shards.values()) yield* m.entries();
   }
+
+  /**
+   * Entries in global lexicographic order without one giant array: every
+   * member of a shard starts with the shard's two-character key, so sorting
+   * the keys and then each shard sorts the whole set. The largest corpus has
+   * ~100M reversed entries; a flat array of them is exactly the allocation
+   * that cannot be made.
+   */
+  *sortedEntries(): IterableIterator<[string, number]> {
+    const keys = [...this.shards.keys()].sort();
+    for (const k of keys) {
+      const entries = [...this.shards.get(k)!.entries()];
+      entries.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+      yield* entries;
+    }
+  }
+
+  /** Drop everything, so the next phase's memory does not sit on this one's. */
+  clear(): void {
+    this.shards.clear();
+    this.size = 0;
+  }
 }
 
 export async function buildReverseIndex(
@@ -134,8 +156,25 @@ export async function buildReverseIndex(
     if (m <= 0) continue;
     reversed.add(`${[...text].reverse().join("")} `, m);
   }
-  writeEntries(new IndexWriter(sink), [...reversed.entries()]);
-  return reversed.size;
+  // The counters are this build's memory ceiling; the write needs only the
+  // reversed set, streamed in sorted order rather than materialised.
+  c.clear();
+  leftExt.clear();
+  const writer = new IndexWriter(sink);
+  let prev = "";
+  let written = 0;
+  for (const [text, count] of reversed.sortedEntries()) {
+    let same = 0;
+    const limit = Math.min(prev.length, text.length);
+    while (same < limit && prev.charCodeAt(same) === text.charCodeAt(same)) {
+      ++same;
+    }
+    writer.next(text, same, count);
+    prev = text;
+    ++written;
+  }
+  writer.next(null, 0, 0);
+  return written;
 }
 
 /** The NFA accepting exactly the reversed language. */
