@@ -278,7 +278,13 @@ export function reverseFavored(query: string, ctx: SessionContext): boolean {
   try {
     const fwd = makeFilter(compileConjuncts(query, ctx));
     const rev = makeFilter(compileConjunctsReversed(query, ctx));
-    return startFanout(rev) < startFanout(fwd);
+    // Only for a decisive win, not a marginal one. The case reversal exists
+    // for is the anchored suffix — 37 openings forward, one reversed — and
+    // there the ratio is enormous. A narrow edge (a category whose words
+    // merely *end* in fewer distinct letters than they start with) is noise:
+    // acting on it once turned a 250-step forward answer into a reversed
+    // walk that ran out its network budget finding nothing.
+    return startFanout(rev) * 3 <= startFanout(fwd);
   } catch {
     return false;
   }

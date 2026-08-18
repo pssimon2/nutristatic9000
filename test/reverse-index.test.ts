@@ -95,3 +95,20 @@ describe("reverseFavored", () => {
     expect(reverseFavored("A{5", ctx)).toBe(false); // does not parse
   });
 });
+
+// The planner's choice, not just the walk: reversal must pay for itself.
+describe("reverseFavored demands a decisive win", () => {
+  it("keeps a marginal last-letter edge forward", async () => {
+    const { parseCategories } = await import("../src/categories.js");
+    const loaded = new SessionContext();
+    loaded.categories = parseCategories(
+      fs.readFileSync("web/public/categories.txt", "utf8"),
+    );
+    // Birds happen to end in fewer distinct letters than they start with —
+    // a narrow edge that once flipped this query onto a reversed walk that
+    // ran out its network budget, where forward answers in ~250 steps.
+    expect(reverseFavored("{iso:abbcbd}&{kind:bird}", loaded)).toBe(false);
+    // The case reversal exists for stays reversed: one opening vs dozens.
+    expect(reverseFavored('"A{1,20}tion"', loaded)).toBe(true);
+  });
+});
