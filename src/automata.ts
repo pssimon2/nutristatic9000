@@ -1,7 +1,7 @@
 // Minimal automata library replacing OpenFST for Nutrimatic's needs.
 //
 // The expression language only ever produces unweighted acceptors over the
-// alphabet {space, 0-9, a-z}, with label 0 acting as epsilon (upstream uses
+// alphabet {space, 0-9, a-z}, with label 0 acting as epsilon (Nutrimatic uses
 // FST label 0, notably for the '-' = "optional space" syntax). So instead of
 // weighted FSTs we implement: NFA build combinators (union/concat/closure),
 // determinization with built-in epsilon handling, Moore minimization with
@@ -594,7 +594,7 @@ export function trim(nfa: Nfa): Nfa {
   return out;
 }
 
-/** Upstream OptimizeExpr: rmepsilon + determinize + minimize. */
+/** Nutrimatic OptimizeExpr: rmepsilon + determinize + minimize. */
 export function optimizeToDfa(nfa: Nfa): Dfa {
   return minimize(determinize(nfa));
 }
@@ -618,7 +618,7 @@ export function equivalent(a: Nfa, b: Nfa): boolean {
   return true;
 }
 
-/** Upstream IntersectExprs: pairwise tree of optimized products. */
+/** Nutrimatic IntersectExprs: pairwise tree of optimized products. */
 export function intersectExprs(exprs: Nfa[], out: Nfa): void {
   if (exprs.length === 1) {
     out.copyFrom(exprs[0]);

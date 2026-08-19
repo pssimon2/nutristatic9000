@@ -47,6 +47,13 @@ for (const f of heads) {
 }
 console.error(`# copied ${heads.length} head sidecars into web/dist/`);
 
+// An optional executable named by NUTRISTATIC9000_DEPLOY_HOOK runs here,
+// with the dist directory as its argument — the place for additions
+// specific to one hosting (a host's legal pages, extra files) that do not
+// belong in this repo.
+const hook = process.env.NUTRISTATIC9000_DEPLOY_HOOK;
+if (hook) run(hook, ["web/dist"]);
+
 run("rsync", ["-az", "--delete", "web/dist/", target.endsWith("/") ? target : `${target}/`]);
 
 run("npx", ["tsx", "scripts/check-deployed.mjs"]);

@@ -1,6 +1,6 @@
 // Incremental search session shared by the web worker and any embedder:
 // wraps compileQuery + SearchDriver with a resumable step budget, streaming
-// results through a callback. Mirrors the upstream CGI's behavior of
+// results through a callback. Mirrors the Nutrimatic CGI's behavior of
 // stopping at a computation limit that the user can raise ("try harder").
 
 import { IndexReader } from "./index-reader.js";

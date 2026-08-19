@@ -1,6 +1,6 @@
 // The search filter: a DFA over the parsed expression NFA, built lazily.
 //
-// Upstream compiles the full DFA upfront (OpenFST determinize + minimize),
+// Nutrimatic compiles the full DFA upfront (OpenFST determinize + minimize),
 // which explodes on big anagram/intersection patterns — mostly into states
 // no real search ever visits. Here subset construction runs on demand: a
 // (state, symbol) transition is computed the first time the index walk asks

@@ -1,4 +1,4 @@
-// Port of upstream test-expr.cpp: each case builds a tiny index holding a
+// Port of Nutrimatic test-expr.cpp: each case builds a tiny index holding a
 // "yes" and a "no" string, then checks the expression finds exactly the
 // "yes" string first (and nothing further at an equal-or-better score).
 
@@ -51,7 +51,7 @@ async function testIndex(
   }
 }
 
-describe("test-expr golden cases (from upstream test-expr.cpp)", () => {
+describe("test-expr golden cases (from Nutrimatic test-expr.cpp)", () => {
   it("intersection with no possible match", async () => {
     await testIndex("foo&bar", null, " ");
   });

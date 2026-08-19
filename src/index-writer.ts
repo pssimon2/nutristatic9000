@@ -1,4 +1,4 @@
-// Port of upstream index-writer.cpp. Emits the exact same bytes as the C++
+// Port of Nutrimatic index-writer.cpp. Emits the exact same bytes as the C++
 // writer for the same input sequence, so indexes are interchangeable.
 //
 // next(text, same, count) must be called with strings in sorted order; `same`
@@ -173,7 +173,7 @@ export class IndexWriter {
     }
 
     // >= not >: a count byte of exactly 0x100 would wrap to 0, which the
-    // reader parses as "count follows" (upstream's assert shares the
+    // reader parses as "count follows" (Nutrimatic's assert shares the
     // off-by-one; the format truly maxes out at 255 children).
     if (choices.length >= 0x100) throw new Error("too many choices");
     if (choices.length < 0x20) {
@@ -193,7 +193,7 @@ export class IndexWriter {
 
 /**
  * Write a batch of (string, count) entries. Entries are sorted and identical
- * strings merged by the writer's accumulation, matching upstream make-index.
+ * strings merged by the writer's accumulation, matching Nutrimatic make-index.
  */
 export function writeEntries(
   writer: IndexWriter,

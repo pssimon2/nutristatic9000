@@ -27,7 +27,6 @@
 <li><a href="#what">What It Is</a>
   <ul>
   <li><a href="#vs">How Nutristatic Differs from Nutrimatic</a>
-  <li><a href="#indexes">The Indexes</a>
   </ul>
 <li><a href="#nine">What Nutristatic 9000 Has That the Original Does Not</a>
   <ul>
@@ -116,10 +115,9 @@ megabyte for a specific pattern; a few MB for broad ones). Pieces are
 cached in your browser, so repeat and related queries get faster the more
 you search. For the full experience you can press
 <em>"download whole index"</em> — the index is then stored on your device
-(so it works offline) and searches run entirely locally. Performance is
-variable: depending on the query and your hardware it can be faster than
-nutrimatic.org in some cases and slower in others — but nothing runs on a
-server, so there is no server-side time limit cutting long queries short.</p>
+(so it works offline) and searches run entirely locally. Performance
+depends on the query, the connection and your hardware — and since nothing
+runs on a server, there is no server-side time limit.</p>
 
 <li><p><b>Several indexes, switchable.</b> Use the picker at the bottom of
 the search page: twenty-two Wikipedias (English, German, French, Spanish,
@@ -129,55 +127,16 @@ Slovenian, Croatian, Slovak), Simple English Wikipedia (small and fast to
 warm up), and a
 web-corpus word/bigram list. You can also point it at any Nutrimatic-format
 index file hosted anywhere via a custom URL — the file format is
-byte-compatible with upstream's tools.</p>
+byte-compatible with Nutrimatic's tools.</p>
 
-<li><p><b>Big anagrams and intersections usually work.</b> Nutrimatic
-compiles the whole pattern to a state machine up front, which explodes for
-long anagrams (roughly 2<sup>N</sup> states for N parts) and kills queries
-past ~10–15 anagram parts or many <tt>&amp;</tt> clauses. Nutristatic
-compiles lazily during the search, materializing only the states the index
-actually reaches — so patterns like a 20+ letter anagram that fail outright
-on nutrimatic.org generally just run here. (They may still <em>search</em>
-slowly; see <a href="#how">below</a>.)</p>
-
-<li><p><b>Computation limits are yours to raise.</b> Instead of a hard
-30-CPU-second server kill, the search pauses at a step budget with a
-<em>"Try harder"</em> button that doubles it. Since it's your own machine
+<li><p><b>Computation limits are yours to raise.</b> The search pauses at
+a step budget with a <em>"Try harder"</em> button that doubles it. Since it's your own machine
 doing the work, you decide how hard to try.</p>
 
-<li><p><b>Umlauts are understood.</b> Queries transliterate ä→ae, ö→oe,
-ü→ue, ß→ss automatically (the German index is built with the same
-convention; in the English index accented characters act as word breaks,
-as on nutrimatic.org).</p>
-
 <li><p><b>Results can differ from nutrimatic.org.</b> Same algorithms and
-ranking, but the index here is built from a 2026 Wikipedia dump (upstream's
+ranking, but the index here is built from a 2026 Wikipedia dump (Nutrimatic's
 current edition uses a 2023 dump), so frequencies — and therefore result
 order — differ. The phrase-frequency cutoff is the same (5 occurrences).</p>
-</ul>
-
-<h3><a name="indexes">The Indexes</a></h3>
-
-<ul>
-<li><b>English Wikipedia</b> — 1.3&nbsp;GB, built from the August 2026 dump;
-about 5.7 billion indexed word positions. The default, and the one that
-behaves most like nutrimatic.org.
-<li><b>Simple English Wikipedia</b> — 41&nbsp;MB. Real Wikipedia text with a
-much smaller vocabulary; quick to download whole, fine for common words and
-famous names, weak on obscure phrases.
-<li><b>Web words + bigrams</b> — 20&nbsp;MB, built from Peter Norvig's
-Google-web-corpus frequency lists (single words and two-word phrases only —
-no longer phrases, so multi-word splicing is limited).
-<li><b>German Wikipedia</b> — built from the August 2026 dewiki dump;
-umlauts stored as ae/oe/ue/ss (matching German puzzle convention), and the
-search box transliterates ä/ö/ü/ß in queries automatically.
-<li><b>French, Spanish, Italian, Portuguese, Dutch, Polish, Swedish,
-Catalan, Indonesian, Czech, Hungarian, Norwegian, Romanian, Turkish, Finnish,
-Danish, Esperanto, Slovenian, Croatian and Slovak Wikipedia</b> — August 2026
-dumps.
-Diacritics fold to base letters (à→a, ñ→n, ç→c, ł→l, ı→i; œ→oe and æ→ae
-per French convention), the usual convention in those languages'
-crosswords; the search box applies the same folding to whatever you type.
 </ul>
 
 <h2><a name="nine">What Nutristatic 9000 Has That the Original Does Not</a></h2>
@@ -797,10 +756,9 @@ for applying several constraints in parallel. For example,
 matches single words that contain all of "a", "b" and "c" (but in no
 particular order) and are also at least 5 letters long overall.</p>
 
-<p>(On nutrimatic.org, many combined <tt>&amp;</tt> expressions can take
-exponentially long to compile. Nutristatic compiles intersections lazily, so
-even large numbers of clauses are cheap to parse — though the search itself
-still gets harder with each added constraint's rarity.)</p>
+<p>(Nutristatic compiles intersections lazily, so even large numbers of
+clauses are cheap to parse — though the search itself still gets harder with
+each added constraint's rarity.)</p>
 
 <h4><a name="syntax_anagram">&lt;Anagrams&gt;</a></h4>
 
@@ -821,10 +779,10 @@ matches "anagram" but not "margana".</p>
 <p>Remember, if you want to restrict your anagram to single words, use
 "<a href="#syntax_quotes">quoted phrases</a>".</p>
 
-<p><b>Note:</b> Long anagrams that would fail to compile on nutrimatic.org
-generally run here (see <a href="#vs">the differences</a>), but the
-<em>search</em> for a long anagram still visits many index nodes and may hit
-the computation limit — the "Try harder" button is your friend.</p>
+<p><b>Note:</b> Long anagrams compile fine here (see
+<a href="#vs">the differences</a>), but the <em>search</em> for a long
+anagram still visits many index nodes and may hit the computation limit —
+the "Try harder" button is your friend.</p>
 
 <p><b>Bug (faithfully inherited from Nutrimatic):</b> the anagram algorithm
 isn't perfect -- when using anagrams of wildcards or pieces that aren't
@@ -960,7 +918,7 @@ time budget gets to.</p></p>
 and phrase that occurs in Wikipedia at least five times, where every node
 carries a frequency count. The English index packs about 5.7 billion indexed
 word positions into a 1.3&nbsp;GB file, in a format byte-compatible with
-upstream Nutrimatic's tools.</p>
+Nutrimatic's tools.</p>
 
 <p>When searching for a pattern, the engine runs a
 <a href="http://en.wikipedia.org/wiki/Best-first_search">best-first search</a>
@@ -983,7 +941,7 @@ phrases which occur naturally are considered before such "frankenphrases".</p>
 <a href="http://en.wikipedia.org/wiki/Deterministic_finite_state_machine">deterministic
 finite state machine</a>. Where Nutrimatic uses the
 <a href="http://www.openfst.org/">OpenFST</a> library to build the complete
-machine before searching (which is what explodes for long anagrams),
+machine before searching,
 Nutristatic determinizes <em>lazily</em>: states of the machine — including
 the products implied by <tt>&amp;</tt> and by anagram constraints — are only
 constructed when the index walk actually reaches them, and are cached for
@@ -991,9 +949,8 @@ reuse. Compilation is effectively instant for any pattern; complexity is
 paid only in proportion to what the search actually explores.</p>
 
 <p>What still takes time is the search itself. The
-search pauses at a step budget (rather than being killed as on
-nutrimatic.org) and offers <em>"Try harder"</em> to continue with a doubled
-budget. In the default streaming mode there is a second cost: index pieces
+search pauses at a step budget and offers <em>"Try harder"</em> to continue
+with a doubled budget. In the default streaming mode there is a second cost: index pieces
 are fetched over the network as the search walks them, so a broad first-time
 query also downloads a few megabytes (with fetched pieces cached for next
 time; the downloaded-index mode has no such cost at all).</p>
@@ -1036,6 +993,4 @@ from <a href="https://www.wikidata.org/">Wikidata</a>, which is
 above are adapted from the original
 <a href="https://nutrimatic.org/2024/usage.html">Nutrimatic usage guide</a>.
 Updated Aug 14, 2026.</address>
-<p style="font-size:0.8em;color:#767676;"><a href="/impressum.html">Impressum</a>
-· <a href="/datenschutz.html">Datenschutz</a></p>
 </body></html>

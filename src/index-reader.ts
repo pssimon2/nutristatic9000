@@ -1,6 +1,6 @@
-// Port of upstream index-reader.cpp.
+// Port of Nutrimatic index-reader.cpp.
 //
-// Index format (from upstream index.h): the index is a series of trie nodes,
+// Index format (from Nutrimatic index.h): the index is a series of trie nodes,
 // parents following children. Each node is a table of (letter, frequency,
 // child-node-offset) entries. Node formats, selected by the last byte:
 //

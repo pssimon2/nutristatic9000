@@ -16,8 +16,8 @@ async function open(file: string): Promise<IndexReader> {
 }
 
 async function runMerged(query: string, max = 200) {
-  const tiny = await open("test/fixtures/upstream-tiny.index");
-  const bigger = await open("test/fixtures/upstream-bigger.index");
+  const tiny = await open("test/fixtures/nutrimatic-tiny.index");
+  const bigger = await open("test/fixtures/nutrimatic-bigger.index");
   const driver = new MergedDriver(
     [
       { reader: tiny, label: "tiny" },
@@ -60,7 +60,7 @@ describe("MergedDriver", () => {
   });
 
   it("reports exhaustion once every lane is spent", async () => {
-    const tiny = await open("test/fixtures/upstream-tiny.index");
+    const tiny = await open("test/fixtures/nutrimatic-tiny.index");
     const driver = new MergedDriver(
       [{ reader: tiny, label: "tiny" }],
       compileQuery("fox", ctx),

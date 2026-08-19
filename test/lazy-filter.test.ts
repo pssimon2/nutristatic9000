@@ -1,6 +1,6 @@
 // The lazy conjunct path (parseExprBox + makeFilter) must behave exactly
 // like the materialized path (parseExpr + ExprFilter) — verified on the
-// upstream golden cases — and must additionally handle patterns whose eager
+// Nutrimatic golden cases — and must additionally handle patterns whose eager
 // product compilation is intractable.
 
 import { describe, expect, it } from "vitest";

@@ -69,7 +69,7 @@ is not on the hot path.
 
 ## The index format is frozen
 
-Byte-compatible with upstream Nutrimatic, forever. New capabilities ship as
+Byte-compatible with Nutrimatic, forever. New capabilities ship as
 **sidecar files** (`.idxz` compression, `.head` first-page answers, `.rindex`
 reversed copies, `lists.txt`), never as changes to `.index`.
 
@@ -78,9 +78,9 @@ reversed copies, `lists.txt`), never as changes to `.index`.
 ceilings against crafted files. A new sidecar should do all three.
 
 **Be precise about what is verified.** Three tests carry the compatibility
-claim, each a different kind of evidence: `upstream-format.test.ts` reads
+claim, each a different kind of evidence: `nutrimatic-format.test.ts` reads
 fixtures built by the C++ `make-index` (committed under `test/fixtures/`) and
-requires this reader to decode them to what upstream's `dump-index` reports
+requires this reader to decode them to what Nutrimatic's `dump-index` reports
 *and* this writer to reproduce their bytes exactly; `index-format.test.ts`
 round-trips the writer and reader over decoded meaning; and
 `expr-search.test.ts`, a port of `test-expr.cpp`, pins query semantics. Bytes,

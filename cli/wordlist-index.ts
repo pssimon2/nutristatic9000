@@ -2,7 +2,7 @@
 // "word<TAB>count" and "word1 word2<TAB>count" lines).
 //
 // Bigram counts are folded under their first word so trie prefix counts stay
-// consistent with upstream semantics: the count of node "foo " equals the
+// consistent with Nutrimatic semantics: the count of node "foo " equals the
 // total frequency of "foo", split between terminal weight and per-bigram
 // continuations.
 //

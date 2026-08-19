@@ -16,7 +16,7 @@ import { compileQuery, makeDriver } from "../src/find-expr.js";
 const ctx = new SessionContext();
 
 async function run(query: string, scoreFloor: number, maxResults: number) {
-  const data = fs.readFileSync("test/fixtures/upstream-bigger.index");
+  const data = fs.readFileSync("test/fixtures/nutrimatic-bigger.index");
   const reader = await IndexReader.open(new MemorySource(data));
   const driver = makeDriver(reader, compileQuery(query, ctx), undefined, {
     scoreFloor,

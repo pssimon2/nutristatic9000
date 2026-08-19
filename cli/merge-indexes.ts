@@ -1,4 +1,4 @@
-// Port of upstream merge-indexes.cpp: merge sorted indexes with a frequency
+// Port of Nutrimatic merge-indexes.cpp: merge sorted indexes with a frequency
 // cutoff. usage: merge-indexes min input.index ... out.index
 
 import * as fs from "node:fs";
@@ -13,7 +13,7 @@ if (args.length < 3) {
   process.exit(2);
 }
 
-// Strict digits only: upstream's atoi would turn "1e9" into cutoff 1 and
+// Strict digits only: Nutrimatic's atoi would turn "1e9" into cutoff 1 and
 // silently merge with the wrong threshold.
 if (!/^\d+$/.test(args[0]) || parseInt(args[0], 10) <= 0) {
   console.error(`error: illegal frequency threshold "${args[0]}"`);

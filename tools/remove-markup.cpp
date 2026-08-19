@@ -123,7 +123,7 @@ static void do_page(std::string& title, std::string& text) {
 
   printf("BEGIN ARTICLE: %s\n", title.c_str());
 
-  // Patched vs upstream: cap cleanup passes. Each pass strips one level of
+  // Patched vs Nutrimatic: cap cleanup passes. Each pass strips one level of
   // {{...}} nesting with a full-page regex scan; pathological pages (deep
   // template nesting in e.g. German Wikipedia) otherwise take minutes to
   // hours each. Legitimate prose needs single-digit passes; beyond 100

@@ -1,11 +1,11 @@
-// Port of the text-windowing logic from upstream make-index.cpp: normalize
+// Port of the text-windowing logic from Nutrimatic make-index.cpp: normalize
 // text to lowercase alphanumerics and spaces (apostrophes vanish entirely),
 // then emit sliding windows of up to 40 characters, one starting at each word
 // boundary. Feeding these windows into IndexWriter with count 1 builds the
 // phrase-frequency trie.
 //
-// Known (accepted) divergences from upstream's fgets-based reader: lines
-// longer than 64KB are windowed continuously here where upstream restarts at
+// Known (accepted) divergences from Nutrimatic's fgets-based reader: lines
+// longer than 64KB are windowed continuously here where Nutrimatic restarts at
 // each 64KB buffer boundary; a final unterminated line still gets the
 // synthetic separator; and readline splits on lone \r. All only affect
 // pathological corpus lines, not the Wikipedia pipeline output.
@@ -33,7 +33,7 @@ function flushBuffer(buf: number[], out: string[]): void {
 
 /**
  * Append the chain windows for one line of raw text to `out`. The line's
- * terminating newline acts as a separator (upstream processes it via fgets),
+ * terminating newline acts as a separator (Nutrimatic processes it via fgets),
  * so windows generally end with a trailing space.
  */
 export function lineChains(line: string, out: string[]): void {

@@ -1,4 +1,4 @@
-// Port of upstream merge-indexes.cpp: k-way merge of sorted index walkers
+// Port of Nutrimatic merge-indexes.cpp: k-way merge of sorted index walkers
 // through a frequency-cutoff filter into a new index. Strings below the
 // cutoff have their counts folded into their parent word-boundary prefix
 // (so the prefix totals stay right even when rare phrases are dropped).

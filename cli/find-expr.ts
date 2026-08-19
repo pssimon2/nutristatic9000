@@ -1,4 +1,4 @@
-// Port of upstream find-expr.cpp + search-printer.cpp: stream results for an
+// Port of Nutrimatic find-expr.cpp + search-printer.cpp: stream results for an
 // expression against an index, with '# N' progress lines every 100k steps.
 
 import {
@@ -71,7 +71,7 @@ const forceStream = args.includes("--stream");
 if (forceStream) args.splice(args.indexOf("--stream"), 1);
 const noWasm = args.includes("--no-wasm");
 if (noWasm) args.splice(args.indexOf("--no-wasm"), 1);
-// Same default computation limit as the upstream website; upstream's CLI
+// Same default computation limit as the Nutrimatic website; Nutrimatic's CLI
 // instead runs unbounded, which exhausts memory on open-ended patterns.
 const packRefs: string[] = [];
 for (let i = args.indexOf("--pack"); i !== -1; i = args.indexOf("--pack")) {

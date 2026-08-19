@@ -1,4 +1,4 @@
-// Port of upstream dump-index.cpp: print every stored string with its count.
+// Port of Nutrimatic dump-index.cpp: print every stored string with its count.
 
 import { once } from "node:events";
 import { IndexWalker } from "../src/index-walker.js";

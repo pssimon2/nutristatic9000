@@ -1,4 +1,4 @@
-// Port of upstream make-index.cpp: read corpus text on stdin, write
+// Port of Nutrimatic make-index.cpp: read corpus text on stdin, write
 // <prefix>.NNNNN.index files of sorted phrase windows.
 
 import * as readline from "node:readline";

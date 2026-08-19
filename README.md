@@ -16,8 +16,8 @@ Deployment notes specific to this fork:
 - The index picker points at root-absolute index URLs (`/de-wiki.index`, …)
   because those files are served from the site root; only `demo.index` ships
   with the app.
-- Deploy target is `/srv/nutristatic9000` on the web host, served by Caddy
-  under `handle_path /9000/*`.
+- Deploy target is `/srv/nutristatic9000` on the web host, served under
+  the `/9000/` path (any static server that can strip a path prefix works).
 - **The head sidecar is part of the deployment and is not in the repo.** Each
   streamed index wants an `<name>.head` beside the *page* (not beside the
   index, which is shared between deployments):
@@ -50,9 +50,9 @@ Deployment notes specific to this fork:
   gap is still cheap to fix.
 
   It asks for the `identity` encoding, and has to: given `Accept-Encoding: gzip`
-  Caddy answers a `HEAD` with `content-length: 20`, the gzip of the body it did
-  not send, which reported all five text datasets as stale when every one was
-  fine. Without one the site still works and is much slower —
+  a compressing server answers a `HEAD` with the `content-length` of the gzip
+  of the body it did not send, which reported all five text datasets as stale
+  when every one was fine. Without one the site still works and is much slower —
   `{palindrome:A{5}}` goes from half a second to twenty and finds nothing — so
   a deploy that forgets it fails quietly. `?debug=1` says "answered from the
   head of the index" when it is being used, which is the quickest way to tell.
@@ -90,7 +90,7 @@ generated (`npx tsx scripts/grammar-matrix.mjs`) and the claims around it are
 tested (`test/grammar.test.ts`), so the description cannot drift from the
 parser.
 
-## Features beyond upstream
+## Features beyond Nutrimatic
 
 | Feature | Syntax | Notes |
 |---|---|---|
@@ -107,7 +107,7 @@ parser.
 | Rhyme / homophones | `{rhyme:tree}`, `{homo:knight}` | CMU pronouncing dictionary, rhyming from the last primary-stressed vowel; lazily fetched (~340 KB gzipped), built by `scripts/build-phonetics.mjs` |
 | Categories | `{kind:bird}`, `{kind:tree}` | WordNet's kind-of hierarchy, walked at query time from a shipped graph (96k senses, 89k edges) |
 | Syllables / metre | `{syllables=3:…}`, `{stress 100:…}` | Result filters over CMUdict stress shapes; phrases add up word by word |
-| Meaning (embedding) | `{near:king}`, `{near 8:word}` | Nearest neighbours from ConceptNet Numberbatch, precomputed by `scripts/build-neighbours.mjs`, with WordNet antonyms removed; ~5 MB table for 60k words, no model in the browser. `scripts/bench-embeddings.mjs` is the comparison that chose it |
+| Meaning (embedding) | `{near:king}`, `{near 8:word}` | Nearest neighbours from ConceptNet Numberbatch, precomputed by `scripts/build-neighbours.mjs`, with WordNet antonyms removed; ~5 MB table for 60k words, no model in the browser. Chosen over word2vec/GloVe by a side-by-side comparison on puzzle-style neighbour queries |
 | Meaning (thesaurus) | `{like:reluctant}` | WordNet sense groups (a thesaurus, not a semantic model); lazily fetched, built by `scripts/build-thesaurus.mjs` |
 | Autocomplete + inline checking | *(the query box)* | Completes construct, group and list names from the same catalogue the parser dispatches on, with each one's summary and a runnable example. `{list:…}` offers the harvested catalogue as well as the built-ins, and `{kind:…}` is answered by the worker, which holds all 124,980 WordNet names — too many to hand the page a copy of; a query the engine cannot parse is underlined as you type, checked by `compileQuery` itself in the worker so the box and the search cannot disagree. The menu opens unselected — Enter searches, ArrowDown steps in, Tab completes the top match, Escape dismisses — so it advises without trapping |
 | Generated reference | *(usage.html)* | The construct table is rendered from `src/constructs.ts` by `scripts/build-docs.mjs`; `npm run check-docs` fails CI if it drifts, so an undocumented construct cannot ship |
@@ -169,11 +169,11 @@ artifacts at build time and fetched only when a query needs them.
 `{sum …}` / `{scrabble …}` compile to conjunct NFAs, so the WASM kernel runs
 them with no C-side work — locked in by a parity test.
 
-Everything below describes the engine, which is unchanged from upstream.
+Everything below describes the engine, which is unchanged from Nutrimatic.
 
 ---
 
-A rewrite of [Nutrimatic](https://nutrimatic.org/) ([upstream
+A rewrite of [Nutrimatic](https://nutrimatic.org/) ([Nutrimatic
 source](https://github.com/PuzzleTechHub/nutrimatic)) that runs with **no
 server-side code**, deployed at [nutristatic.org](https://nutristatic.org/).
 The user-facing "what is this and how does it differ from Nutrimatic"
@@ -190,16 +190,16 @@ range-mode engine.)
 Deploy the built site to any static host (GitHub Pages, S3, nginx `root`,
 `python -m http.server`, …) and it works.
 
-The index file format is **byte-compatible with upstream**: indexes built by
+The index file format is **byte-compatible with Nutrimatic**: indexes built by
 the original C++ tools work here, and indexes built by these TypeScript tools
 work with the C++ binaries.
 
-That compatibility is tested against upstream's own output, not just against
-this repo's: `test/upstream-format.test.ts` reads fixtures built by the C++
-`make-index` and requires this reader to decode them to what upstream's
+That compatibility is tested against Nutrimatic's own output, not just against
+this repo's: `test/nutrimatic-format.test.ts` reads fixtures built by the C++
+`make-index` and requires this reader to decode them to what Nutrimatic's
 `dump-index` reports *and* this writer to reproduce their bytes exactly;
 `test/index-format.test.ts` round-trips the writer and reader; and
-`test/expr-search.test.ts` is a port of upstream's expression suite, pinning
+`test/expr-search.test.ts` is a port of Nutrimatic's expression suite, pinning
 the query semantics.
 
 Working on this: see [CONTRIBUTING.md](CONTRIBUTING.md) for the layering
@@ -208,7 +208,7 @@ construct.
 
 ## How it works
 
-- `src/` — the engine, a faithful port of upstream's C++:
+- `src/` — the engine, a faithful port of Nutrimatic's C++:
   - `index-reader.ts` / `index-writer.ts` / `index-walker.ts` — the trie
     index format (nodes written children-first; the root is the end of the
     file).
@@ -228,9 +228,9 @@ construct.
     requests** with an LRU chunk cache, so a multi-gigabyte index can be
     searched from static hosting without downloading it.
 - `web/` — the Vite site: `worker.ts` owns the index + search session,
-  `main.ts` renders the upstream-style UI (`?q=` URLs, font size ∝ log
+  `main.ts` renders the Nutrimatic-style UI (`?q=` URLs, font size ∝ log
   score, computation limit with "Try harder »").
-- `cli/` — Node ports of the upstream binaries: `find-expr`, `make-index`,
+- `cli/` — Node ports of the Nutrimatic binaries: `find-expr`, `make-index`,
   `merge-indexes`, `dump-index`, plus `wordlist-index` (build an index from
   frequency wordlists, used for the bundled demo index) and `compress-index`
   (build the `.idxz` sidecar the web deploy serves next to each index).
@@ -239,7 +239,7 @@ construct.
 
 ```sh
 npm install
-npm test               # vitest: format round-trip, upstream test-expr golden
+npm test               # vitest: format round-trip, Nutrimatic test-expr golden
                        # cases, HTTP-range integration
 npm run dev            # vite dev server
 npm run build          # static site -> web/dist/
@@ -321,9 +321,9 @@ curl -O https://norvig.com/ngrams/count_2w.txt
 npm run wordlist-index -- web/public/demo.index count_1w.txt count_2w.txt
 ```
 
-A full Wikipedia index works exactly as upstream describes (extract text,
+A full Wikipedia index works exactly as Nutrimatic describes (extract text,
 `make-index`, `merge-indexes` with frequency cutoffs) — either with the
-upstream C++ tools or these CLI ports (the C++ tools are much faster for a
+Nutrimatic C++ tools or these CLI ports (the C++ tools are much faster for a
 full-size corpus; the outputs are interchangeable):
 
 ```sh
@@ -346,62 +346,6 @@ numbers appear in the page under `?debug=1`. They are what makes an expensive
 query legible — `{palindrome:A{5}}` reports 103,302 predicate checks for 377
 results, which is the filter's real cost rather than a guess.
 
-## Measured performance (2026-08-15 baseline)
-
-Production, cold browser context, first result on screen: **0.3–0.8 s on
-every bundled index** — all 22 Wikipedias (1.3 GB English down to 36 MB
-Slovak), Simple English, and the web-words demo, each probed with a
-native-language query (`scripts/prod-matrix.mjs` for the full table).
-
-Constrained networks (CDP emulation, English index, cold), first result on
-screen:
-
-| Profile | First result |
-|---|---|
-| 2 Mbps / 150 ms RTT | 13.2 s |
-| 8 Mbps / 300 ms RTT | 4.9 s |
-
-A search that would stream a large slice of the index over the network stops
-at a bytes/time budget (~32 MB or ~20 s) and offers to download the index for
-instant local searching.
-
-Suffix-anchored queries (`"A{1,20}tion"`) answer in **~0.7–0.8 s on every
-index** via the `.rindex` reverse sidecars served beside them — hundreds of
-times fewer steps than the forward walk they replace.
-
-Heavy anagram (`<aciimnrttu>`, English index): ~5 s cold range mode,
-~2 s from a device-stored (OPFS) copy including page load, 0.1 s warm
-revisit. Engine: 1.3–3.5M steps/s in-memory (JS; the WASM kernel adds
-~1.6x on heavy anagrams for fully-local indexes); a 500k-step,
-100k-result search costs ~7 MB of heap. Whole-index download: 1.3 GB
-transferred as 785 MB compressed in ~30 s on fast links, cancellable.
-Compressed range transport (`.idxz` sidecars) cuts per-query transfer
-31–39%.
-
-Deep walks from the CLI (a raised or unlimited `--max-steps` on a local
-index) load the index once into the WASM kernel's memory and run there: a
-12M-step exhaustive walk of `"_{34}"` over the English index drops from
-13.6 s (chunked reader, JS engine) to 3.7 s, with the index resident once —
-the JS reader views the kernel's copy. Default-budget runs are untouched:
-the setup costs seconds, which only a deep walk repays. Measured and
-declined along the same road: SIMD builds of the kernel (the hot loops are
-varint decode and hash probes, which do not vectorize) and replacing the
-frontier heap (it is already a 4-ary typed-array heap, and `pop` profiles
-at ~10% — near the floor for an exact priority queue).
-
-Regenerate: `node scripts/bench-all.mjs` (engine + fixtures),
-`node scripts/prod-matrix.mjs` (live site, all indexes), and
-`node scripts/throttle-matrix.mjs` (bandwidth emulation).
-
-## Server caching headers
-
-The Caddy site block sets `Cache-Control` explicitly: Vite's content-hashed
-`/assets/*` are `public, max-age=31536000, immutable` (no revalidation
-round trips, ever — a new deploy changes the hash), the HTML shell is
-`no-cache` (revalidates so deploys appear immediately), and small statics get
-a day. Index/sidecar files intentionally get none: range responses are
-managed by the app's own Cache Storage layer.
-
 ## Deploying with a big index
 
 Indexes up to 4 MB are downloaded into memory. Above that the app switches
@@ -416,7 +360,13 @@ Requirements for the index host:
 Point the app at it with `?index=https://example.com/wiki-merged.index` or
 the "index URL" box at the bottom of the page.
 
+Hosting the site itself needs nothing beyond a static file server. Useful
+cache settings, whatever the server: long lifetimes for Vite's content-hashed
+`/assets/*`, `no-cache` for the HTML shell and `sw.js` (so deploys appear
+immediately), and no special caching for index/sidecar files — range
+responses are managed by the app's own Cache Storage layer.
+
 ## License
 
-GPL-2.0, same as upstream Nutrimatic, which this is derived from.
+GPL-2.0, same as Nutrimatic, which this is derived from.
 Original Nutrimatic is by Dan Egnor and contributors.

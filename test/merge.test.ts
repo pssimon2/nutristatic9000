@@ -66,7 +66,7 @@ describe("mergeWalkers", () => {
   it("folds below-cutoff phrases into their word-boundary prefix", async () => {
     // Suffix-closed input (as real make-index output always is: every
     // word-boundary suffix of a phrase is itself indexed). Expectation
-    // verified byte-identical against upstream merge-indexes with cutoff 3:
+    // verified byte-identical against Nutrimatic merge-indexes with cutoff 3:
     // "foo bar " (2 < 3) folds into "foo " (7+2=9), "bar " (2 < 3) drops.
     const merged = await merge(
       [

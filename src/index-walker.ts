@@ -1,4 +1,4 @@
-// Port of upstream index-walker.cpp: in-order traversal of every string in
+// Port of Nutrimatic index-walker.cpp: in-order traversal of every string in
 // the index that has a terminal count, tracking the shared-prefix length
 // (`same`) with the previously emitted string.
 

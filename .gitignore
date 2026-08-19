@@ -8,11 +8,11 @@ web/heads/
 # Build workspace: dumps, chunks, merged indexes (see README to rebuild)
 data/
 
-# Compiled C++ reference tools (see upstream/ and tools/; rebuild with g++)
+# Compiled C++ reference tools (see nutrimatic/ and tools/; rebuild with g++)
 build-cpp/
 
-# Upstream nutrimatic clone, kept for reference and the C++ sources
-upstream/
+# Nutrimatic clone, kept for reference and the C++ sources
+nutrimatic/
 
 # Generated index artifacts served by the web app (rebuild via npm scripts)
 # The big Wikipedia indexes are downloaded/built, not committed — except the

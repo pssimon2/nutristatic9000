@@ -8,10 +8,10 @@ import { type Completion, completionsAt } from "../src/complete.js";
 import type { WikiLists } from "../src/word-lists.js";
 
 // UI thread: form handling, URL state (?q=...&comp=...&index=...), and
-// rendering of streamed results — mirroring the upstream CGI's pages, but
+// rendering of streamed results — mirroring the Nutrimatic CGI's pages, but
 // with the search running in a Web Worker in the visitor's browser.
 
-const MAX_COMPUTATION = 1000000; // local step budget (same default as upstream)
+const MAX_COMPUTATION = 1000000; // local step budget (same default as Nutrimatic)
 // Range mode: step count is a poor proxy for cost (a cached step is free, a
 // fetched step is a network round-trip), so cap on bytes fetched and elapsed
 // time instead. The step count is just a safety ceiling remotely.
@@ -1245,3 +1245,18 @@ if (OFFLINE) {
 if (matchMedia("(hover: hover) and (pointer: fine)").matches) {
   qInput.focus();
 }
+
+// "Install as an app": browsers with an install flow fire
+// beforeinstallprompt; stash the event and reveal the home-page link.
+// Elsewhere (or once installed) the link simply stays hidden.
+const installLink = document.getElementById("installapp");
+let installPrompt: { prompt: () => Promise<unknown> } | null = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  installPrompt = e as unknown as { prompt: () => Promise<unknown> };
+  if (installLink) installLink.hidden = false;
+});
+installLink?.addEventListener("click", (e) => {
+  e.preventDefault();
+  void installPrompt?.prompt();
+});

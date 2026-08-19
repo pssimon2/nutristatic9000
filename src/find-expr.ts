@@ -1,4 +1,4 @@
-// High-level query compilation, mirroring upstream find-expr.cpp: parse the
+// High-level query compilation, mirroring Nutrimatic find-expr.cpp: parse the
 // expression, append a required trailing space (so matches are complete
 // words), and build the search filter.
 
@@ -127,7 +127,7 @@ export function makeDriver(
   return new SearchDriver(reader, filter, filter.startState, restart, opts);
 }
 
-/** Format like C's %.8g (upstream's score output format). */
+/** Format like C's %.8g (Nutrimatic's score output format). */
 export function formatScore(x: number): string {
   if (x === 0) return "0";
   let s = x.toPrecision(8);

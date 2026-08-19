@@ -1,4 +1,4 @@
-// Port of upstream expr-parse.cpp and expr-anagram.cpp: recursive-descent
+// Port of Nutrimatic expr-parse.cpp and expr-anagram.cpp: recursive-descent
 // parser for the Nutrimatic pattern language.
 //
 // Grammar (from the website help):
@@ -21,7 +21,7 @@
 // `(<...>&_{20})`); any composition that can't legally distribute over the
 // intersection (quantifiers, unions, concatenation with variable-length
 // neighbors) falls back to materializing via the eager product, preserving
-// upstream semantics exactly. The search then runs on a lazy product filter
+// Nutrimatic semantics exactly. The search then runs on a lazy product filter
 // (see expr-filter.ts).
 
 import {
@@ -1013,7 +1013,7 @@ function collapseIdentical(parts: AnagramPart[]): void {
   }
 }
 
-/** The anagram as a conjunct list (upstream materializes; we defer). */
+/** The anagram as a conjunct list (Nutrimatic materializes; we defer). */
 function makeAnagramConjuncts(parts: AnagramPart[]): Nfa[] {
   const conjuncts: Nfa[] = [];
 

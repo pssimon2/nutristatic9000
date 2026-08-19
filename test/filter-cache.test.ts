@@ -50,7 +50,7 @@ describe("FilterCache", () => {
   });
 
   it("does not change what a search answers", async () => {
-    const data = fs.readFileSync("test/fixtures/upstream-bigger.index");
+    const data = fs.readFileSync("test/fixtures/nutrimatic-bigger.index");
     const run = async (query: string, cache?: FilterCache) => {
       const reader = await IndexReader.open(new MemorySource(data));
       const driver = makeDriver(

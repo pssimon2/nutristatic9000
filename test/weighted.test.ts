@@ -70,7 +70,7 @@ describe("weighted constructs are conjunct-level", () => {
 
 describe("the driver emits weighted results in true score order", () => {
   it("streams exact matches before damaged ones, descending throughout", async () => {
-    const data = fs.readFileSync("test/fixtures/upstream-bigger.index");
+    const data = fs.readFileSync("test/fixtures/nutrimatic-bigger.index");
     const reader = await IndexReader.open(new MemorySource(data));
     const driver = makeDriver(reader, compileQuery("{edit:dog}", ctx));
     const results: Array<{ text: string; score: number }> = [];

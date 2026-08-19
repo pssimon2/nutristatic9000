@@ -52786,7 +52786,7 @@ leeward	upwind
 down	downwards	downward	downwardly
 up	upwards	upward	upwardly
 up	upwards	upward
-upriver	upstream
+upriver	Nutrimatic
 downriver	downstream
 homeward	homewards
 rather	instead

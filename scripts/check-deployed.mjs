@@ -66,7 +66,7 @@ if (fs.existsSync(BUILT)) {
     let served = -1;
     try {
       // `identity`, or the length is meaningless: asked with gzip accepted,
-      // Caddy answers a HEAD with `content-length: 20` — the gzip of the body
+      // a compressing server answers a HEAD with the content-length of the gzip
       // it did not send. That reported all five text datasets as stale uploads
       // when every one of them was fine.
       const r = await fetch(`${BASE}/${file}`, {

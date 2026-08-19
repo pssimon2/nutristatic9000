@@ -37,7 +37,7 @@ async function runAll(
 
 describe("shardSeedLetters", () => {
   it("partitions the root's children, disjoint and covering", async () => {
-    const reader = await open("test/fixtures/upstream-bigger.index");
+    const reader = await open("test/fixtures/nutrimatic-bigger.index");
     const shards = await shardSeedLetters(reader, 3);
     expect(shards.length).toBe(3);
     const all = shards.flat();
@@ -52,7 +52,7 @@ describe("sharded walks", () => {
     // Quoted, so the language is exhaustible: every run ends by finishing,
     // not by the step budget — an unsharded walk and a shard dig equally
     // deep, and equality is meaningful.
-    const reader = await open("test/fixtures/upstream-tiny.index");
+    const reader = await open("test/fixtures/nutrimatic-tiny.index");
     const full = await runAll(reader, '"A{1,9}"');
     const shards = await shardSeedLetters(reader, 2);
     const parts = await Promise.all(
@@ -77,7 +77,7 @@ describe("sharded walks", () => {
     // is one-sided: everything the full walk found sits in exactly one
     // shard, at the same score (each shard, owning less space, digs at
     // least as deep as the full walk did into it).
-    const reader = await open("test/fixtures/upstream-tiny.index");
+    const reader = await open("test/fixtures/nutrimatic-tiny.index");
     const full = await runAll(reader, "A*");
     const shards = await shardSeedLetters(reader, 2);
     const parts = await Promise.all(
@@ -91,7 +91,7 @@ describe("sharded walks", () => {
   });
 
   it("keeps restart phrases in the shard of their FIRST letter", async () => {
-    const reader = await open("test/fixtures/upstream-tiny.index");
+    const reader = await open("test/fixtures/nutrimatic-tiny.index");
     const t = "t".charCodeAt(0);
     const withT = await runAll(reader, "A*", [t]);
     const withoutT = await runAll(

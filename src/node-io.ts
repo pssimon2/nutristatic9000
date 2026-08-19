@@ -1,5 +1,5 @@
 // Node-only helpers: file-backed sink for IndexWriter, chunk-cached index
-// sources for the CLIs, and upstream-style CLI error reporting.
+// sources for the CLIs, and Nutrimatic-style CLI error reporting.
 
 import * as fs from "node:fs";
 import { SyncFileReader, SyncFileSource } from "./byte-source.js";
@@ -69,7 +69,7 @@ export function openIndexSource(
 }
 
 /**
- * CLI-friendly index open: prints an upstream-style one-line error (no stack
+ * CLI-friendly index open: prints an Nutrimatic-style one-line error (no stack
  * trace) and exits on unreadable or non-index files.
  */
 export async function cliOpenIndex(

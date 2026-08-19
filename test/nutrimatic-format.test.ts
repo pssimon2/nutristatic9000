@@ -1,29 +1,29 @@
 // The byte-format contract, against bytes this project did not write.
 //
-// The index format is byte-compatible with upstream Nutrimatic, forever.
+// The index format is byte-compatible with Nutrimatic, forever.
 // Nothing tested it. `index-format.test.ts` runs this repo's writer
 // into this repo's reader and asserts decoded *meaning*, which a coordinated
 // writer-and-reader bug passes green; `fixtures.test.ts` locks results over
-// `demo.index`, which this repo also produced. There was no upstream-generated
+// `demo.index`, which this repo also produced. There was no Nutrimatic-generated
 // index checked in anywhere, so the headline promise of the project was the one
 // thing with no test behind it.
 //
-// These fixtures were produced by upstream's own C++ `make-index`, and
-// `.dump` by upstream's own `dump-index`, so the expected meaning is stated by
-// upstream rather than transcribed by me:
+// These fixtures were produced by Nutrimatic's own C++ `make-index`, and
+// `.dump` by Nutrimatic's own `dump-index`, so the expected meaning is stated by
+// Nutrimatic rather than transcribed by me:
 //
-//   upstream-tiny.index    126 bytes, 9 chains, from upstream-tiny.txt
-//   upstream-bigger.index  43 KB, 4,429 chains, counts to 376 — past a byte,
+//   nutrimatic-tiny.index    126 bytes, 9 chains, from nutrimatic-tiny.txt
+//   nutrimatic-bigger.index  43 KB, 4,429 chains, counts to 376 — past a byte,
 //                          so the count varints are exercised too
 //
 // Two directions, and the second is the one that closes the hole:
 //
-//   reading — our IndexReader decodes upstream's bytes to what upstream's
+//   reading — our IndexReader decodes Nutrimatic's bytes to what Nutrimatic's
 //             dumper says is in them.
-//   writing — our IndexWriter, given those same chains, produces upstream's
+//   writing — our IndexWriter, given those same chains, produces Nutrimatic's
 //             bytes back, byte for byte. A writer-and-reader pair that agreed
-//             with each other and not with upstream would fail this: the input
-//             is upstream's file and the expected output is that same file.
+//             with each other and not with Nutrimatic would fail this: the input
+//             is Nutrimatic's file and the expected output is that same file.
 
 import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
@@ -33,11 +33,11 @@ import { IndexWalker } from "../src/index-walker.js";
 import { BufferSink, IndexWriter } from "../src/index-writer.js";
 
 const FIXTURES = [
-  { name: "upstream-tiny", chains: 9 },
-  { name: "upstream-bigger", chains: 4429 },
+  { name: "nutrimatic-tiny", chains: 9 },
+  { name: "nutrimatic-bigger", chains: 4429 },
 ] as const;
 
-/** What upstream's `dump-index` says is in the file: "  count [text ]". */
+/** What Nutrimatic's `dump-index` says is in the file: "  count [text ]". */
 function upstreamDump(name: string): Array<{ text: string; count: number }> {
   const lines = fs
     .readFileSync(`test/fixtures/${name}.dump`, "utf8")
@@ -67,7 +67,7 @@ async function ourEntries(
 
 describe("reading an index this project did not write", () => {
   for (const { name, chains } of FIXTURES) {
-    it(`decodes ${name} to what upstream's dumper reports`, async () => {
+    it(`decodes ${name} to what Nutrimatic's dumper reports`, async () => {
       const expected = upstreamDump(name);
       // Guards the comparison: an empty dump would make it vacuous.
       expect(expected.length, `${name}.dump is empty`).toBe(chains);
@@ -80,7 +80,7 @@ describe("reading an index this project did not write", () => {
     // Stated once in full, so a reader of this file can see what the contract
     // is about rather than only that two files agree. From "the quick brown
     // fox / the lazy dog / the quick dog", windowed into chains.
-    const ours = await ourEntries("upstream-tiny");
+    const ours = await ourEntries("nutrimatic-tiny");
     expect(ours).toEqual([
       { text: "brown fox ", count: 1 },
       { text: "dog ", count: 2 },
@@ -104,7 +104,7 @@ describe("writing the same bytes back", () => {
       const sink = new BufferSink();
       const writer = new IndexWriter(sink);
       // `same` is the common prefix with the previous chain, which is what
-      // upstream's make-index passes and what lets the writer keep one path
+      // Nutrimatic's make-index passes and what lets the writer keep one path
       // in memory instead of the whole trie.
       let previous = "";
       for (const { text, count } of entries) {

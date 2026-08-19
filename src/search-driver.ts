@@ -1,11 +1,11 @@
-// Port of upstream search-driver.cpp: best-first search over the index trie,
+// Port of Nutrimatic search-driver.cpp: best-first search over the index trie,
 // filtered by the expression DFA. Steps pop the highest count*scale frontier
 // entry, expand its children, and emit each novel accepted string as it
 // surfaces — so results stream out in roughly descending frequency order.
 //
 // The "restart" mechanism lets matches span phrases rarer than the window
 // length allows: on a space, the walk may jump back to the trie root with the
-// accumulated probability scaled down by `restart` (upstream uses 1e-6).
+// accumulated probability scaled down by `restart` (Nutrimatic uses 1e-6).
 //
 // The frontier and breadcrumb trail are struct-of-arrays over typed arrays:
 // deep searches hold millions of entries, and one JS object per entry costs

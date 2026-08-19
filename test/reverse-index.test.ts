@@ -42,7 +42,7 @@ async function collect(
 }
 
 async function forwardAndReversed(query: string) {
-  const reader = await open("test/fixtures/upstream-tiny.index");
+  const reader = await open("test/fixtures/nutrimatic-tiny.index");
   const sink = new BufferSink();
   await buildReverseIndex(reader, sink);
   const revReader = await IndexReader.open(new MemorySource(sink.bytes()));
