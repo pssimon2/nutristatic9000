@@ -136,7 +136,8 @@ async function purgeChunks(url: string): Promise<void> {
 const worker = new Worker(new URL("./storage-worker.ts", import.meta.url), {
   type: "module",
 });
-let activeDownload: string | null = null;
+// Per-URL download state: clicked rows queue behind the running transfer.
+const downloadState = new Map<string, "queued" | "active">();
 const progressEls = new Map<string, HTMLProgressElement>();
 
 worker.onmessage = (ev: MessageEvent<StorageOutMsg>) => {
@@ -150,7 +151,12 @@ worker.onmessage = (ev: MessageEvent<StorageOutMsg>) => {
     }
     return;
   }
-  activeDownload = null;
+  if (msg.type === "started") {
+    downloadState.set(msg.url, "active");
+    void render();
+    return;
+  }
+  downloadState.delete(msg.url);
   if (msg.type === "error" && msg.message !== "cancelled") {
     $("note").textContent = `${msg.url.split("/").pop()}: ${msg.message}`;
   }
@@ -158,11 +164,7 @@ worker.onmessage = (ev: MessageEvent<StorageOutMsg>) => {
 };
 
 function startDownload(url: string): void {
-  if (activeDownload) {
-    $("note").textContent = "one download at a time — cancel the running one first";
-    return;
-  }
-  activeDownload = url;
+  downloadState.set(url, "queued");
   $("note").textContent = "";
   worker.postMessage({ type: "download", url });
   void render();
@@ -209,10 +211,19 @@ async function render(): Promise<void> {
 
     const cell = (status: CopyStatus, target: string, what: string): HTMLTableCellElement => {
       const td = document.createElement("td");
-      if (activeDownload === target) {
+      const dl = downloadState.get(target);
+      if (dl === "active") {
         const bar = document.createElement("progress");
         progressEls.set(target, bar);
-        td.append(bar, button("cancel", () => worker.postMessage({ type: "cancel" })));
+        td.append(
+          bar,
+          button("cancel", () => worker.postMessage({ type: "cancel", url: target })),
+        );
+      } else if (dl === "queued") {
+        td.append(
+          "queued ",
+          button("cancel", () => worker.postMessage({ type: "cancel", url: target })),
+        );
       } else if (status.state === "complete") {
         td.append(
           `${fmt(status.bytes)} `,

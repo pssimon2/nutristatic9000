@@ -18,16 +18,23 @@ interface DownloadMsg {
 }
 interface CancelMsg {
   type: "cancel";
+  url: string;
 }
 type InMsg = DownloadMsg | CancelMsg;
 
 export type StorageOutMsg =
+  | { type: "started"; url: string }
   | { type: "progress"; url: string; loaded: number; total: number }
   | { type: "done"; url: string; size: number }
   | { type: "error"; url: string; message: string };
 
 const post = (m: StorageOutMsg) => (self as unknown as Worker).postMessage(m);
 
+// Downloads queue rather than refuse: they would share one connection's
+// bandwidth anyway, so running them in sequence costs nothing and lets a
+// user click every row they want and walk away.
+const queue: string[] = [];
+let active: string | null = null;
 let ctrl: AbortController | null = null;
 
 /** Size and cache validator for a URL, from a one-byte range probe. */
@@ -57,8 +64,8 @@ async function probe(url: string): Promise<{ size: number; validator: string | n
 }
 
 async function download(url: string): Promise<void> {
-  if (ctrl) throw new Error("a download is already in progress");
   ctrl = new AbortController();
+  post({ type: "started", url });
   try {
     const { size, validator } = await probe(url);
     const est = await navigator.storage.estimate().catch(() => null);
@@ -94,8 +101,29 @@ async function download(url: string): Promise<void> {
   }
 }
 
+async function pump(): Promise<void> {
+  if (active !== null) return; // the running loop will pick the queue up
+  while (queue.length > 0) {
+    active = queue.shift()!;
+    await download(active);
+    active = null;
+  }
+}
+
 self.onmessage = (ev: MessageEvent<InMsg>) => {
   const msg = ev.data;
-  if (msg.type === "download") void download(msg.url);
-  else if (msg.type === "cancel") ctrl?.abort();
+  if (msg.type === "download") {
+    if (msg.url !== active && !queue.includes(msg.url)) queue.push(msg.url);
+    void pump();
+  } else if (msg.type === "cancel") {
+    if (msg.url === active) {
+      ctrl?.abort();
+    } else {
+      const i = queue.indexOf(msg.url);
+      if (i !== -1) {
+        queue.splice(i, 1);
+        post({ type: "error", url: msg.url, message: "cancelled" });
+      }
+    }
+  }
 };
