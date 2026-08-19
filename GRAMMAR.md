@@ -258,7 +258,8 @@ concatenated beside a neighbour, or alternated.
 
 3. **Two constructs put their argument before the colon** (`{compound 2:…}`,
    `{anagram X:…}`) and the rest put it after; the colon always introduces
-   the pattern being wrapped. The completion menu special-cases the two.
+   the pattern being wrapped — except `{iso:…}`, whose colon introduces
+   ciphertext (§3). The completion menu special-cases these.
 
 4. **Spec grammars vary by construct.** `{compound}` is a piece count,
    `{syllables}` and `{sum}` take comparisons and ranges (`=`, `<`, `<=`,

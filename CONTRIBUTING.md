@@ -10,11 +10,12 @@ parts that look odd. This document is about how to build, not what.
 | Command | Covers |
 |---|---|
 | `npm run typecheck` | types — **`npm test` does not typecheck**; vitest transpiles without checking |
-| `npm test` | 381 unit tests over `src/` |
+| `npm test` | the unit suite over `src/` (~800 tests and growing; the exact count is not the point — what matters is that it does not typecheck) |
 | `npm run check-layers` | engine↛app imports, and import cycles |
 | `npm run check-docs` | the usage guide's construct reference matches the catalogue |
 | `npm run bench` | nine query shapes still explore the index identically |
 | `npm run check-links` | every example link searches what its label says, relatively |
+| `npm run check-examples` | every construct example and every page's example links actually find results on demo.index |
 | `npm run build && npm run test:browser` | the only end-to-end coverage of `web/worker.ts` and `web/main.ts` |
 | `npm run test:offline` | the single-file `file://` build |
 
@@ -69,19 +70,22 @@ is not on the hot path.
 ## The index format is frozen
 
 Byte-compatible with upstream Nutrimatic, forever. New capabilities ship as
-**sidecar files** (`.idxz`, `lists.txt`), never as changes to `.index`.
+**sidecar files** (`.idxz` compression, `.head` first-page answers, `.rindex`
+reversed copies, `lists.txt`), never as changes to `.index`.
 
 `.idxz` is the template worth copying: a magic string with a version
 (`nutriz02`), a header validated against the real index's length, and sanity
 ceilings against crafted files. A new sidecar should do all three.
 
-**Be precise about what is verified.** `index-format.test.ts` is a
-writer→reader round-trip asserting decoded *meaning*, not bytes, and no
-upstream-generated index is checked in anywhere. So byte compatibility is
-carefully maintained, not continuously proven. The genuinely upstream-derived
-test is `expr-search.test.ts`, a port of `test-expr.cpp`, which pins query
-semantics. Closing the gap means committing a small upstream-built index and
-asserting on its bytes.
+**Be precise about what is verified.** Three tests carry the compatibility
+claim, each a different kind of evidence: `upstream-format.test.ts` reads
+fixtures built by the C++ `make-index` (committed under `test/fixtures/`) and
+requires this reader to decode them to what upstream's `dump-index` reports
+*and* this writer to reproduce their bytes exactly; `index-format.test.ts`
+round-trips the writer and reader over decoded meaning; and
+`expr-search.test.ts`, a port of `test-expr.cpp`, pins query semantics. Bytes,
+meaning, behaviour — a change that breaks compatibility has to get past all
+three.
 
 ## Both engines must agree
 
@@ -110,6 +114,14 @@ documentation cannot ship.
 Names carry an optional group prefix (`{cipher.rot13:…}`). The bare name always
 keeps working: queries live in shared URLs, and breaking them to tidy a
 namespace is a bad trade.
+
+Predicates (level `"predicate"`) take a different path from automaton
+constructs: their spec goes through `parseFilterSpec` (shared by the
+whole-query peel and the nested parse), and their verdict runs in
+`result-predicate.ts` / `span-verify.ts`. A predicate whose argument is data
+rather than a pattern (`{iso:…}` carries ciphertext) must be excluded from
+the wrapper peel — `predicateTakesData` in `constructs.ts` is the one copy of
+that rule, consulted by the parser and the tests alike.
 
 ## Documentation is generated where it can be
 
@@ -148,6 +160,18 @@ test compares luminance), not merely find the element.
 
 ## Deploying
 
-`npm run build` then rsync `web/dist/` to the host. Indexes are served from the
-site root and shared with the parent deployment, so the fork ships only
-`demo.index`; never `--delete` a directory containing the big index files.
+One command, with the mistakes made unmakeable:
+
+    NUTRISTATIC9000_DEPLOY=user@host:/srv/nutristatic9000 npm run deploy
+
+It builds, copies the head sidecars from `web/heads/` into dist (refusing to
+deploy without them — a missing head makes every streamed search ~20x slower,
+quietly), rsyncs, and runs `check-deployed`, which asks the live site whether
+every index the picker offers is served with its `.idxz` and `.head`, and
+compares every hand-written data file's served size against the build.
+Indexes and their `.rindex` reverse sidecars are served from the site root
+and shared with the parent deployment — the fork ships only `demo.index`, and
+nothing in this repo should ever `--delete` against a directory holding them.
+The storage manager (`web/storage.html`) is how users get device copies; its
+download worker reuses the same `web/worker/downloads.ts` machinery, so a
+change there affects both.

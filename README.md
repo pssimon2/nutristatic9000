@@ -109,12 +109,12 @@ parser.
 | Syllables / metre | `{syllables=3:…}`, `{stress 100:…}` | Result filters over CMUdict stress shapes; phrases add up word by word |
 | Meaning (embedding) | `{near:king}`, `{near 8:word}` | Nearest neighbours from ConceptNet Numberbatch, precomputed by `scripts/build-neighbours.mjs`, with WordNet antonyms removed; ~5 MB table for 60k words, no model in the browser. `scripts/bench-embeddings.mjs` is the comparison that chose it |
 | Meaning (thesaurus) | `{like:reluctant}` | WordNet sense groups (a thesaurus, not a semantic model); lazily fetched, built by `scripts/build-thesaurus.mjs` |
-| Autocomplete + inline checking | *(the query box)* | Completes construct, group and list names from the same catalogue the parser dispatches on, with each one's summary and a runnable example. `{list:…}` offers the harvested catalogue as well as the built-ins, and `{kind:…}` is answered by the worker, which holds all 124,980 WordNet names — too many to hand the page a copy of; a query the engine cannot parse is underlined as you type, checked by `compileQuery` itself in the worker so the box and the search cannot disagree |
+| Autocomplete + inline checking | *(the query box)* | Completes construct, group and list names from the same catalogue the parser dispatches on, with each one's summary and a runnable example. `{list:…}` offers the harvested catalogue as well as the built-ins, and `{kind:…}` is answered by the worker, which holds all 124,980 WordNet names — too many to hand the page a copy of; a query the engine cannot parse is underlined as you type, checked by `compileQuery` itself in the worker so the box and the search cannot disagree. The menu opens unselected — Enter searches, ArrowDown steps in, Tab completes the top match, Escape dismisses — so it advises without trapping |
 | Generated reference | *(usage.html)* | The construct table is rendered from `src/constructs.ts` by `scripts/build-docs.mjs`; `npm run check-docs` fails CI if it drifts, so an undocumented construct cannot ship |
 | Match explanation | *(click a result)* | Rebuilds, per conjunct, why a result matched — the source word and letter behind an edit, the shift behind a cipher, the total behind a count. Post-hoc in `src/explain.ts`, so the search carries no cost |
 | Corpus self-reference | `{compound 2:A{9}}` | Match must cut into N indexed words; the split is shown. Verified in the worker against the index |
 | Palindromes / reversals | `{palindrome:…}`, `{reversible:…}` | Result filters, so no 26^(n/2) automaton |
-| Harvested list catalogue | `{list:romandeities}` | A curated couple dozen categories mined from a Wikipedia dump by `scripts/build-wiki-lists.mjs` and then reviewed by hand for puzzle use — all nine Pokémon generations, cocktails, phobias, cheeses, Roman deities… Fetched on demand, browsable at `/lists.html`; an unknown name suggests the nearest real one |
+| Harvested list catalogue | `{list:romandeities}` | A curated couple dozen categories mined from a Wikipedia dump by `scripts/build-wiki-lists.mjs` and then reviewed by hand for puzzle use — all nine Pokémon generations (plus a merged `{list:pokemon}` across all of them), cocktails, phobias, cheeses, Roman deities… Fetched on demand, browsable at `/lists.html`; an unknown name suggests the nearest real one |
 | Named + inline lists | `{list:countries}`, `{list:instruments}`, `{list:red,green,blue}` | 57 shipped categories — countries, capitals, US states, elements, constellations, presidents, Greek/Norse/Egyptian gods, Bible books, Shakespeare plays, tarot, moons, instruments, car makers, sports, currencies, and the puzzle-hunt canon: rainbow, resistor colors, reindeer, Clue suspects/weapons/rooms, Monopoly properties, ancient wonders, apostles, Round Table knights, Hogwarts houses, solfège, Mohs scale, SI prefixes, wedding anniversaries, dwarf planets, NBA/NFL/MLB/NHL teams… — or your own written in the query and shared in the URL. The large ones are generated from Wikidata (CC0) by `scripts/build-lists.mjs` and committed, so no network is needed at build or run time |
 | Ciphers | `{caesar:kdhv}`, `{rot13:…}`, `{caesar+5:…}`, `{atbash:…}`, `{vigenere(key):…}`, `{playfair(key):…}` | Desugars to an alternation of literals; the UI reports the matched shift. The keyed ciphers decode with the key you name — Playfair keeps a decoded X skippable (padding) and reads a decoded I as J too |
 | Hunt codes | `{a1z26:2085}`, `{braille:2345 125 15}`, `{bacon:baabb…}`, `{bin5:…}`, `{semaphore:n-nw…}`, `{ascii:116 104 101}`, `{polybius:44 23 15}` | The most-used codes in Mystery Hunt history, decoded to *every* reading so the corpus picks the word: unseparated `{a1z26:…}` tries every split into 1-26, `{bacon:…}` reads both the 24- and 26-letter tables, `{polybius:…}` covers the tap-code square via its merged cells |
@@ -126,8 +126,9 @@ parser.
 | Index manifests | `my.index.meta.json` | Per-index description and transliteration rules, so a custom index folds diacritics the way its corpus did |
 | Multi-index search | `find-expr a.index,b.index` | One query over several corpora, scores normalized and merged exactly, results tagged by source (`src/merged-driver.ts`) |
 | Parallel sharding | `find-expr --shards 4` | First-letter shards across worker threads, merged exactly; restart phrases stay in the shard of their first letter (`src/shards.ts`) |
-| Reverse-index sidecar | `reverse-index in.index out.rindex`, `find-expr --reverse-index` | Suffix-anchored patterns (`.*tion`) walk a reversed index at prefix speed — identical results and scores, ~50× fewer steps (`src/reverse.ts`) |
+| Reverse-index sidecar | `reverse-index in.index out.rindex`, `find-expr --reverse-index` | Suffix-anchored patterns (`.*tion`) walk a reversed index at prefix speed — identical results and scores, ~50× fewer steps (`src/reverse.ts`). The site picks a served `.rindex` automatically when reversal wins decisively, and a device copy of the sidecar (downloadable on the storage page) keeps suffix searches fast offline |
 | Score floor | `--score-floor 1e-6` | Optional frontier budget: drops entries that can no longer beat `floor × best`; bounds memory, truncates only the deep tail |
+| Offline & storage manager | *(storage.html)* | Every index's device copy, its reverse sidecar, the side datasets and the cached range pieces in one page — queued downloads with resume/discard, per-item and delete-everything removal, the browser's own quota accounting. A copy + its sidecar + the datasets is a complete offline puzzle kit; the PWA searches with no connection at all |
 
 ### Construct groups
 
@@ -177,7 +178,7 @@ source](https://github.com/PuzzleTechHub/nutrimatic)) that runs with **no
 server-side code**, deployed at [nutristatic.org](https://nutristatic.org/).
 The user-facing "what is this and how does it differ from Nutrimatic"
 documentation lives in the site's
-[usage guide](https://nutristatic.org/usage.html); this README covers the
+[usage guide](https://nutristatic.org/9000/usage.html); this README covers the
 implementation. The pattern engine is TypeScript running in a Web Worker
 in the visitor's browser; the phrase-frequency index is a plain static file.
 (A WebAssembly port of the engine — `wasm-kernel/kernel.c` driven by
@@ -361,6 +362,10 @@ screen:
 A search that would stream a large slice of the index over the network stops
 at a bytes/time budget (~32 MB or ~20 s) and offers to download the index for
 instant local searching.
+
+Suffix-anchored queries (`"A{1,20}tion"`) answer in **~0.7–0.8 s on every
+index** via the `.rindex` reverse sidecars served beside them — hundreds of
+times fewer steps than the forward walk they replace.
 
 Heavy anagram (`<aciimnrttu>`, English index): ~5 s cold range mode,
 ~2 s from a device-stored (OPFS) copy including page load, 0.1 s warm
