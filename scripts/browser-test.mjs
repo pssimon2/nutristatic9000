@@ -664,11 +664,45 @@ console.log("completions for {ci:", JSON.stringify(acOpts.slice(0, 4)));
 if (!acOpts.some((o) => o.startsWith("cipher."))) {
   throw new Error("group completion missing");
 }
-// Enter takes the highlighted completion rather than submitting.
+// The menu opens unselected: Enter must SEARCH, not complete — typing
+// "pokemon" and hitting Enter means "search for pokemon". Arrowing into the
+// menu first is what makes Enter complete.
+await page.keyboard.press("ArrowDown");
 await page.keyboard.press("Enter");
 const afterComplete = await page.inputValue("#q");
-console.log("after Enter:", afterComplete);
+console.log("after ArrowDown+Enter:", afterComplete);
 if (!afterComplete.startsWith("{cipher.")) throw new Error("completion not inserted");
+
+// Without arrowing, Enter submits: the menu is advice, not a trap.
+await page.fill("#q", "");
+await page.type("#q", "{ci", { delay: 20 });
+await page.waitForSelector("#ac li", { timeout: 30000 });
+await page.keyboard.press("Enter");
+await page.waitForFunction(
+  () => new URLSearchParams(location.search).get("q") === "{ci",
+  null, { timeout: 30000 });
+console.log("unselected Enter submitted the search");
+
+// Tab keeps the quick path: it completes the top match with no selection.
+await page.goto(base + "?index=./demo.index");
+await page.waitForSelector("#q", { timeout: 60000 });
+await page.click("#q");
+await page.fill("#q", "");
+await page.type("#q", "{ci", { delay: 20 });
+await page.waitForSelector("#ac li", { timeout: 30000 });
+await page.keyboard.press("Tab");
+const afterTab = await page.inputValue("#q");
+console.log("after Tab:", afterTab);
+if (!afterTab.startsWith("{cipher.")) throw new Error("Tab completion missing");
+
+// Escape dismisses the menu without touching the text.
+await page.fill("#q", "");
+await page.type("#q", "{ci", { delay: 20 });
+await page.waitForSelector("#ac li", { timeout: 30000 });
+await page.keyboard.press("Escape");
+await page.waitForFunction(
+  () => document.getElementById("ac").hidden, null, { timeout: 5000 });
+console.log("Escape dismissed the menu");
 
 // A broken query is flagged as you type, by the engine's own parser.
 await page.fill("#q", "");

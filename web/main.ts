@@ -651,7 +651,7 @@ worker.onmessage = (ev: MessageEvent<OutMsg>) => {
         label: n,
         detail: "WordNet category",
       }));
-      acIndex = acItems.length > 0 ? 0 : -1;
+      acIndex = -1; // unselected: Enter searches until an arrow key chooses
       renderCompletions();
       break;
     }
@@ -951,7 +951,7 @@ function updateCompletions(): void {
   }
   acToken = { start: token.start, prefix: token.prefix };
   acItems = items;
-  acIndex = items.length > 0 ? 0 : -1;
+  acIndex = -1; // unselected: Enter searches until an arrow key chooses
   renderCompletions();
 }
 
@@ -968,19 +968,39 @@ qInput.addEventListener("blur", () => setTimeout(closeCompletions, 120));
 
 qInput.addEventListener("keydown", (ev) => {
   if (acEl.hidden) return;
-  if (ev.key === "ArrowDown" || ev.key === "ArrowUp") {
+  // The menu opens with nothing selected, so Enter means "search" until an
+  // arrow key deliberately steps into it — typing "pokemon" and hitting
+  // Enter must search for pokemon, not complete to something else.
+  if (ev.key === "ArrowDown") {
     ev.preventDefault();
-    acIndex =
-      (acIndex + (ev.key === "ArrowDown" ? 1 : acItems.length - 1)) %
-      acItems.length;
+    acIndex = (acIndex + 1) % acItems.length;
     renderCompletions();
     acEl.children[acIndex]?.scrollIntoView({ block: "nearest" });
-  } else if (ev.key === "Enter" || ev.key === "Tab") {
-    // Enter completes only while the menu is open with a choice made; the
-    // second Enter submits, which is what someone who ignored the menu expects.
+  } else if (ev.key === "ArrowUp") {
+    ev.preventDefault();
+    if (acIndex <= 0) {
+      // Up past the top steps back out: first to "nothing selected",
+      // then it dismisses the menu entirely.
+      if (acIndex === -1) closeCompletions();
+      acIndex = -1;
+      renderCompletions();
+    } else {
+      acIndex -= 1;
+      renderCompletions();
+      acEl.children[acIndex]?.scrollIntoView({ block: "nearest" });
+    }
+  } else if (ev.key === "Enter") {
     if (acIndex >= 0) {
       ev.preventDefault();
       applyCompletion(acIndex);
+    }
+    // acIndex === -1: fall through — the form submits and the search runs.
+  } else if (ev.key === "Tab") {
+    // Tab keeps the quick path: complete the selection, or the top match
+    // when nothing is selected yet.
+    if (acItems.length > 0) {
+      ev.preventDefault();
+      applyCompletion(acIndex >= 0 ? acIndex : 0);
     }
   } else if (ev.key === "Escape") {
     closeCompletions();
