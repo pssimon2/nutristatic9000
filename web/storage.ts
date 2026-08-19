@@ -179,10 +179,18 @@ function button(label: string, act: () => void): HTMLButtonElement {
   return b;
 }
 
+// Renders overlap freely (a click and a worker message arrive together), and
+// an interleaved pair used to append rows into the same table — two bars for
+// one download. Each run builds off-DOM and only the newest may swap in.
+let renderGen = 0;
+
 async function render(): Promise<void> {
+  const gen = ++renderGen;
+  progressEls.clear();
   // Totals first: the browser's own accounting of this origin.
   try {
     const est = await navigator.storage.estimate();
+    if (gen !== renderGen) return;
     $("total").textContent =
       est.usage != null
         ? `This site keeps ${fmt(est.usage)} on this device` +
@@ -193,8 +201,7 @@ async function render(): Promise<void> {
     $("total").textContent = "";
   }
 
-  const tbody = $("indexes");
-  tbody.textContent = "";
+  const tbody = document.createElement("tbody");
   for (const [path, label] of BUNDLED_INDEXES) {
     const url = abs(path);
     const rev = reverseSidecarName(url);
@@ -245,7 +252,18 @@ async function render(): Promise<void> {
           ),
         );
         if (status.state === "partial") {
-          td.append(` (${fmt(status.bytes)} so far)`);
+          td.append(
+            ` (${fmt(status.bytes)} so far) `,
+            button("discard", async () => {
+              try {
+                await removeCopy(target);
+              } catch {
+                $("note").textContent =
+                  `${what} is in use — close or switch the search tab using it, then retry`;
+              }
+              void render();
+            }),
+          );
         }
       }
       return td;
@@ -273,10 +291,12 @@ async function render(): Promise<void> {
     tr.append(chunksTd);
     tbody.append(tr);
   }
+  if (gen !== renderGen) return;
+  $("indexes").replaceWith(tbody);
+  tbody.id = "indexes";
 
   // Side datasets, through the service worker's cache.
-  const dl = $("datasets");
-  dl.textContent = "";
+  const dl = document.createElement("ul");
   let missing = 0;
   for (const [file, what] of DATASETS) {
     const url = dataUrl(file);
@@ -296,6 +316,9 @@ async function render(): Promise<void> {
     );
     dl.append(li);
   }
+  if (gen !== renderGen) return;
+  $("datasets").replaceWith(dl);
+  dl.id = "datasets";
   const allBtn = $("dl-datasets") as HTMLButtonElement;
   allBtn.textContent = missing > 0 ? `Store all ${DATASETS.length} datasets` : "All stored ✓";
   allBtn.disabled = missing === 0;
@@ -313,6 +336,45 @@ $("dl-datasets").addEventListener("click", async () => {
 
 $("rm-datasets").addEventListener("click", async () => {
   await caches.delete(DATA_CACHE).catch(() => {});
+  void render();
+});
+
+$("rm-all").addEventListener("click", async () => {
+  if (!confirm("Remove every device copy, sidecar, cached piece and dataset this site has stored?")) {
+    return;
+  }
+  let locked = 0;
+  const root = await opfsRoot();
+  if (root) {
+    const names: string[] = [];
+    try {
+      for await (const name of (root as unknown as { keys(): AsyncIterable<string> }).keys()) {
+        if (name.startsWith("idx-")) names.push(name);
+      }
+    } catch {
+      // OPFS unavailable
+    }
+    for (const name of names) {
+      try {
+        await root.removeEntry(name);
+      } catch {
+        ++locked; // open in a search tab
+      }
+    }
+  }
+  await caches.delete(CHUNK_CACHE).catch(() => {});
+  await caches.delete(DATA_CACHE).catch(() => {});
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("nutristatic-disk:")) localStorage.removeItem(key);
+    }
+  } catch {
+    // no localStorage
+  }
+  $("note").textContent =
+    locked > 0
+      ? `${locked} file(s) are open in a search tab — close or switch it, then retry`
+      : "";
   void render();
 });
 
