@@ -12,7 +12,7 @@ cd "$ROOT/data"
 MAIN_LOG=euro-langs.log
 log() { echo "$(date '+%F %T') $*" >> "$MAIN_LOG"; }
 FILTER="sed -f $ROOT/tools/latin-fold.sed"
-DEPLOY="${NUTRISTATIC_DEPLOY:-user@host:/srv/nutristatic}"
+DEPLOY="${NUTRISTATIC_DEPLOY:?set NUTRISTATIC_DEPLOY to an rsync destination, user@host:/path}"
 WORKERS="${WORKERS:-16}"
 
 LANGS="${LANGS:-fi no da eo ro hu sk hr sl}"
