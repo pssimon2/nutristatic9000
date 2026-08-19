@@ -181,12 +181,39 @@ let reverseReader: IndexReader | null | undefined = undefined;
 let reversedSearch = false;
 
 /** Open (or reuse) the reverse sidecar's reader; null when there is none. */
+/** Drop the reverse reader, releasing an OPFS handle if it holds one. */
+function releaseReverseReader(): void {
+  const src = reverseReader?.source as { close?: () => void } | undefined;
+  try {
+    src?.close?.();
+  } catch {
+    // best-effort
+  }
+  reverseReader = undefined;
+}
+
 async function reverseReaderFor(url: string): Promise<IndexReader | null> {
   if (reverseReader !== undefined) return reverseReader;
   reverseReader = null;
+  const revUrl = reverseSidecarName(url);
+  if (revUrl === url) return null;
+  // A device copy of the sidecar first (the storage page downloads them):
+  // instant, offline-capable, and what keeps ends-with searches fast on a
+  // downloaded index.
   try {
-    const revUrl = reverseSidecarName(url);
-    if (revUrl === url) return null;
+    const marker = parseOpfsMarker(await opfsReadMarker(revUrl));
+    if (marker) {
+      const disk = await openOpfsIndex(revUrl, marker.size, null);
+      if (disk) {
+        reverseReader = await IndexReader.open(disk);
+        return reverseReader;
+      }
+    }
+  } catch {
+    // fall through to the network path
+  }
+  if (!indexIsRemote()) return null; // a local index streams no sidecar
+  try {
     const src = await HttpRangeSource.open(revUrl, {});
     if (!src.supportsRanges) return null;
     reverseReader = await IndexReader.open(src);
@@ -1172,14 +1199,14 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // Another corpus: cached results are not answers here.
         recentRuns.length = 0;
         runFps = null;
-        reverseReader = undefined;
+        releaseReverseReader();
         await openIndex(msg.url, msg.early);
         break;
       case "open-file":
         ++runToken;
         recentRuns.length = 0;
         runFps = null;
-        reverseReader = undefined;
+        releaseReverseReader();
         await openFile(msg.file);
         break;
       case "search": {
@@ -1330,7 +1357,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // forward — they are fast either way, and the kernel serves them.
         reversedSearch = false;
         if (
-          indexIsRemote() &&
+          (indexIsRemote() || diskSource !== null) &&
           currentUrl !== null &&
           !weightedQuery &&
           reverseFavored(currentQuery, ctx)

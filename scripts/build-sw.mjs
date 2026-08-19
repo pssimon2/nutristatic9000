@@ -16,7 +16,7 @@ if (!fs.existsSync(swPath)) {
 // app at the site root or under a path prefix (this fork ships at /9000/).
 // The app shell: the entry HTML, a couple of small statics, and every
 // content-hashed asset (the main bundle, the search worker, the WASM kernel).
-const precache = ["index.html"];
+const precache = ["index.html", "storage.html"];
 for (const name of [
   "favicon.ico",
   "nutritea-small.png",

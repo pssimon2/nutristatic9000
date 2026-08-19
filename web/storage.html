@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Nutristatic 9000 — offline &amp; storage</title>
+  <meta name="description" content="Manage what Nutristatic keeps on your device: index copies, reverse sidecars, datasets and cached pieces.">
+  <link rel="icon" type="image/vnd.microsoft.icon" href="/favicon.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, sans-serif; max-width: 52em; margin: 2em auto;
+           padding: 0 1em; line-height: 1.5; }
+    h1 { font-size: 1.3em; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: .3em .6em .3em 0; vertical-align: baseline;
+             border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, Canvas); }
+    th { font-size: .85em; color: GrayText; font-weight: normal; }
+    button { font: inherit; font-size: .85em; padding: .1em .6em; }
+    progress { width: 8em; }
+    .note { color: GrayText; font-size: .9em; }
+    #note { color: #b45309; min-height: 1.3em; }
+    @media (prefers-color-scheme: dark) { #note { color: #f0a860; } }
+    ul { padding-left: 1.2em; }
+  </style>
+</head>
+<body>
+<p><a href="./">« back to the search</a> · <a href="./indexes.html">index details</a></p>
+
+<h1>Offline &amp; storage</h1>
+
+<p id="total" class="note"></p>
+<p id="note"></p>
+
+<p>A <b>device copy</b> makes an index searchable offline and much faster.
+Its <b>reverse sidecar</b> keeps ends-with searches (<tt>.*tion</tt>) fast on
+the copy — without it they still work, just slowly. <b>Cached pieces</b> are
+the fragments streamed searches fetched as they went; they speed up repeat
+queries and are safe to clear any time.</p>
+
+<table>
+  <thead>
+    <tr><th>index</th><th>device copy</th><th>reverse sidecar</th><th>cached pieces</th></tr>
+  </thead>
+  <tbody id="indexes"></tbody>
+</table>
+
+<h2>Puzzle datasets</h2>
+<p class="note">Rhymes, meanings, categories and lists are separate small
+files, fetched the first time a query needs them. Store them all now and
+every construct keeps working offline — the whole set is under 10&nbsp;MB.</p>
+<ul id="datasets"></ul>
+<p>
+  <button id="dl-datasets">Store all datasets</button>
+  <button id="rm-datasets">Remove stored datasets</button>
+</p>
+
+<p class="note">Together, a device copy + its sidecar + the datasets are a
+complete offline puzzle kit — install the site as an app and it keeps
+working with no connection at all.</p>
+
+<script type="module" src="./storage.ts"></script>
+</body>
+</html>

@@ -34,6 +34,7 @@ const FILES = [
   "web/public/recipes.html",
   "web/public/indexes.html",
   "web/public/lists.html",
+  "web/storage.html",
 ];
 
 const unescape = (t) =>

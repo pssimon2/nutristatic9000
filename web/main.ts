@@ -1,4 +1,5 @@
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
+import { BUNDLED_INDEXES, dataUrl } from "./catalog.js";
 import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { type IndexManifest, parseManifest, transliterateQuery } from "../src/manifest.js";
 import { derivedNote } from "../src/match-notes.js";
@@ -49,32 +50,6 @@ const RANGE_STALL_MS = 6000;
 const RANGE_STEP_CEILING = 8000000;
 const PER_RUN_RESULTS = 1000;
 
-const BUNDLED_INDEXES: Array<[string, string]> = [
-  ["/en-wiki.index", "English Wikipedia (1.3 GB)"],
-  ["/de-wiki.index", "German Wikipedia – Deutsch (591 MB)"],
-  ["/fr-wiki.index", "French Wikipedia – Français (491 MB)"],
-  ["/es-wiki.index", "Spanish Wikipedia – Español (436 MB)"],
-  ["/it-wiki.index", "Italian Wikipedia – Italiano (360 MB)"],
-  ["/pt-wiki.index", "Portuguese Wikipedia – Português (255 MB)"],
-  ["/nl-wiki.index", "Dutch Wikipedia – Nederlands (222 MB)"],
-  ["/pl-wiki.index", "Polish Wikipedia – Polski (216 MB)"],
-  ["/sv-wiki.index", "Swedish Wikipedia – Svenska (199 MB)"],
-  ["/ca-wiki.index", "Catalan Wikipedia – Català (173 MB)"],
-  ["/id-wiki.index", "Indonesian Wikipedia – Bahasa Indonesia (123 MB)"],
-  ["/cs-wiki.index", "Czech Wikipedia – Čeština (113 MB)"],
-  ["/hu-wiki.index", "Hungarian Wikipedia – Magyar (107 MB)"],
-  ["/no-wiki.index", "Norwegian Wikipedia – Norsk (Bokmål) (102 MB)"],
-  ["/ro-wiki.index", "Romanian Wikipedia – Română (101 MB)"],
-  ["/tr-wiki.index", "Turkish Wikipedia – Türkçe (88 MB)"],
-  ["/fi-wiki.index", "Finnish Wikipedia – Suomi (85 MB)"],
-  ["/da-wiki.index", "Danish Wikipedia – Dansk (51 MB)"],
-  ["/eo-wiki.index", "Esperanto Wikipedia – Esperanto (51 MB)"],
-  ["/sl-wiki.index", "Slovenian Wikipedia – Slovenščina (41 MB)"],
-  ["/hr-wiki.index", "Croatian Wikipedia – Hrvatski (41 MB)"],
-  ["/sk-wiki.index", "Slovak Wikipedia – Slovenčina (36 MB)"],
-  ["/simple-wiki.index", "Simple English Wikipedia (41 MB)"],
-  ["./demo.index", "web words + bigrams (20 MB)"],
-];
 const DEFAULT_INDEX = BUNDLED_INDEXES[0][0];
 
 const EXAMPLES: Array<[string, string]> = [
@@ -109,9 +84,6 @@ function setDlMsg(text: string): void {
 
 // Bump when a side dataset is rebuilt: it versions their URLs, which is what
 // makes a cached copy fall out of use.
-const DATA_VERSION = "2";
-const dataUrl = (file: string): string | null =>
-  OFFLINE ? null : new URL(`./${file}?v=${DATA_VERSION}`, location.href).href;
 
 /**
  * Where this index's head sidecar lives: beside the *page*, not beside the
