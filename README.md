@@ -182,9 +182,11 @@ documentation lives in the site's
 implementation. The pattern engine is TypeScript running in a Web Worker
 in the visitor's browser; the phrase-frequency index is a plain static file.
 (A WebAssembly port of the engine — `wasm-kernel/kernel.c` driven by
-`src/wasm-session.ts` — takes over automatically for fully-local indexes,
-worth ~1.6x on heavy anagrams; the JS engine remains the reference
-implementation, the fallback, and the range-mode engine.)
+`src/wasm-session.ts` — takes over automatically for fully-local indexes up
+to its ~2.4 GB memory cap, including the English device copy; on deep
+exhaustive walks its throughput is several times the JS engine's. The JS
+engine remains the reference implementation, the fallback, and the
+range-mode engine.)
 Deploy the built site to any static host (GitHub Pages, S3, nginx `root`,
 `python -m http.server`, …) and it works.
 
@@ -375,6 +377,17 @@ revisit. Engine: 1.3–3.5M steps/s in-memory (JS; the WASM kernel adds
 transferred as 785 MB compressed in ~30 s on fast links, cancellable.
 Compressed range transport (`.idxz` sidecars) cuts per-query transfer
 31–39%.
+
+Deep walks from the CLI (a raised or unlimited `--max-steps` on a local
+index) load the index once into the WASM kernel's memory and run there: a
+12M-step exhaustive walk of `"_{34}"` over the English index drops from
+13.6 s (chunked reader, JS engine) to 3.7 s, with the index resident once —
+the JS reader views the kernel's copy. Default-budget runs are untouched:
+the setup costs seconds, which only a deep walk repays. Measured and
+declined along the same road: SIMD builds of the kernel (the hot loops are
+varint decode and hash probes, which do not vectorize) and replacing the
+frontier heap (it is already a 4-ary typed-array heap, and `pop` profiles
+at ~10% — near the floor for an exact priority queue).
 
 Regenerate: `node scripts/bench-all.mjs` (engine + fixtures),
 `node scripts/prod-matrix.mjs` (live site, all indexes), and
