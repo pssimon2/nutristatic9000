@@ -13,16 +13,20 @@ Deployment notes specific to this fork:
 - Vite's `base` is relative (`"./"`), so the built app runs from any path;
   the service worker derives its scope from its own URL and precaches
   relative paths.
-- The index picker points at root-absolute index URLs (`/de-wiki.index`, …)
-  because those files are served from the site root; only `demo.index` ships
-  with the app.
+- The index picker points at root-absolute **versioned** index URLs
+  (`/idx/<edition>/de-wiki.index`, where the edition is the dump's
+  year-month) because those files are served from the site root; only
+  `demo.index` ships with the app. An edition's files are immutable once
+  published — a new dump goes up under a new `/idx/<edition>/` directory and
+  the picker moves to it, so a shared link pinned with `?index=` keeps
+  answering from the same data.
 - Deploy target is `/srv/nutristatic9000` on the web host, served under
   the `/9000/` path (any static server that can strip a path prefix works).
 - **The head sidecar is part of the deployment and is not in the repo.** Each
   streamed index wants an `<name>.head` beside the *page* (not beside the
   index, which is shared between deployments):
 
-      npm run build-head -- /path/to/en-wiki.index --out web/heads/en-wiki.head
+      npm run build-head -- /path/to/en-wiki.index --out web/heads/en-wiki-<edition>.head
 
   Keep the built heads in `web/heads/` (gitignored). Deploy with
 
@@ -62,7 +66,11 @@ Deployment notes specific to this fork:
   entries the index no longer contains, at scores it no longer has, and nothing
   can notice. Check a pair before deploying it:
 
-      npm run check-head -- data/en-wiki.index web/dist/en-wiki.head
+      npm run check-head -- data/en-wiki.index web/dist/en-wiki-<edition>.head
+
+  Heads are edition-qualified to match their index's versioned URL, so a link
+  pinned to an older edition never picks up a newer edition's head — it just
+  misses and takes the slower, correct walk.
 
   It samples the head — the top, the bottom, and a spread between — and asks
   the index what each entry is worth. Against the index it was built from:

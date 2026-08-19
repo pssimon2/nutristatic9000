@@ -93,8 +93,11 @@ for (const file of FILES) {
 // deployment: the legal pages, the favicon, and the index data itself — which
 // is far too large to duplicate per deployment and is linked as `/en-wiki.index`
 // by the page's own index picker.
+// Root-level shared files, plus the versioned index tree /idx/<edition>/…
+// — the big indexes live once at the site root and are shared by both
+// deployments, so linking them absolutely is correct.
 const ROOT_FILES =
-  /^\/(favicon\.ico|impressum\.html|datenschutz\.html|robots\.txt|[a-z-]+\.(index|idxz))$/;
+  /^\/(favicon\.ico|impressum\.html|datenschutz\.html|robots\.txt|(idx\/[a-z0-9-]+\/)?[a-z-]+\.(index|idxz))$/;
 for (const file of FILES) {
   if (!fs.existsSync(file)) continue;
   const html = fs.readFileSync(file, "utf8");

@@ -107,6 +107,10 @@ for (const path of indexes) {
   const isBundled = !path.startsWith("/");
   const indexUrl = isBundled ? `${BASE}/${path}` : `${ROOT}${path}`;
   const name = path.replace(/^\//, "").replace(/\.index$/, "");
+  // Mirror the app's head naming: a versioned index /idx/<edition>/<base>
+  // wants the edition-qualified head <base>-<edition>.head beside the page.
+  const v = /^idx\/([^/]+)\/([^/]+)$/.exec(name);
+  const headName = v ? `${v[2]}-${v[1]}.head` : `${name}.head`;
   const checks = [
     [`${name}.index`, indexUrl],
     // A bundled index is small and fetched whole, so it needs no sidecars.
@@ -114,7 +118,7 @@ for (const path of indexes) {
       ? []
       : [
           [`${name}.index.idxz`, `${indexUrl}.idxz`],
-          [`${name}.head`, `${BASE}/${name}.head`],
+          [headName, `${BASE}/${headName}`],
         ]),
   ];
   const missing = [];

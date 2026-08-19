@@ -90,9 +90,21 @@ function setDlMsg(text: string): void {
  * index. The index files are shared between deployments — /en-wiki.index is
  * one file however many pages point at it — and the sidecar is per
  * deployment, so `/9000/en-wiki.head` sits with the page that knows about it.
+ *
+ * A versioned index (`/idx/<edition>/<name>.index`) gets an
+ * edition-qualified head (`<name>-<edition>.head`): a head answers *as* the
+ * index it was built from, so a link pinned to an older edition must never
+ * pick up the current edition's head — with the edition in the name it asks
+ * for a head this deployment no longer ships and falls back to the (slower,
+ * correct) walk instead.
  */
 const headUrl = (): string | null => {
   if (OFFLINE) return null;
+  const u = new URL(indexUrl);
+  const versioned = /^\/idx\/([^/]+)\/([^/]+)\.index$/.exec(u.pathname);
+  if (versioned && u.origin === location.origin) {
+    return new URL(`./${versioned[2]}-${versioned[1]}.head`, location.href).href;
+  }
   const name = indexUrl.split("/").pop() ?? "";
   if (!name.endsWith(".index")) return null;
   return new URL(`./${name.slice(0, -".index".length)}.head`, location.href).href;
@@ -1259,4 +1271,35 @@ window.addEventListener("beforeinstallprompt", (e) => {
 installLink?.addEventListener("click", (e) => {
   e.preventDefault();
   void installPrompt?.prompt();
+});
+
+// "Copy link to these results": the current URL with the index made
+// explicit. Shared URLs normally omit the default index, which is whatever
+// the picker currently offers — so a link shared today could answer with a
+// newer index edition later. Pinning ?index= to the (versioned) URL in use
+// keeps the link meaning exactly these results.
+const shareBtn = document.getElementById("sharelink");
+const shareMsg = document.getElementById("sharemsg");
+// Meaningless from the file:// single-file build: no shareable origin.
+if (OFFLINE) {
+  const line = document.getElementById("shareline");
+  if (line) line.hidden = true;
+}
+shareBtn?.addEventListener("click", () => {
+  const p = new URLSearchParams(location.search);
+  const u = new URL(indexUrl);
+  p.set("index", u.origin === location.origin ? u.pathname : indexUrl);
+  const link = `${location.origin}${location.pathname}?${p}`;
+  navigator.clipboard.writeText(link).then(
+    () => {
+      if (shareMsg) shareMsg.textContent = "copied — pinned to this index";
+      setTimeout(() => {
+        if (shareMsg) shareMsg.textContent = "";
+      }, 4000);
+    },
+    () => {
+      // Clipboard denied (permissions, http): show the link for manual copy.
+      if (shareMsg) shareMsg.textContent = link;
+    },
+  );
 });
