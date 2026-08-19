@@ -4,7 +4,7 @@ The full search engine — best-first walk plus the lazy-filter machinery
 (on-demand subset construction per conjunct NFA, lazy product of conjuncts,
 tuple/subset interning via open-addressed hashes) — compiled to WebAssembly
 from freestanding C. The web worker runs it for fully-local indexes (memory
-mode, or an OPFS disk copy ≤ 800 MB, where the index is copied into linear
+mode, or an OPFS disk copy up to the kernel's ~2.4 GB memory cap, where the index is copied into linear
 memory); range mode and any WASM failure use the JS engine, which is the
 reference implementation and the fallback.
 

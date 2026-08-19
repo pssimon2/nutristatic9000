@@ -129,7 +129,12 @@ let currentValidator: string | null = null; // ETag/Last-Modified from probe
 // (OPFS) mode up to this size — the kernel needs the index in linear memory,
 // so range mode (async fetches mid-search) stays on the JS engine. Any WASM
 // failure falls back to JS; both engines emit identical score-streams.
-const WASM_INDEX_LIMIT = 800 * 1024 * 1024;
+// Bounded by the kernel's link-time 3GB memory cap (index + reserved
+// frontier/DFA capacities must fit inside it), which admits every bundled
+// index including English Wikipedia's device copy. A machine that cannot
+// actually grow WASM memory that far fails instantiation, which the caller
+// treats as "use the JS engine" — the limit is an upper bound, not a promise.
+const WASM_INDEX_LIMIT = 2_400 * 1024 * 1024;
 let wasmModule: Promise<WebAssembly.Module> | null = null;
 // Single-flight per index: a second search racing the first engine creation
 // must await the SAME instance, not build a second full index copy.

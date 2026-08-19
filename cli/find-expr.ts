@@ -22,7 +22,6 @@ import {
 } from "../src/wasm-session.js";
 
 const fsStatSize = (p: string): number => fs.statSync(p).size;
-const readFileBytes = (p: string): Buffer => fs.readFileSync(p);
 import fs from "node:fs";
 import { SessionContext } from "../src/session-context.js";
 import { providersFor } from "../src/data-providers.js";
@@ -227,20 +226,74 @@ const indexPaths = indexPath.split(",").map((x) => x.trim()).filter((x) => x !==
 // reader spends a third of a heavy walk in read() syscalls and chunk-cache
 // bookkeeping (measured on \"_{34}\"), which memory access simply deletes.
 // The bytes are kept when the WASM kernel can use them too.
-const MEMORY_LOAD_LIMIT = 2_500 * 1024 * 1024;
-// Loading 1.4GB and copying it into kernel memory costs ~3s before the
-// first step — worth it only when the walk is deep enough to repay it. A
-// default-budget run stays on the chunked reader and JS engine, exactly as
-// before; a raised or unlimited budget signals a deep walk and gets both.
+// The link-time cap on kernel memory is 3GB; the index plus the reserved
+// frontier/crumb/DFA capacities must fit inside it.
+const KERNEL_INDEX_LIMIT = 2_400 * 1024 * 1024;
+// Loading the index up front costs seconds before the first step — worth it
+// only when the walk is deep enough to repay it. A default-budget run stays
+// on the chunked reader and JS engine, exactly as before; a raised or
+// unlimited budget signals a deep walk.
 const DEEP_WALK = maxSteps === 0 || maxSteps > 2_000_000;
-let memBytes: Uint8Array | null = null;
+let kernelEngine: WasmEngine | null = null;
+
+/**
+ * One resident copy of the index, owned by the kernel: the file is read
+ * straight into WASM linear memory in slabs (no intermediate whole-file
+ * Buffer), and the JS reader — word checks, finite strategy, the fallback
+ * engine — views that same memory. Safe because the kernel's memory is
+ * grown once at create and never again (per-query allocations come from the
+ * reservation), so the underlying ArrayBuffer is never detached.
+ */
+async function openViaKernel(path: string, size: number): Promise<IndexReader | null> {
+  try {
+    const kernelPath = new URL("../wasm-kernel/kernel.wasm", import.meta.url);
+    const module = await WebAssembly.compile(fs.readFileSync(kernelPath));
+    let view: Uint8Array | null = null;
+    const total = await peekCount(path);
+    const engine = await WasmEngine.create(module, size, total, (target) => {
+      const fd = fs.openSync(path, "r");
+      try {
+        const SLAB = 64 * 1024 * 1024;
+        for (let at = 0; at < size; ) {
+          const n = fs.readSync(fd, target.subarray(at, Math.min(at + SLAB, size)), {
+            position: at,
+          } as never);
+          if (n <= 0) throw new Error("short read");
+          at += n;
+        }
+      } finally {
+        fs.closeSync(fd);
+      }
+      view = target;
+    });
+    kernelEngine = engine;
+    return await IndexReader.open(new MemorySource(view!));
+  } catch {
+    return null; // chunked open below; the JS engine will carry the walk
+  }
+}
+
+/** The index's entry count, read cheaply from the root before a full load. */
+async function peekCount(path: string): Promise<number> {
+  const r = await cliOpenIndex(path);
+  const n = r.count();
+  (r.source as { close?: () => void }).close?.();
+  return n;
+}
+
 async function openFast(path: string): Promise<IndexReader> {
   try {
     const size = fsStatSize(path);
-    if (!forceStream && DEEP_WALK && size <= MEMORY_LOAD_LIMIT) {
-      const data = new Uint8Array(readFileBytes(path));
-      if (indexPaths.length === 1) memBytes = data;
-      return await IndexReader.open(new MemorySource(data));
+    if (
+      !forceStream &&
+      !noWasm &&
+      DEEP_WALK &&
+      indexPaths.length === 1 &&
+      scoreFloor === 0 &&
+      size <= KERNEL_INDEX_LIMIT
+    ) {
+      const viaKernel = await openViaKernel(path, size);
+      if (viaKernel !== null) return viaKernel;
     }
   } catch {
     // fall through to the chunked open, which prints the friendly error
@@ -352,23 +405,9 @@ async function runQuery(): Promise<Run> {
   // index is in memory and the query compiles to plain conjuncts. Anything
   // it cannot represent falls back to the JS engine below, which remains
   // the reference implementation.
-  if (
-    !noWasm &&
-    memBytes !== null &&
-    readers.length === 1 &&
-    scoreFloor === 0
-  ) {
+  if (kernelEngine !== null) {
     try {
-      const kernelPath = new URL("../wasm-kernel/kernel.wasm", import.meta.url);
-      const module = await WebAssembly.compile(fs.readFileSync(kernelPath));
-      const data = memBytes;
-      const engine = await WasmEngine.create(
-        module,
-        data.length,
-        reader.count(),
-        (t) => t.set(data),
-      );
-      const session = new WasmSession(engine, pattern, ctx);
+      const session = new WasmSession(kernelEngine, pattern, ctx);
       const budget = maxSteps > 0 ? maxSteps : Number.MAX_SAFE_INTEGER;
       let lastProgress = 0;
       for (;;) {
