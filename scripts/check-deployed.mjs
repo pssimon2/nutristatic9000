@@ -30,9 +30,9 @@ const ROOT = new URL("..", `${BASE}/`).href.replace(/\/$/, "");
 
 /** The indexes the picker offers, read from the page's own list. */
 function offered() {
-  const main = fs.readFileSync("web/main.ts", "utf8");
+  const main = fs.readFileSync("web/catalog.ts", "utf8");
   const block = /BUNDLED_INDEXES[^[]*\[([\s\S]*?)\n\]/.exec(main);
-  if (!block) throw new Error("could not find BUNDLED_INDEXES in web/main.ts");
+  if (!block) throw new Error("could not find BUNDLED_INDEXES in web/catalog.ts");
   return [...block[1].matchAll(/"([^"]*\.index)"/g)].map((m) => m[1]);
 }
 
