@@ -12,6 +12,17 @@ import { finiteStrategy } from "../src/finite-strategy.js";
 import { derivedNote } from "../src/match-notes.js";
 import { FilterCapacityError } from "../src/expr-filter.js";
 import { cliOpenIndex } from "../src/node-io.js";
+import { MemorySource } from "../src/byte-source.js";
+import { IndexReader } from "../src/index-reader.js";
+import {
+  WasmCapacityError,
+  WasmEngine,
+  WasmSession,
+  WasmUnsupportedError,
+} from "../src/wasm-session.js";
+
+const fsStatSize = (p: string): number => fs.statSync(p).size;
+const readFileBytes = (p: string): Buffer => fs.readFileSync(p);
 import fs from "node:fs";
 import { SessionContext } from "../src/session-context.js";
 import { providersFor } from "../src/data-providers.js";
@@ -45,7 +56,10 @@ const USAGE =
   "  --shards N: split the walk across N threads by first letter;\n" +
   "    results merge exactly, printed once every shard finishes\n" +
   "  --reverse-index FILE: walk this reversed sidecar instead - the\n" +
-  "    win for suffix-anchored patterns like .*tion; results read forward";
+  "    win for suffix-anchored patterns like .*tion; results read forward\n" +
+  "  --stream: read the index in chunks instead of loading it into memory\n" +
+  "  --no-wasm: keep the walk on the JS engine (the WASM kernel is used\n" +
+  "    automatically for memory-loaded single-index walks it supports)";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -54,6 +68,10 @@ const wantStats = args.includes("--stats");
 if (wantStats) args.splice(args.indexOf("--stats"), 1);
 const wantExplain = args.includes("--explain");
 if (wantExplain) args.splice(args.indexOf("--explain"), 1);
+const forceStream = args.includes("--stream");
+if (forceStream) args.splice(args.indexOf("--stream"), 1);
+const noWasm = args.includes("--no-wasm");
+if (noWasm) args.splice(args.indexOf("--no-wasm"), 1);
 // Same default computation limit as the upstream website; upstream's CLI
 // instead runs unbounded, which exhausts memory on open-ended patterns.
 const packRefs: string[] = [];
@@ -204,7 +222,32 @@ if (wantExplain) {
 // Several indexes at once, comma-separated. Results merge in normalized
 // score order, each tagged with the index it came from.
 const indexPaths = indexPath.split(",").map((x) => x.trim()).filter((x) => x !== "");
-const readers = await Promise.all(indexPaths.map((x) => cliOpenIndex(x)));
+
+// A local index that fits comfortably in RAM is read whole: the chunked
+// reader spends a third of a heavy walk in read() syscalls and chunk-cache
+// bookkeeping (measured on \"_{34}\"), which memory access simply deletes.
+// The bytes are kept when the WASM kernel can use them too.
+const MEMORY_LOAD_LIMIT = 2_500 * 1024 * 1024;
+// Loading 1.4GB and copying it into kernel memory costs ~3s before the
+// first step — worth it only when the walk is deep enough to repay it. A
+// default-budget run stays on the chunked reader and JS engine, exactly as
+// before; a raised or unlimited budget signals a deep walk and gets both.
+const DEEP_WALK = maxSteps === 0 || maxSteps > 2_000_000;
+let memBytes: Uint8Array | null = null;
+async function openFast(path: string): Promise<IndexReader> {
+  try {
+    const size = fsStatSize(path);
+    if (!forceStream && DEEP_WALK && size <= MEMORY_LOAD_LIMIT) {
+      const data = new Uint8Array(readFileBytes(path));
+      if (indexPaths.length === 1) memBytes = data;
+      return await IndexReader.open(new MemorySource(data));
+    }
+  } catch {
+    // fall through to the chunked open, which prints the friendly error
+  }
+  return cliOpenIndex(path);
+}
+const readers = await Promise.all(indexPaths.map((x) => openFast(x)));
 const reader = readers[0];
 const checkers = readers.map((r) => makeWordChecker(r));
 /** A word check over every index: a piece counts if any corpus knows it. */
@@ -302,6 +345,69 @@ async function runQuery(): Promise<Run> {
         }
       }
       return run;
+    }
+  }
+
+  // The WASM kernel runs the same walk several times faster when the whole
+  // index is in memory and the query compiles to plain conjuncts. Anything
+  // it cannot represent falls back to the JS engine below, which remains
+  // the reference implementation.
+  if (
+    !noWasm &&
+    memBytes !== null &&
+    readers.length === 1 &&
+    scoreFloor === 0
+  ) {
+    try {
+      const kernelPath = new URL("../wasm-kernel/kernel.wasm", import.meta.url);
+      const module = await WebAssembly.compile(fs.readFileSync(kernelPath));
+      const data = memBytes;
+      const engine = await WasmEngine.create(
+        module,
+        data.length,
+        reader.count(),
+        (t) => t.set(data),
+      );
+      const session = new WasmSession(engine, pattern, ctx);
+      const budget = maxSteps > 0 ? maxSteps : Number.MAX_SAFE_INTEGER;
+      let lastProgress = 0;
+      for (;;) {
+        const page: Array<{ score: number; text: string }> = [];
+        const status = await session.run(budget, 256, (r) => page.push(r), (steps) => {
+          const mark = Math.floor(steps / 100000);
+          if (mark > lastProgress) {
+            lastProgress = mark;
+            process.stdout.write(`# ${mark * 100000}\n`);
+          }
+        });
+        for (const r of page) {
+          const line = await present(r.score, r.text);
+          if (line !== null) {
+            ++run.emitted;
+            process.stdout.write(`${line}\n`);
+          }
+        }
+        if (status === "exhausted") break;
+        if (status === "limit" || session.steps >= budget) {
+          process.stdout.write(`# computation limit reached (${session.steps} steps)\n`);
+          run.hitLimit = true;
+          break;
+        }
+      }
+      run.steps = session.steps;
+      return run;
+    } catch (e) {
+      if (e instanceof ParseError) {
+        console.error(`error: ${e.message}`);
+        process.exit(2);
+      }
+      if (
+        !(e instanceof WasmCapacityError) &&
+        !(e instanceof WasmUnsupportedError)
+      ) {
+        throw e;
+      }
+      // The kernel has no representation for this query: JS engine below.
     }
   }
 
