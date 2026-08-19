@@ -30,6 +30,7 @@ import {
 import {
   addRange,
   coveredBytes,
+  indexUrlAlias,
   opfsHandle,
   opfsOkName,
   opfsReadMarker,
@@ -57,11 +58,29 @@ function validatorStale(
   return stored != null && current != null && stored !== current;
 }
 
-/** Open a previously downloaded index from OPFS, or null. */
+/**
+ * Open a previously downloaded index from OPFS, or null — checking the
+ * URL's alias spelling too, so a copy downloaded under either home of the
+ * same file (root or /idx/…) serves both.
+ */
 export async function openOpfsIndex(
   url: string,
   expectedSize: number,
   currentValidator: string | null,
+): Promise<SyncFileSource | null> {
+  const own = await openOpfsIndexAt(url, expectedSize, currentValidator, true);
+  if (own) return own;
+  const alias = indexUrlAlias(url);
+  // Non-destructive on the alias: a mismatch there may just mean the copy
+  // belongs to the alias URL's own (older) content, not that it is garbage.
+  return alias ? openOpfsIndexAt(alias, expectedSize, currentValidator, false) : null;
+}
+
+async function openOpfsIndexAt(
+  url: string,
+  expectedSize: number,
+  currentValidator: string | null,
+  destroyStale: boolean,
 ): Promise<SyncFileSource | null> {
   const handle = await opfsHandle(url, false);
   if (!handle) return null;
@@ -85,7 +104,7 @@ export async function openOpfsIndex(
         prog.size === expectedSize &&
         !validatorStale(prog.validator, currentValidator) &&
         coveredBytes(prog.ranges) > 0;
-      if (!resumable) await opfsRemove(url);
+      if (!resumable && destroyStale) await opfsRemove(url);
       return null;
     }
     // The previous page's worker may not have released its lock yet right

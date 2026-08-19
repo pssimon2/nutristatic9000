@@ -62,7 +62,9 @@ import {
 } from "./worker/net.js";
 import {
   checkPartial,
+  indexUrlAlias,
   opfsReadMarker,
+  opfsReadMarkerAliased,
   opfsRemove,
   parseOpfsMarker,
 } from "./worker/storage.js";
@@ -206,7 +208,7 @@ async function reverseReaderFor(url: string): Promise<IndexReader | null> {
   // instant, offline-capable, and what keeps ends-with searches fast on a
   // downloaded index.
   try {
-    const marker = parseOpfsMarker(await opfsReadMarker(revUrl));
+    const marker = parseOpfsMarker(await opfsReadMarkerAliased(revUrl));
     if (marker) {
       const disk = await openOpfsIndex(revUrl, marker.size, null);
       if (disk) {
@@ -566,7 +568,7 @@ let openGen = 0;
 async function openOpfsOffline(
   url: string,
 ): Promise<{ source: SyncFileSource; size: number; validator: string | null } | null> {
-  const marker = parseOpfsMarker(await opfsReadMarker(url));
+  const marker = parseOpfsMarker(await opfsReadMarkerAliased(url));
   if (!marker || typeof marker.size !== "number") return null;
   // Adopt the marker's validator so openOpfsIndex's staleness check (which
   // would otherwise compare against the unreachable server) is a no-op.
@@ -602,7 +604,13 @@ async function listOpfsCopies(): Promise<string[]> {
         if (!mk || typeof mk.size !== "number") continue;
         const fh = await root.getFileHandle(base).catch(() => null);
         if (!fh) continue;
-        if ((await fh.getFile()).size === mk.size) urls.push(url);
+        if ((await fh.getFile()).size === mk.size) {
+          urls.push(url);
+          // Report the copy under its alias spelling too, so the picker's
+          // "on device" tag matches whichever spelling its entries use.
+          const alias = indexUrlAlias(url);
+          if (alias) urls.push(alias);
+        }
       } catch {
         // skip an unreadable entry
       }
@@ -1521,6 +1529,10 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         diskSource?.close();
         diskSource = null;
         await opfsRemove(url);
+        // The copy may live under the URL's alias spelling: remove that too,
+        // or "remove" would appear to do nothing.
+        const aliasUrl = indexUrlAlias(url);
+        if (aliasUrl) await opfsRemove(aliasUrl);
         await openCacheNamed().then((c) => c?.delete(url)).catch(() => {});
         await openIndex(url);
         break;

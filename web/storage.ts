@@ -9,6 +9,7 @@ import { reverseSidecarName } from "../src/reverse.js";
 import { BUNDLED_INDEXES, DATASETS, dataUrl } from "./catalog.js";
 import {
   coveredBytes,
+  indexUrlAlias,
   opfsName,
   opfsOkName,
   parseOpfsMarker,
@@ -67,6 +68,15 @@ async function readSmall(
 }
 
 async function copyStatus(url: string): Promise<CopyStatus> {
+  const own = await copyStatusAt(url);
+  if (own.state !== "none") return own;
+  // A copy may live under the URL's alias spelling (the same file is served
+  // at the site root and under /idx/…): report it for this row.
+  const alias = indexUrlAlias(url);
+  return alias ? copyStatusAt(alias) : own;
+}
+
+async function copyStatusAt(url: string): Promise<CopyStatus> {
   const root = await opfsRoot();
   if (!root) return { state: "none", bytes: 0 };
   let fileSize = 0;
@@ -88,6 +98,28 @@ async function copyStatus(url: string): Promise<CopyStatus> {
 }
 
 async function removeCopy(url: string): Promise<void> {
+  // The copy may live under the URL's alias spelling; clear both, and only
+  // report failure if neither spelling could be removed (the row would not
+  // offer removal unless one of them exists).
+  const alias = indexUrlAlias(url);
+  let removed = false;
+  try {
+    await removeCopyAt(url);
+    removed = true;
+  } catch (e) {
+    if (!alias) throw e;
+  }
+  if (alias) {
+    try {
+      await removeCopyAt(alias);
+      removed = true;
+    } catch (e) {
+      if (!removed) throw e;
+    }
+  }
+}
+
+async function removeCopyAt(url: string): Promise<void> {
   const root = await opfsRoot();
   if (!root) return;
   // Fails while a search tab holds the file open — surfaced to the user.

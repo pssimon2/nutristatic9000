@@ -27,6 +27,38 @@ function progName(url: string): string {
 
 export { opfsName, opfsOkName, progName };
 
+/**
+ * The other URL the same file is served under, or null.
+ *
+ * The 2026-08 wiki indexes (and their .rindex sidecars) are served both at
+ * the site root (their original home, kept alive for old links) and at their
+ * permanent versioned home `/idx/2026-08/…` — the same bytes, hardlinked.
+ * Device copies are keyed by URL, so without this a copy downloaded under
+ * one spelling would not be found when the page arrives via the other (say,
+ * a shared link pinned with `?index=`). The mapping is fixed: only the
+ * 2026-08 edition ever lived at the root, so later editions have no alias.
+ */
+export function indexUrlAlias(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const root = /^\/([a-z]{2}-wiki\.(?:index|rindex))$/.exec(u.pathname);
+    if (root) return `${u.origin}/idx/2026-08/${root[1]}`;
+    const versioned = /^\/idx\/2026-08\/([a-z]{2}-wiki\.(?:index|rindex))$/.exec(u.pathname);
+    if (versioned) return `${u.origin}/${versioned[1]}`;
+  } catch {
+    // not an absolute URL (offline file picker): no alias
+  }
+  return null;
+}
+
+/** Read a completion marker under the URL or its alias spelling. */
+export async function opfsReadMarkerAliased(url: string): Promise<string | null> {
+  const own = await opfsReadMarker(url);
+  if (own !== null) return own;
+  const alias = indexUrlAlias(url);
+  return alias ? opfsReadMarker(alias) : null;
+}
+
 export interface OpfsMarker {
   size: number;
   validator: string | null;
