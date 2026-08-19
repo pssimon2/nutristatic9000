@@ -271,7 +271,8 @@ const ALIASES: Record<string, string> = {
   nhl: "nhlteams",
   hockeyteams: "nhlteams",
   romangods: "romandeities",
-  pokemon: "generationipokemon",
+  // "pokemon" is itself a harvested list (all generations merged), so it
+  // needs no alias; the per-generation shorthand keeps one.
   pokemongen1: "generationipokemon",
   herbs: "culinaryherbsspices",
   spices: "culinaryherbsspices",

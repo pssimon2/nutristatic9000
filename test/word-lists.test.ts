@@ -320,5 +320,12 @@ describe("the harvested catalogue", () => {
         `generation ${gen} pokemon missing`,
       ).toBe(true);
     }
+    // The merged list: every generation in one name, and at least as large
+    // as its biggest part.
+    const merged = lists.entries.get("pokemon");
+    expect(merged, "merged pokemon list missing").toBeTruthy();
+    expect(merged!.length).toBeGreaterThan(900);
+    expect(merged).toContain("pikachu");
+    expect(merged).toContain("grookey"); // generation VIII reached the union
   });
 });
