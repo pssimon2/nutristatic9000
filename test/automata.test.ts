@@ -7,6 +7,7 @@ import {
   NSYM,
   Nfa,
   determinize,
+  intersectExprs,
   equivalent,
   minimize,
 } from "../src/automata.js";
@@ -154,5 +155,20 @@ describe("minimize (Hopcroft)", () => {
 
     expect(equivalent(x, y1)).toBe(true);
     expect(ALPHABET.length).toBe(NSYM);
+  });
+
+  it("intersects an empty conjunct list to the empty language", () => {
+    const out = new Nfa();
+    intersectExprs([], out);
+    expect(out.start).toBe(-1);
+  });
+
+  it("rejects an out-of-alphabet arc label in determinize", () => {
+    const nfa = new Nfa();
+    const s = nfa.addState();
+    nfa.setStart(s);
+    nfa.setFinal(s);
+    nfa.addArc(s, 255, s);
+    expect(() => determinize(nfa)).toThrow(/bad label/);
   });
 });

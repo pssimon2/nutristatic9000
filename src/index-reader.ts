@@ -403,6 +403,12 @@ export class IndexReader {
       remaining -= childCount;
     }
 
+    // Children accounting for more than the parent holds is a corrupt index,
+    // and saying so beats handing the walk a negative leftover.
+    if (count > 0 && remaining < 0) {
+      this.fail(cursor, "child counts exceed parent count");
+    }
+
     return remaining;
   }
 

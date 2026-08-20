@@ -136,4 +136,14 @@ describe("WasmSession parity", () => {
     expect(progress).toBeGreaterThan(0); // fires at 100k-step boundaries
     expect(yields).toBeGreaterThan(0); // fires every ~20k steps
   });
+
+  it("answers an empty language without seeding the kernel", async () => {
+    for (const q of ['"[^a-z0-9 ]"', '"solar"&"system"']) {
+      const session = new WasmSession(engine, q, ctx);
+      const out: string[] = [];
+      const status = await session.run(BUDGET, MAX_RESULTS, (r) => out.push(r.text));
+      expect(status).toBe("exhausted");
+      expect(out.length).toBe(0);
+    }
+  });
 });

@@ -4,6 +4,7 @@
   "description": "Client-side rewrite of Nutrimatic: pattern search over a phrase-frequency index, no server-side code",
   "type": "module",
   "license": "GPL-2.0",
+  "author": "Simon Stroh",
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

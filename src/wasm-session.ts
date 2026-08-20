@@ -304,7 +304,20 @@ export class WasmSession {
     if (conjuncts.some((c) => (c as Nfa).finalWeight !== undefined && (c as Nfa).finalWeight!.size > 0)) {
       throw new WasmUnsupportedError("weighted constructs");
     }
-    engine.beginQuery(conjuncts.map((c) => trim(c)));
+    const trimmed = conjuncts.map((c) => trim(c));
+    // An empty-language conjunct has no start state, and the kernel would
+    // seed itself from one: `s->start` arrives as NO_ID and the mark bitmap
+    // is written far out of bounds. Nothing can match, so answer that here
+    // and leave the kernel unseeded.
+    if (
+      trimmed.some(
+        (t) => t.start === -1 || t.finals.size === 0 || t.arcs.length === 0,
+      )
+    ) {
+      this.exhausted = true;
+      return;
+    }
+    engine.beginQuery(trimmed);
     engine.owner = this;
   }
 

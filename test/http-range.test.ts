@@ -253,4 +253,21 @@ describe("probing a streamed index", () => {
     expect(requests, `${requests} requests for one eight-character probe`)
       .toBeLessThanOrEqual(8);
   }, 60000);
+
+  it("keeps a re-inserted chunk at the fresh end of the LRU", async () => {
+    const source = await HttpRangeSource.open(`${baseUrl}/demo.index`, {
+      chunkSize: 1024,
+      maxChunks: 4,
+    });
+    await source.ensure(0, 4096); // chunks 0-3 fill the cache
+    await source.ensure(0, 1024); // touch chunk 0 again
+    await source.ensure(4096, 6144); // chunks 4-5 evict the two oldest
+    const cache = (source as unknown as { cache: Map<number, Uint8Array> }).cache;
+    expect(cache.size).toBe(4);
+    expect(cache.has(0)).toBe(true); // refreshed, so not the oldest any more
+    expect(cache.has(1)).toBe(false);
+    expect(cache.has(2)).toBe(false);
+    expect(cache.has(4)).toBe(true);
+    expect(cache.has(5)).toBe(true);
+  });
 });

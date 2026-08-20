@@ -372,6 +372,10 @@ export class CompressedRangeSource implements ByteSource {
   }
 
   private insertBlock(b: number, data: Uint8Array, persist: boolean): void {
+    // Delete first: re-setting an existing key leaves it at its old position
+    // in insertion order, so an in-place update would still be evicted as if
+    // it were the oldest entry.
+    this.cache.delete(b);
     this.cache.set(b, data);
     if (persist) this.chunkStore?.put(b, data);
   }

@@ -477,6 +477,10 @@ static void parse_children_body(u32 n, u32 num) {
   num &= 0x1F;
   if (num == 0) num = idx[--n];
   u32 size = count_size + offset_size + 1;
+  // A corrupt or truncated node would otherwise be walked from a wrapped-around
+  // start; the JS reader reports "bad size" here, and the kernel simply
+  // produces no children rather than reading whatever precedes the index.
+  if (num == 0 || n < num * size) return;
   u32 start = n - num * size;
   for (u32 p = start; p < n; p += size) {
     u8 ch = idx[p];
@@ -618,6 +622,10 @@ __attribute__((export_name("seed"))) i32 seed(f64 total_) {
 
   for (u32 i = 0; i < width; ++i) {
     Sub *s = &subs[i];
+    // An empty-language conjunct arrives with start = NO_ID; marking it would
+    // write ~0u >> 5 words into the bitmap. Nothing can match, so refuse the
+    // seed and let the host fall back.
+    if (s->start == NO_ID || s->n_nfa == 0) return -1;
     for (u32 w = 0; w < (s->n_nfa + 31) / 32; ++w) s->mark[w] = 0;
     s->mark[s->start >> 5] |= 1u << (s->start & 31);
     scratch_stack[0] = s->start;

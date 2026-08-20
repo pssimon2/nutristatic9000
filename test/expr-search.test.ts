@@ -11,6 +11,8 @@ import { parseExpr } from "../src/expr-parse.js";
 import { ExprFilter } from "../src/expr-filter.js";
 import { SearchDriver } from "../src/search-driver.js";
 import { SessionContext } from "../src/session-context.js";
+import { compileQuery } from "../src/find-expr.js";
+import { ParseError } from "../src/parse-error.js";
 
 const ctx = new SessionContext();
 
@@ -123,4 +125,18 @@ describe("test-expr golden cases (from Nutrimatic test-expr.cpp)", () => {
       "the largest natural body of water in iceland ",
     );
   }, 120000);
+
+  it("reads a hyphen at either end of a class as a member, not a range", async () => {
+    await testIndex('"[-abc]" ', "a ", "d ");
+    await testIndex('"[abc-]" ', "b ", "d ");
+  });
+
+  it("still reads an interior hyphen as a range", async () => {
+    await testIndex('"[a-c]" ', "b ", "d ");
+  });
+
+  it("refuses an inverted or unclosed range", async () => {
+    expect(() => compileQuery("[z-a]", new SessionContext())).toThrow(ParseError);
+    expect(() => compileQuery("[a-", new SessionContext())).toThrow(ParseError);
+  });
 });

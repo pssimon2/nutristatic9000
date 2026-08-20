@@ -498,11 +498,18 @@ function parseAtom(
       negate = true;
       ++p;
     }
+    const rangeStart = p;
     while (s[p] !== "]") {
       if (p >= s.length) return null;
-      if (s[p] === "-") {
+      // A hyphen only makes a range between two members: at the start of the
+      // class or just before the `]` it is a member itself (and this engine
+      // reads a member hyphen as "optional space", as it does everywhere
+      // else). `[-a]` used to take `[` as the range's lower bound.
+      const isRange = p > rangeStart && p + 1 < s.length && s[p + 1] !== "]";
+      if (s[p] === "-" && isRange) {
         const first = s.charCodeAt(p - 1);
         const last = s.charCodeAt(p + 1);
+        if (last < first) return null; // `[z-a]` is a mistake, not an empty set
         for (let c = first + 1; c <= last; ++c) {
           const isOk =
             (c >= 0x61 && c <= 0x7a) ||

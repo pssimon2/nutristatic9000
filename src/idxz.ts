@@ -47,7 +47,7 @@ export function parseIdxzHeader(bytes: Uint8Array): IdxzHeader | null {
   for (let i = 0; i < 8; ++i) {
     if (bytes[i] !== IDXZ_MAGIC.charCodeAt(i)) return null;
   }
-  const view = new DataView(bytes.buffer, bytes.byteOffset);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const blockSize = view.getUint32(8, true);
   const uncompressedSize =
     view.getUint32(12, true) + view.getUint32(16, true) * 2 ** 32;

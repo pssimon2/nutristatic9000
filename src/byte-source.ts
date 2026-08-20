@@ -428,16 +428,36 @@ export class HttpRangeSource implements ByteSource {
       else mine.push(c);
     }
     if (mine.length > 0) {
-      const p = this.loadOwnChunks(mine).finally(() => {
-        for (const c of mine) this.inflight.delete(c);
+      // The read-ahead chunks this fetch decides to pick up are registered as
+      // in-flight as well (via the callback below), so a concurrent reader
+      // that wants one waits for this fetch instead of issuing its own. They
+      // are only known once loadOwnChunks has chosen them, hence the
+      // hand-rolled promise: it exists before the work starts.
+      const claimed: number[] = [...mine];
+      let settle!: () => void;
+      let fail!: (err: unknown) => void;
+      const p = new Promise<void>((res, rej) => {
+        settle = res;
+        fail = rej;
+      }).finally(() => {
+        for (const c of claimed) this.inflight.delete(c);
       });
       for (const c of mine) this.inflight.set(c, p);
+      this.loadOwnChunks(mine, (extra) => {
+        for (const c of extra) {
+          claimed.push(c);
+          this.inflight.set(c, p);
+        }
+      }).then(settle, fail);
       waits.push(p);
     }
     return Promise.all(waits).then(() => {});
   }
 
-  private async loadOwnChunks(missing: number[]): Promise<void> {
+  private async loadOwnChunks(
+    missing: number[],
+    onReadAhead?: (extra: number[]) => void,
+  ): Promise<void> {
     // Consult the persistent store first; only truly-missing chunks go to the
     // network.
     let still = missing;
@@ -463,6 +483,7 @@ export class HttpRangeSource implements ByteSource {
         Math.floor((this.ewmaBw * this.ewmaRtt) / this.chunkSize),
       );
       let first = still[0];
+      const extra: number[] = [];
       while (
         first > 0 &&
         still[0] - first < maxExtra &&
@@ -470,7 +491,9 @@ export class HttpRangeSource implements ByteSource {
         !this.inflight.has(first - 1)
       ) {
         --first;
+        extra.push(first);
       }
+      if (onReadAhead && extra.length > 0) onReadAhead(extra);
       await this.fetchChunks(first, still[still.length - 1]);
     }
   }
@@ -514,6 +537,10 @@ export class HttpRangeSource implements ByteSource {
     // Copy: `data` is often a subarray of a large multi-chunk fetch buffer,
     // and storing the view would pin the whole buffer for the chunk's
     // lifetime in the LRU.
+    // Delete first: re-setting an existing key leaves it at its old position
+    // in insertion order, so an in-place update would still be evicted as if
+    // it were the oldest entry.
+    this.cache.delete(c);
     this.cache.set(c, data.slice());
     if (persist) this.chunkStore?.put(c, data);
   }
