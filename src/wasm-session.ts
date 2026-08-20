@@ -295,6 +295,15 @@ export class WasmSession {
       if (!built) throw new WasmUnsupportedError("a negation this large");
       return built;
     });
+    // The kernel models acceptance as a yes/no, so a conjunct carrying final
+    // weights (soft `{~…}`, graded `{edit:…}`) cannot run here: flatten()
+    // drops the weights and every damaged final would score as an exact
+    // match. The worker also keeps such queries away by inspecting the query
+    // text, but that is a regex over what the user typed; this is the check
+    // that cannot be spelled around.
+    if (conjuncts.some((c) => (c as Nfa).finalWeight !== undefined && (c as Nfa).finalWeight!.size > 0)) {
+      throw new WasmUnsupportedError("weighted constructs");
+    }
     engine.beginQuery(conjuncts.map((c) => trim(c)));
     engine.owner = this;
   }

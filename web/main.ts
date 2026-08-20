@@ -1,5 +1,6 @@
 import type { EarlyProbe, InMsg, OutMsg } from "./worker/protocol.js";
 import { BUNDLED_INDEXES, dataUrl } from "./catalog.js";
+import { indexUrlAlias } from "./worker/opfs.js";
 import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
 import { type IndexManifest, parseManifest, transliterateQuery } from "../src/manifest.js";
 import { derivedNote } from "../src/match-notes.js";
@@ -93,13 +94,29 @@ function setDlMsg(text: string): void {
  * index it was built from, so a link pinned to an older edition must never
  * pick up the current edition's head — with the edition in the name it asks
  * for a head this deployment no longer ships and falls back to the (slower,
- * correct) walk instead.
+ * correct) walk instead. A legacy root spelling resolves through the same
+ * alias the storage layer uses, since it names the same file; a cross-origin
+ * index gets no head at all.
  */
 const headUrl = (): string | null => {
   if (OFFLINE) return null;
   const u = new URL(indexUrl);
-  const versioned = /^\/idx\/([^/]+)\/([^/]+)\.index$/.exec(u.pathname);
-  if (versioned && u.origin === location.origin) {
+  // Heads belong to this deployment's own indexes. A cross-origin index —
+  // someone's mirror, a custom URL — gets none: basenames collide (a mirror's
+  // `simple-wiki.index` is not ours), and a head is served *as* the first page
+  // of results, so answering from the wrong one is worse than being slow.
+  if (u.origin !== location.origin) return null;
+  // A legacy root spelling is the same file as its versioned home (see
+  // indexUrlAlias), so a link pinned to `/en-wiki.index` must find
+  // `en-wiki-2026-08.head` rather than asking for a head that 404s and
+  // quietly losing the fast first page. Whichever of the two spellings
+  // carries the edition is the one that names the head.
+  const alias = indexUrlAlias(indexUrl);
+  const VERSIONED = /^\/idx\/([^/]+)\/([^/]+)\.index$/;
+  const versioned =
+    VERSIONED.exec(u.pathname) ??
+    (alias === null ? null : VERSIONED.exec(new URL(alias).pathname));
+  if (versioned) {
     return new URL(`./${versioned[2]}-${versioned[1]}.head`, location.href).href;
   }
   const name = indexUrl.split("/").pop() ?? "";
@@ -1283,7 +1300,13 @@ if (OFFLINE) {
 shareBtn?.addEventListener("click", () => {
   const p = new URLSearchParams(location.search);
   const u = new URL(indexUrl);
-  p.set("index", u.origin === location.origin ? u.pathname : indexUrl);
+  // Same-origin: the path, plus any query or fragment the URL carries —
+  // `/demo.index?v=2` is a different file from `/demo.index` to every cache
+  // and possibly to the server, so pinning must not drop the tail.
+  p.set(
+    "index",
+    u.origin === location.origin ? u.pathname + u.search + u.hash : indexUrl,
+  );
   const link = `${location.origin}${location.pathname}?${p}`;
   navigator.clipboard.writeText(link).then(
     () => {

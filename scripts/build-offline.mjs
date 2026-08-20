@@ -77,12 +77,24 @@ html = html.replace(/\n?\s*<script>[\s\S]*?__earlyIndex[\s\S]*?<\/script>/, "");
 html = html
   .replace("./nutritea-small.png", dataUri("web/public/nutritea-small.png", "image/png"))
   .replace('href="./favicon.ico"', `href="${dataUri("web/public/favicon.ico", "image/x-icon")}"`);
-// The usage-guide and index-download links have no local target offline;
-// point them at the live site so they work whenever the user is online.
-html = html.replace(/"\.\/usage\.html/g, '"https://nutristatic.org/9000/usage.html');
-html = html.replace(/"\.\/indexes\.html/g, '"https://nutristatic.org/9000/indexes.html');
-html = html.replace(/"\.\/impressum\.html/g, '"https://nutristatic.org/9000/impressum.html');
-html = html.replace(/"\.\/datenschutz\.html/g, '"https://nutristatic.org/9000/datenschutz.html');
+// None of the sibling pages have a local target offline; point every one of
+// them at the live site so they work whenever the user is online. Listed
+// rather than pattern-matched so a new page shows up here as a decision:
+// leaving one out ships a link that 404s from file://.
+for (const page of [
+  "usage",
+  "indexes",
+  "recipes",
+  "storage",
+  "lists",
+  "impressum",
+  "datenschutz",
+]) {
+  html = html.replace(
+    new RegExp(`"\\./${page}\\.html`, "g"),
+    `"https://nutristatic.org/9000/${page}.html`,
+  );
+}
 // Drop the "download the offline version" link — this IS that file.
 html = html.replace(/<li id="offlinelink">[\s\S]*?<\/li>/, "");
 // Drop the installable-app links: a single file:// page has no manifest or

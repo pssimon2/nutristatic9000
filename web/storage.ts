@@ -18,7 +18,11 @@ import {
   parseOpfsProg,
   progName,
 } from "./worker/opfs.js";
-import { CHUNK_CACHE_NAME, chunkKeyBelongsTo } from "./worker/sources.js";
+import {
+  CACHE_NAME,
+  CHUNK_CACHE_NAME,
+  chunkKeyBelongsTo,
+} from "./worker/sources.js";
 import type { StorageOutMsg } from "./storage-worker.js";
 
 // The manager may be a visitor's first page, so it registers the service
@@ -74,8 +78,14 @@ async function copyStatus(url: string): Promise<CopyStatus> {
   if (own.state !== "none") return own;
   // A copy may live under the URL's alias spelling (the same file is served
   // at the site root and under /idx/…): report it for this row.
+  // Only a COMPLETE one — a partial there cannot be resumed from this row
+  // (progress records are per-spelling), so advertising "resume" would
+  // restart the transfer from zero. The download path discards such a
+  // partial instead.
   const alias = indexUrlAlias(url);
-  return alias ? copyStatusAt(alias) : own;
+  if (alias === null) return own;
+  const aliased = await copyStatusAt(alias);
+  return aliased.state === "complete" ? aliased : own;
 }
 
 async function copyStatusAt(url: string): Promise<CopyStatus> {
@@ -122,6 +132,12 @@ async function removeCopy(url: string): Promise<void> {
 }
 
 async function removeCopyAt(url: string): Promise<void> {
+  // A whole copy may also live in the cache (the path taken when OPFS is
+  // unavailable); it is this URL's copy either way.
+  await caches
+    .open(CACHE_NAME)
+    .then((c) => c.delete(url))
+    .catch(() => {});
   const root = await opfsRoot();
   if (!root) return;
   // Fails while a search tab holds the file open — surfaced to the user.
@@ -218,7 +234,11 @@ let renderGen = 0;
 
 async function render(): Promise<void> {
   const gen = ++renderGen;
-  progressEls.clear();
+  // Bars are collected into a map of this render's own, installed only where
+  // the table they belong to is swapped in. Populating the shared map as we
+  // went let a superseded render overwrite a live bar with its own detached
+  // one, and the visible bar then stopped moving for the rest of the transfer.
+  const bars = new Map<string, HTMLProgressElement>();
   // Totals first: the browser's own accounting of this origin.
   try {
     const est = await navigator.storage.estimate();
@@ -253,7 +273,7 @@ async function render(): Promise<void> {
       const dl = downloadState.get(target);
       if (dl === "active") {
         const bar = document.createElement("progress");
-        progressEls.set(target, bar);
+        bars.set(target, bar);
         td.append(
           bar,
           button("cancel", () => worker.postMessage({ type: "cancel", url: target })),
@@ -326,6 +346,10 @@ async function render(): Promise<void> {
   if (gen !== renderGen) return;
   $("indexes").replaceWith(tbody);
   tbody.id = "indexes";
+  // The bars now in the DOM are this render's, so progress messages update
+  // elements a reader can see.
+  progressEls.clear();
+  for (const [url, bar] of bars) progressEls.set(url, bar);
 
   // Side datasets, through the service worker's cache.
   const dl = document.createElement("ul");
@@ -386,16 +410,36 @@ $("rm-all").addEventListener("click", async () => {
     } catch {
       // OPFS unavailable
     }
-    for (const name of names) {
+    // Data files first, and a file's `.ok`/`.prog` only if its data file
+    // went: removing the sidecars of a file a search tab holds open would
+    // leave a full-size headless copy that no row can see or remove.
+    const dataNames = names.filter((n) => !n.endsWith(".ok") && !n.endsWith(".prog"));
+    const removed = new Set<string>();
+    for (const name of dataNames) {
       try {
         await root.removeEntry(name);
+        removed.add(name);
       } catch {
         ++locked; // open in a search tab
       }
     }
+    for (const name of names) {
+      if (removed.has(name)) continue;
+      const base = name.endsWith(".ok")
+        ? name.slice(0, -".ok".length)
+        : name.endsWith(".prog")
+          ? name.slice(0, -".prog".length)
+          : null;
+      if (base === null || !removed.has(base)) continue; // keep: data file stayed
+      await root.removeEntry(name).catch(() => {});
+    }
   }
+  // Every cache this site writes: the range pieces, the side datasets, and
+  // the whole-copy cache the no-OPFS path downloads into (hundreds of MB that
+  // no row accounts for, so only this button can reclaim it).
   await caches.delete(CHUNK_CACHE_NAME).catch(() => {});
   await caches.delete(DATA_CACHE).catch(() => {});
+  await caches.delete(CACHE_NAME).catch(() => {});
   try {
     for (const key of Object.keys(localStorage)) {
       if (key.startsWith("nutristatic-disk:")) localStorage.removeItem(key);

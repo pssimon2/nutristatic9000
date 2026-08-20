@@ -141,41 +141,47 @@ export class SearchSession {
     shouldStop?: () => boolean,
   ): Promise<SessionStatus> {
     if (this.outOfStates) return "complex";
-    // Before walking the index at all: some patterns cannot match anything,
-    // and the walk has no way to discover that except by exhausting its
-    // budget. `A{5}&A{6}` spent a million steps and ~950ms proving it, then
-    // offered a "try harder" button. The automaton settles it in about forty
-    // states. Bounded, and "unknown" (a genuinely large automaton) falls
-    // through to the search exactly as before.
-    this.canMatch ??= languageEmptiness(this.filter);
-    if (this.canMatch === "empty") return "empty";
-
-    // A small finite conjunct is a list, and a list can be tested rather than
-    // searched for — same answers, same order, same scores, and the index
-    // touched once per survivor instead of once per node. Null means the
-    // query is not that shape, which is the common case.
-    if (!this.finiteTried && this.conjuncts !== null && !this.forceWalk) {
-      this.finiteTried = true;
-      const run = await finiteStrategy(this.reader, this.conjuncts);
-      if (run !== null) {
-        this.finite = run.results;
-        this.finiteCandidates = run.candidates;
-        this.finiteLookups = run.lookups;
-      }
-    }
-    if (this.finite !== null) {
-      let n = 0;
-      while (this.finiteAt < this.finite.length && n < maxResults) {
-        const r = this.finite[this.finiteAt++];
-        onResult({ score: r.score, text: r.text });
-        ++n;
-        ++this.results;
-      }
-      return this.finiteAt >= this.finite.length ? "exhausted" : "results";
-    }
-
-    let results = 0;
+    // Everything that can intern a lazy DFA state lives inside this try, not
+    // just the walk: the emptiness probe and the finite strategy drive the
+    // same filter, and the worker's FilterCache hands back a filter that a
+    // previous query may have left sitting exactly at the cap — so the very
+    // first transition of a retry can be the one that overflows. Catching it
+    // only around the walk turned "this pattern is too complex" into a raw
+    // error on the retry, permanently.
     try {
+      // Before walking the index at all: some patterns cannot match anything,
+      // and the walk has no way to discover that except by exhausting its
+      // budget. `A{5}&A{6}` spent a million steps and ~950ms proving it, then
+      // offered a "try harder" button. The automaton settles it in about forty
+      // states. Bounded, and "unknown" (a genuinely large automaton) falls
+      // through to the search exactly as before.
+      this.canMatch ??= languageEmptiness(this.filter);
+      if (this.canMatch === "empty") return "empty";
+
+      // A small finite conjunct is a list, and a list can be tested rather than
+      // searched for — same answers, same order, same scores, and the index
+      // touched once per survivor instead of once per node. Null means the
+      // query is not that shape, which is the common case.
+      if (!this.finiteTried && this.conjuncts !== null && !this.forceWalk) {
+        this.finiteTried = true;
+        const run = await finiteStrategy(this.reader, this.conjuncts);
+        if (run !== null) {
+          this.finite = run.results;
+          this.finiteCandidates = run.candidates;
+          this.finiteLookups = run.lookups;
+        }
+      }
+      if (this.finite !== null) {
+        let n = 0;
+        while (this.finiteAt < this.finite.length && n < maxResults) {
+          const r = this.finite[this.finiteAt++];
+          onResult({ score: r.score, text: r.text });
+          ++n;
+          ++this.results;
+        }
+        return this.finiteAt >= this.finite.length ? "exhausted" : "results";
+      }
+
       return await this.walk(maxSteps, maxResults, onResult, onProgress, shouldYield, shouldStop);
     } catch (e) {
       if (!(e instanceof FilterCapacityError)) throw e;

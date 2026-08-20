@@ -9,6 +9,7 @@
 
 import { ChunkStore, validatorFrom } from "../../src/byte-source.js";
 import { openCache } from "./net.js";
+import { indexUrlAlias } from "./opfs.js";
 import type { EarlyProbe } from "./protocol.js";
 
 export const CACHE_NAME = "nutrimatic-index-v1";
@@ -24,7 +25,17 @@ export const CHUNK_CACHE_NAME = "nutrimatic-chunks-v2";
  * so an index whose URL merely extends another's is never swept up with it.
  */
 export function chunkKeyBelongsTo(key: string, url: string): boolean {
-  return key.startsWith(url + "?") || key.startsWith(url + ".idxz?");
+  if (key.startsWith(url + "?") || key.startsWith(url + ".idxz?")) return true;
+  // The same file is served under two URLs (see indexUrlAlias): pieces
+  // fetched under one spelling are this index's pieces however the page
+  // arrived, so sizing and purging must see them both — otherwise a download
+  // under the versioned URL leaves the root URL's chunks behind forever, with
+  // no row able to show or clear them.
+  const alias = indexUrlAlias(url);
+  return (
+    alias !== null &&
+    (key.startsWith(alias + "?") || key.startsWith(alias + ".idxz?"))
+  );
 }
 export const RANGE_CHUNK_SIZE = 1 << 15;
 

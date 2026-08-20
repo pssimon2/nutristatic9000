@@ -97,7 +97,7 @@ for (const file of FILES) {
 // — the big indexes live once at the site root and are shared by both
 // deployments, so linking them absolutely is correct.
 const ROOT_FILES =
-  /^\/(favicon\.ico|impressum\.html|datenschutz\.html|robots\.txt|(idx\/[a-z0-9-]+\/)?[a-z-]+\.(index|idxz))$/;
+  /^\/(favicon\.ico|impressum\.html|datenschutz\.html|robots\.txt|(idx\/[a-z0-9-]+\/)?[a-z0-9.-]+\.(index|idxz))$/;
 for (const file of FILES) {
   if (!fs.existsSync(file)) continue;
   const html = fs.readFileSync(file, "utf8");

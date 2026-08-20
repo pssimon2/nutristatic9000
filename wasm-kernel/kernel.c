@@ -115,6 +115,8 @@ static u32 hash_ints(u32 *a, u32 n) {
 
 // Collect epsilon-closure of marked seeds (mark bitmap pre-set) into sorted
 // member list appended to the sub's pool. Returns member count.
+// Returns the member count written at pool_len, or NO_ID if the pool
+// cannot hold this set.
 static u32 close_and_collect(Sub *s, u32 *stack, u32 stack_n) {
   while (stack_n > 0) {
     u32 q = stack[--stack_n];
@@ -128,9 +130,20 @@ static u32 close_and_collect(Sub *s, u32 *stack, u32 stack_n) {
       }
     }
   }
-  // scan bitmap ascending -> sorted members
+  // How many members before writing any: the pool is a fixed reservation, and
+  // filling it past the end would scribble over the tables that follow. The
+  // capacity is checked here rather than in sub_intern, which hashes and
+  // compares the members before it gets to its own check — reading members
+  // that were never written could match some other set and return the wrong
+  // state id instead of reporting overflow.
   u32 count = 0;
-  for (u32 w = 0; w < (s->n_nfa + 31) / 32; ++w) {
+  const u32 words = (s->n_nfa + 31) / 32;
+  for (u32 w = 0; w < words; ++w) count += __builtin_popcount(s->mark[w]);
+  if (s->pool_len + count > s->pool_cap) return NO_ID;
+
+  // scan bitmap ascending -> sorted members
+  count = 0;
+  for (u32 w = 0; w < words; ++w) {
     u32 bits = s->mark[w];
     while (bits) {
       u32 b = __builtin_ctz(bits);
@@ -208,7 +221,7 @@ static i32 sub_transition(Sub *s, u32 state, u32 sy) {
     result = DEAD;
   } else {
     u32 count = close_and_collect(s, scratch_stack, stack_n);
-    u32 id = sub_intern(s, count);
+    u32 id = count == NO_ID ? NO_ID : sub_intern(s, count);
     result = id == NO_ID ? CAP_OVERFLOW : (i32)id;
   }
   if (result != CAP_OVERFLOW) s->trans[state * NSYM + sy] = result;
@@ -609,7 +622,7 @@ __attribute__((export_name("seed"))) i32 seed(f64 total_) {
     s->mark[s->start >> 5] |= 1u << (s->start & 31);
     scratch_stack[0] = s->start;
     u32 count = close_and_collect(s, scratch_stack, 1);
-    u32 id = sub_intern(s, count);
+    u32 id = count == NO_ID ? NO_ID : sub_intern(s, count);
     if (id == NO_ID) return -1;
     tuple_scratch[i] = id;
   }

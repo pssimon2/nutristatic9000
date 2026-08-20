@@ -7,6 +7,7 @@ import {
   HttpRangeSource,
   MemorySource,
   SyncFileSource,
+  validatorOf,
 } from "../src/byte-source.js";
 import { CompressedRangeSource } from "../src/compressed-source.js";
 import { FileRangeSource } from "../src/file-source.js";
@@ -148,6 +149,21 @@ let wasmBroken = false; // this environment can't run the kernel: stop trying
 let memBytes: Uint8Array | null = null; // index bytes when in memory mode
 let currentQuery: string | null = null;
 let emitted = new Set<string>(); // texts posted for the current query
+// How many already-posted texts the CURRENT session has not yet re-found.
+// A session re-finds everything posted before it existed (the head's page, a
+// refinement paint, results a replaced engine already emitted); those arrive
+// through the run callback, are suppressed as duplicates, and would otherwise
+// eat the page — so each run's budget is widened by exactly the number still
+// outstanding. Not by `emitted.size`: on a continue the session has already
+// seen its own results and will not re-emit them, and widening by all of them
+// grew every "more results" page (50, then 100, then 150…).
+let sessionOutstanding = 0;
+
+/** Adopt a newly created session and arm its duplicate-suppression budget. */
+function adoptSession(s: SearchSession | WasmSession): void {
+  session = s;
+  sessionOutstanding = emitted.size;
+}
 /**
  * The index's highest-scoring entries, fetched once per index.
  *
@@ -201,6 +217,30 @@ function releaseReverseReader(): void {
   reverseReader = undefined;
 }
 
+/**
+ * Size + validator of a served sidecar, or null when it cannot be reached
+ * (offline, 404, no range support). One cheap header request.
+ */
+async function probeSidecar(
+  revUrl: string,
+): Promise<{ size: number; validator: string | null } | null> {
+  try {
+    const r = await fetch(revUrl, { headers: { Range: "bytes=0-0" } });
+    try {
+      r.body?.cancel();
+    } catch {
+      // locked body: harmless
+    }
+    if (!r.ok || r.status !== 206) return null;
+    const m = /\/(\d+)$/.exec(r.headers.get("content-range") ?? "");
+    const size = m ? parseInt(m[1], 10) : NaN;
+    if (!Number.isFinite(size) || size <= 0) return null;
+    return { size, validator: validatorOf(r.headers) };
+  } catch {
+    return null; // offline: trust the copy
+  }
+}
+
 /** Open (or reuse) the reverse sidecar's reader; null when there is none. */
 async function reverseReaderFor(url: string): Promise<IndexReader | null> {
   if (reverseReader !== undefined) return reverseReader;
@@ -213,7 +253,16 @@ async function reverseReaderFor(url: string): Promise<IndexReader | null> {
   try {
     const marker = parseOpfsMarker(await opfsReadMarkerAliased(revUrl));
     if (marker) {
-      const disk = await openOpfsIndex(revUrl, marker.size, null);
+      // Check the copy against the server when we can reach it: a sidecar
+      // rebuilt in place is the one staleness the size check cannot see, and
+      // a stale reverse index answers suffix searches from an older corpus
+      // while forward searches use the new one. Offline (or the sidecar no
+      // longer served), the marker's own size/validator stand — the copy is
+      // all there is, and it is what the user downloaded.
+      const live = await probeSidecar(revUrl);
+      const size = live?.size ?? marker.size;
+      const validator = live ? live.validator : marker.validator;
+      const disk = await openOpfsIndex(revUrl, size, validator);
       if (disk) {
         reverseReader = await IndexReader.open(disk);
         return reverseReader;
@@ -1077,16 +1126,17 @@ async function runSession(
   try {
     let status;
     try {
-      // Anything already on screen — the head's page, or the refinement
-      // paint — will be re-found by the walk. Suppress the duplicates and
-      // widen the budget by exactly that many, the same arithmetic the WASM
-      // replay below uses, so suppression cannot eat the new page.
-      const preEmitted = emitted.size;
+      // Widen by what this session still owes (see `sessionOutstanding`):
+      // duplicates it re-finds are suppressed and must not eat the page.
       status = await active.run(
         maxSteps,
-        maxResults + preEmitted,
+        maxResults + sessionOutstanding,
         (r) => {
-          if (!emitted.has(r.text)) emit(r);
+          if (emitted.has(r.text)) {
+            if (sessionOutstanding > 0) --sessionOutstanding;
+            return;
+          }
+          emit(r);
         },
         onProgress,
         yieldCheck,
@@ -1113,16 +1163,22 @@ async function runSession(
         prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
         filterCache,
       });
-      session = js;
+      // A fresh session that will re-find everything posted so far, kernel
+      // results included: adopting it sets the outstanding count accordingly.
+      adoptSession(js);
       active = js;
       activeRunSession = js;
       // The replay regenerates every already-posted (suppressed) result;
       // widen its result budget so suppression doesn't eat the new page.
       status = await js.run(
         maxSteps,
-        maxResults + emitted.size,
+        maxResults + sessionOutstanding,
         (r) => {
-          if (!emitted.has(r.text)) emit(r);
+          if (emitted.has(r.text)) {
+            if (sessionOutstanding > 0) --sessionOutstanding;
+            return;
+          }
+          emit(r);
         },
         onProgress,
         yieldCheck,
@@ -1345,8 +1401,11 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         // Weighted constructs (soft {~…}, graded {edit:…}) carry acceptance
         // weights the kernel does not model; those queries stay on the JS
         // engine, which orders them exactly.
+        // Case-insensitive, like the parser: `{Edit:beast}` is the same
+        // construct. WasmSession re-checks the compiled conjuncts for weights
+        // regardless, so this regex is the cheap first pass, not the guard.
         const weightedQuery =
-          /\{\s*~|\{\s*(?:edit\.)?edit\s*(?:\([a-z0-9]+\))?\s*:/.test(
+          /\{\s*~|\{\s*(?:edit\.)?edit\s*(?:\([a-z0-9]+\))?\s*:/i.test(
             currentQuery,
           );
         // A suffix-anchored query over a streamed index walks the reverse
@@ -1364,12 +1423,14 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           if (token !== runToken) return;
           if (revReader !== null) {
             try {
-              session = new SearchSession(
-                revReader,
-                makeFilter(compileConjunctsReversed(currentQuery, ctx)),
-                ctx,
-                undefined,
-                { prefetchDepth: PREFETCH_DEPTH },
+              adoptSession(
+                new SearchSession(
+                  revReader,
+                  makeFilter(compileConjunctsReversed(currentQuery, ctx)),
+                  ctx,
+                  undefined,
+                  { prefetchDepth: PREFETCH_DEPTH },
+                ),
               );
               reversedSearch = true;
             } catch {
@@ -1387,7 +1448,7 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
           try {
             const engine = await getWasmEngine();
             if (token !== runToken) return; // superseded while instantiating
-            session = new WasmSession(engine, currentQuery, ctx);
+            adoptSession(new WasmSession(engine, currentQuery, ctx));
           } catch (e) {
             if (e instanceof ParseError) {
               post({ type: "parse-error", rest: e.rest, detail: e.detail });
@@ -1411,10 +1472,12 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
         }
         if (!session) {
           try {
-            session = new SearchSession(reader, currentQuery, ctx, undefined, {
-              prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
-              filterCache,
-            });
+            adoptSession(
+              new SearchSession(reader, currentQuery, ctx, undefined, {
+                prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
+                filterCache,
+              }),
+            );
           } catch (e) {
             if (e instanceof ParseError) {
               post({ type: "parse-error", rest: e.rest, detail: e.detail });
@@ -1458,10 +1521,12 @@ self.onmessage = async (ev: MessageEvent<InMsg>) => {
             throw new Error("no search to continue");
           }
           reversedSearch = false;
-          session = new SearchSession(reader, currentQuery, ctx, undefined, {
-            prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
-            filterCache,
-          });
+          adoptSession(
+            new SearchSession(reader, currentQuery, ctx, undefined, {
+              prefetchDepth: rangeSource ? PREFETCH_DEPTH : 0,
+              filterCache,
+            }),
+          );
         }
         // Duplicate continue for the session that's already running: that
         // run will answer. (A stale run of a REPLACED session doesn't match

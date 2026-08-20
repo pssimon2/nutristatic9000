@@ -31,6 +31,7 @@ import {
   addRange,
   coveredBytes,
   indexUrlAlias,
+  opfsName,
   opfsHandle,
   validatorStale,
   opfsOkName,
@@ -151,12 +152,25 @@ export async function downloadToOpfs(
   signal?: AbortSignal,
 ): Promise<SyncFileSource | null> {
   const handle = await opfsHandle(url, true);
-  if (!handle) return null;
+  if (!handle) return null; // no OPFS here: the caller's memory path applies
   let sync: any;
-  try {
-    sync = await (handle as any).createSyncAccessHandle();
-  } catch {
-    return null;
+  // A handle that will not open is usually another tab holding this index,
+  // not a browser without OPFS — and the difference matters: falling through
+  // to the memory/cache path would download the whole index a second time
+  // and store it twice over. Retry briefly (a reloading tab releases within
+  // a few hundred ms), then say what is actually wrong.
+  for (let attempt = 0; ; ++attempt) {
+    try {
+      sync = await (handle as any).createSyncAccessHandle();
+      break;
+    } catch (e) {
+      if (attempt >= 5) {
+        throw new Error(
+          "this index is open in another tab — close or switch it, then retry",
+        );
+      }
+      await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+    }
   }
   const validator = currentValidator ?? null;
   let progSync: any = null;
@@ -165,6 +179,21 @@ export async function downloadToOpfs(
     // Invalidate any previous completion marker before touching the file
     // (the file itself stays: we hold its open handle).
     await root.removeEntry(opfsOkName(url)).catch(() => {});
+
+    // A partial left under the URL's alias spelling cannot be resumed from
+    // here (progress records are per-spelling), and once this download
+    // finishes nothing will ever look at it again — so it would sit on the
+    // device as bytes no row can show or clear. Drop it now, and only when it
+    // is a partial: a *complete* alias copy is a good copy of the same file
+    // and must survive.
+    const alias = indexUrlAlias(url);
+    if (alias !== null) {
+      const aliasMarker = parseOpfsMarker(await opfsReadMarker(alias));
+      if (aliasMarker === null) {
+        await root.removeEntry(opfsName(alias)).catch(() => {});
+        await root.removeEntry(progName(alias)).catch(() => {});
+      }
+    }
 
     // Resume a prior interrupted download when its progress record still
     // matches this exact index; otherwise start from an empty file. Read the
