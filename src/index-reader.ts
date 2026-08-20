@@ -210,13 +210,13 @@ export class IndexReader {
     return finish(r);
   }
 
+  private readonly parseCache = new ParseCache();
+
   /**
    * Flat-buffer version of children() for the search hot loop. Returns
    * `count` minus the counts of all children. Synchronous when the backing
    * bytes are already available.
    */
-  private readonly parseCache = new ParseCache();
-
   childrenInto(
     parent: number,
     count: number,
@@ -303,10 +303,15 @@ export class IndexReader {
   private childrenSync(n: number, count: number, out: ChoiceBuffer): number {
     const src = this.source;
     if (!(n >= 1 && n <= src.length)) this.fail(n, "node out of range");
+    // From here `n` is only a boundary; reads walk `cursor` backwards from it
+    // (the index is written children-first), and `remaining` counts down what
+    // the children do not account for.
 
     // Get direct array access to the node's byte span; parsing with plain
     // indexing instead of per-byte method calls is a large hot-loop win.
     const spanStart = Math.max(0, n - MAX_NODE_SPAN);
+    let cursor = n;
+    let remaining = count;
     const v = this.viewHolder;
     if (!src.view(spanStart, n, v)) {
       // Span crosses a chunk boundary (~3% of nodes on chunked sources):
@@ -333,12 +338,12 @@ export class IndexReader {
     const b = v.bytes;
     const base = v.base;
 
-    let num = b[--n - base];
+    let num = b[--cursor - base];
 
     if (num >= 0x20 && num < 0x80) {
       // Single child immediately preceding, sharing this node's count.
-      if (n < 1) this.fail(n, "need immediate next");
-      out.push(num, count, n);
+      if (cursor < 1) this.fail(cursor, "need immediate next");
+      out.push(num, count, cursor);
       return 0;
     }
 
@@ -347,15 +352,15 @@ export class IndexReader {
 
     num = num & 0x1f;
     if (num === 0) {
-      if (n < 1) this.fail(n, "need count");
-      num = b[--n - base];
+      if (cursor < 1) this.fail(cursor, "need count");
+      num = b[--cursor - base];
     }
 
     const size = countSize + offsetSize + 1;
-    if (num === 0 || n < num * size) this.fail(n, "bad size");
+    if (num === 0 || cursor < num * size) this.fail(cursor, "bad size");
 
-    const start = n - num * size;
-    for (let p = start - base; p < n - base; p += size) {
+    const start = cursor - num * size;
+    for (let p = start - base; p < cursor - base; p += size) {
       const ch = b[p];
 
       let childCount: number;
@@ -395,10 +400,10 @@ export class IndexReader {
         this.fail(p + base + 1 + countSize, "bad offset");
       }
       out.push(ch, childCount, next);
-      count -= childCount;
+      remaining -= childCount;
     }
 
-    return count;
+    return remaining;
   }
 
   private fail(n: number, message: string): never {

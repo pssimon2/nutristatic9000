@@ -3,6 +3,13 @@
 // Mirrors HttpRangeSource's behavior: LRU of (decompressed) blocks, in-flight
 // dedupe, persistent chunk store, bandwidth/RTT estimation with post-order
 // backward read-ahead, and budgeted speculative prefetch.
+//
+// Vocabulary: a "block" here IS byte-source.ts's "chunk" — the sidecar names
+// the unit (its per-block table fixes the size) where the plain range layer
+// picks its own, but they play the same role. The chunk-named pieces below
+// (ChunkStore, the chunkHits/chunkMisses stats) are frozen by that shared
+// contract: the store's key namespace and the stats field names are the
+// same for both transports.
 
 import {
   ByteSource,

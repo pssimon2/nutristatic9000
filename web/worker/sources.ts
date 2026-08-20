@@ -13,8 +13,19 @@ import type { EarlyProbe } from "./protocol.js";
 
 export const CACHE_NAME = "nutrimatic-index-v1";
 // Chunk keys include the chunk size, so entries cached under a different
-// chunking are never reinterpreted.
+// chunking are never reinterpreted. Mirrored by hand in web/index.html's
+// inline early-fetch script — change both.
 export const CHUNK_CACHE_NAME = "nutrimatic-chunks-v2";
+
+/**
+ * Does a chunk-cache key belong to `url`? Keys are `${url}?nutrimatic-…`
+ * (plain store, validator, sidecar table) and `${url}.idxz?nutrimatic-…`
+ * (compressed store) — matched by exact prefix, never bare `startsWith(url)`,
+ * so an index whose URL merely extends another's is never swept up with it.
+ */
+export function chunkKeyBelongsTo(key: string, url: string): boolean {
+  return key.startsWith(url + "?") || key.startsWith(url + ".idxz?");
+}
 export const RANGE_CHUNK_SIZE = 1 << 15;
 
 /** Header a cached whole copy carries so it can be revalidated later. */

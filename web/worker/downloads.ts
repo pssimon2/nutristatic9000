@@ -32,6 +32,7 @@ import {
   coveredBytes,
   indexUrlAlias,
   opfsHandle,
+  validatorStale,
   opfsOkName,
   opfsReadMarker,
   opfsReadProg,
@@ -40,7 +41,33 @@ import {
   parseOpfsMarker,
   progName,
   rangeCovered,
-} from "./storage.js";
+} from "./opfs.js";
+
+/** Thrown by `checkQuota`: the copy will not fit in what the browser grants. */
+export class QuotaError extends Error {}
+
+/**
+ * Fail fast on insufficient storage instead of minutes into the transfer.
+ * Quietly does nothing when `estimate()` is unavailable — the write itself
+ * will fail if it must.
+ */
+export async function checkQuota(size: number): Promise<void> {
+  let free: number | null = null;
+  try {
+    const est = await navigator.storage.estimate();
+    if (est.quota != null && est.usage != null && size > est.quota - est.usage) {
+      free = Math.max(0, est.quota - est.usage);
+    }
+  } catch {
+    return; // estimate() unavailable
+  }
+  if (free !== null) {
+    throw new QuotaError(
+      `not enough storage (need ${Math.round(size / 1048576)} MB, ` +
+        `~${Math.round(free / 1048576)} MB free)`,
+    );
+  }
+}
 
 /** How a download tells the page how far along it is. */
 export interface DownloadReporter {
@@ -48,14 +75,6 @@ export interface DownloadReporter {
   progress(loaded: number, total: number): void;
   /** The whole copy came straight from the cache. */
   cachedHit(size: number): void;
-}
-
-/** Is a stored validator known to contradict the live one? */
-function validatorStale(
-  stored: string | null | undefined,
-  current: string | null,
-): boolean {
-  return stored != null && current != null && stored !== current;
 }
 
 /**

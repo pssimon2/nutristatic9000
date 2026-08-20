@@ -153,7 +153,6 @@ function arcCount(nfa: Nfa): number {
   return n;
 }
 
-/** Which side datasets the query needs; the same sniffers the worker uses. */
 /**
  * The side datasets this query needs, from the one table that knows them.
  *

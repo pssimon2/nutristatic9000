@@ -182,7 +182,6 @@ export class SyncFileSource implements ByteSource {
   }
 }
 
-/** Optional persistent store for fetched chunks (e.g. browser Cache API). */
 /**
  * How far a miss-fetch may reach backwards, in chunks.
  *
@@ -245,6 +244,7 @@ export class SyncFileSource implements ByteSource {
  */
 export const MAX_READAHEAD_BLOCKS = 2;
 
+/** Optional persistent store for fetched chunks (e.g. browser Cache API). */
 export interface ChunkStore {
   get(chunk: number): Promise<Uint8Array | undefined>;
   /** Fire-and-forget; failures must be swallowed by the store. */

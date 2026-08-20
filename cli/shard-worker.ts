@@ -3,11 +3,9 @@
 // shards and runs the predicates — this thread only walks.
 
 import { parentPort, workerData } from "node:worker_threads";
-import * as fs from "node:fs";
 import { SessionContext } from "../src/session-context.js";
-import { providersFor } from "../src/data-providers.js";
 import { compileQuery, makeDriver } from "../src/find-expr.js";
-import { cliOpenIndex } from "../src/node-io.js";
+import { cliOpenIndex, loadDatasetsFromDisk } from "../src/node-io.js";
 
 interface ShardJob {
   indexPath: string;
@@ -20,22 +18,8 @@ interface ShardJob {
 const job = workerData as ShardJob;
 
 const ctx = new SessionContext();
-for (const provider of providersFor(job.pattern)) {
-  try {
-    const path = new URL(`../web/public/${provider.file}`, import.meta.url);
-    if (provider.binary) {
-      const buf = fs.readFileSync(path);
-      provider.install(
-        ctx,
-        buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
-      );
-    } else {
-      provider.install(ctx, fs.readFileSync(path, "utf8"));
-    }
-  } catch {
-    // The parent already reported anything truly missing.
-  }
-}
+// Silent-on-missing is fine here too: the parent already reported it.
+loadDatasetsFromDisk(ctx, job.pattern, new URL("../web/public/", import.meta.url));
 
 const reader = await cliOpenIndex(job.indexPath);
 const driver = makeDriver(reader, compileQuery(job.pattern, ctx), undefined, {

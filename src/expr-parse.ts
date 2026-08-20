@@ -34,7 +34,7 @@ import {
   optimize,
 } from "./automata.js";
 import { Conjunct, isNegated } from "./conjunct.js";
-import { CONSTRUCTS, softConjunct } from "./construct-table.js";
+import { CONSTRUCT_BUILDERS, softConjunct } from "./construct-table.js";
 import { packAdvice, packConjuncts } from "./packs.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
@@ -550,12 +550,6 @@ function parseAtom(
 }
 
 /**
- * `{name spec:PATTERN}` — the pattern, intersected with a constraint automaton
- * named by `name`. Returns null (a parse error) for an unknown name, so the
- * user gets the standard "can't parse" pointer at the offending text.
- */
-/** The `{…}` construct starting at `i`, for error messages. */
-/**
  * A construct spelled correctly but given no argument: `{rot13}`, `{caesar}`,
  * `{sum=52}`.
  *
@@ -602,6 +596,7 @@ function bareConstruct(s: string, i: number): void {
   );
 }
 
+/** The `{…}` construct starting at `i`, for error messages. */
 function constructText(s: string, i: number): string {
   const close = s.indexOf("}", i);
   return close < 0 ? s.slice(i) : s.slice(i, close + 1);
@@ -762,6 +757,11 @@ function parseNestedPredicate(
   return p + 1;
 }
 
+/**
+ * `{name spec:PATTERN}` — the pattern, intersected with a constraint automaton
+ * named by `name`. Returns null (a parse error) for an unknown name, so the
+ * user gets the standard "can't parse" pointer at the offending text.
+ */
 function parseNamedConstraint(
   s: string,
   i: number,
@@ -810,7 +810,7 @@ function parseNamedConstraint(
   const folded = foldName(token.slice(token.lastIndexOf(".") + 1), spec);
   const name = folded.name;
   spec = folded.spec;
-  const construct = CONSTRUCTS[name];
+  const construct = CONSTRUCT_BUILDERS[name];
   // A construct pack's name, folded like the built-ins — digits lex
   // into the spec, so a pack's {row9:…} arrives as "row" + "9". Checked
   // before the built-in table because a pack cannot shadow a built-in name

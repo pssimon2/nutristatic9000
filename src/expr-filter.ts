@@ -100,10 +100,6 @@ export class ExprFilter implements Filter {
     this.startState = this.intern(this.closeSet([parsedExpr.start]));
   }
 
-  get numStates(): number {
-    return this.accepting.length;
-  }
-
   isAccepting(state: number): boolean {
     return this.accepting[state] !== 0;
   }
@@ -178,6 +174,9 @@ export class ExprFilter implements Filter {
         const fw = this.nfa!.finalWeight!.get(s) ?? 1;
         if (fw > w) w = fw;
       }
+      // Non-accepting states record the neutral 1, not 0: the weight is only
+      // meaningful on accepting states, and a stray read must never look
+      // like a soft reject.
       this.weights.push(acc === 0 ? 1 : w);
     }
 
@@ -308,10 +307,6 @@ export class ProductFilter implements Filter {
       h ^= h >>> 13;
     }
     return h >>> 0;
-  }
-
-  get numStates(): number {
-    return this.accepting.length;
   }
 
   isAccepting(state: number): boolean {

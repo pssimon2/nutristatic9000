@@ -500,7 +500,7 @@ function softNfa(entries: string[], ranked: boolean): Nfa {
  * without a row of their own are counters and classes, which differ only in
  * their name and are handled by one shared row.
  */
-export const CONSTRUCTS: Record<string, ConstructBuild> = (() => {
+export const CONSTRUCT_BUILDERS: Record<string, ConstructBuild> = (() => {
   const table: Record<string, ConstructBuild> = {
     ...wordLookups,
     rhyme: phoneticLookup("rhyme"),

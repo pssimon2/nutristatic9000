@@ -1,4 +1,5 @@
-// The storage manager's download arm. Everything else the manager does —
+// The storage manager's download arm (the page is web/storage.ts; the OPFS
+// primitives are web/worker/opfs.ts). Everything else the manager does —
 // listing device copies, sizing caches, deleting — runs on the page, because
 // OPFS enumeration and the Cache API work on a window. Writing a download
 // does not: it needs synchronous access handles, which are worker-only. So
@@ -8,6 +9,7 @@
 
 import {
   DownloadReporter,
+  checkQuota,
   downloadToOpfs,
 } from "./worker/downloads.js";
 import { StopError } from "./worker/net.js";
@@ -68,14 +70,7 @@ async function download(url: string): Promise<void> {
   post({ type: "started", url });
   try {
     const { size, validator } = await probe(url);
-    const est = await navigator.storage.estimate().catch(() => null);
-    if (est?.quota != null && est.usage != null && size > est.quota - est.usage) {
-      const free = Math.max(0, est.quota - est.usage);
-      throw new Error(
-        `not enough storage (need ${Math.round(size / 1048576)} MB, ` +
-          `~${Math.round(free / 1048576)} MB free)`,
-      );
-    }
+    await checkQuota(size);
     void navigator.storage.persist?.().catch(() => {});
     const report: DownloadReporter = {
       progress: (loaded, total) => post({ type: "progress", url, loaded, total }),

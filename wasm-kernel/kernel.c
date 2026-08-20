@@ -9,6 +9,29 @@
 //     -Wl,--no-entry -Wl,--export-dynamic -Wl,--allow-undefined \
 //     -Wl,--initial-memory=17039360 -Wl,--max-memory=3221225472 \
 //     -o kernel.wasm kernel.c
+//
+// ===== ABI (the contract src/wasm-session.ts drives) =====
+// Call order: walloc (index bytes, alphabet, io mailbox) -> setup ->
+// heap_mark once; then per query: heap_reset(mark) -> begin_query ->
+// add_conjunct xN -> seed -> run (repeatedly, with a step budget).
+//
+// Memory ownership: THE HOST GROWS MEMORY, walloc never does — it is an
+// unchecked bump allocator, and an allocation past the last grow does not
+// fail here, it traps on the first write. wasm-session.ts grows once at
+// create() to cover the index plus every reserved capacity, and per-query
+// allocations must stay inside that reservation.
+//
+// heap_mark/heap_reset: everything walloc'd before the mark (index,
+// alphabet, io, parse cache) is permanent; everything after it is per-query
+// and reclaimed by heap_reset. Setup-time tables must therefore be
+// allocated before the host takes its mark.
+//
+// io mailbox layout (fixed offsets, mirrored in wasm-session.ts):
+//   +0  u32 steps taken this run()   +4  u32 result text length
+//   +8  f64 result score             +16 result text bytes (<= 512)
+//
+// run(budget) returns: 0 budget exhausted, 1 result in the mailbox,
+// 2 search space done, 3 capacity overflow (host falls back to JS).
 
 typedef unsigned char u8;
 typedef unsigned int u32;
@@ -19,6 +42,11 @@ typedef double f64;
 #define NO_NODE 0xFFFFFFFFu
 #define UNCOMPUTED -2
 #define DEAD -1
+// An intern table (subset-DFA states, member pool, product states) is full.
+#define NO_ID 0xFFFFFFFFu
+// Transition-function result: some capacity overflowed; run() returns 3 and
+// the host replays the query on the JS engine.
+#define CAP_OVERFLOW -3
 #define MAX_CONJ 32
 
 extern u8 __heap_base;
@@ -138,8 +166,8 @@ static u32 sub_intern(Sub *s, u32 count) {
     }
     h = (h + 1) & s->slot_mask;
   }
-  if (s->n_dfa >= s->dfa_cap) return 0xFFFFFFFFu;
-  if (s->pool_len + count > s->pool_cap) return 0xFFFFFFFFu;
+  if (s->n_dfa >= s->dfa_cap) return NO_ID;
+  if (s->pool_len + count > s->pool_cap) return NO_ID;
   u32 id = s->n_dfa++;
   s->slot[h] = id + 1;
   s->pool_len += count;
@@ -181,9 +209,9 @@ static i32 sub_transition(Sub *s, u32 state, u32 sy) {
   } else {
     u32 count = close_and_collect(s, scratch_stack, stack_n);
     u32 id = sub_intern(s, count);
-    result = id == 0xFFFFFFFFu ? -3 : (i32)id;
+    result = id == NO_ID ? CAP_OVERFLOW : (i32)id;
   }
-  if (result != -3) s->trans[state * NSYM + sy] = result;
+  if (result != CAP_OVERFLOW) s->trans[state * NSYM + sy] = result;
   return result;
 }
 
@@ -212,7 +240,7 @@ static u32 prod_intern(u32 *tuple) {
     if (same) return id;
     h = (h + 1) & p_slot_mask;
   }
-  if (p_n >= p_cap) return 0xFFFFFFFFu;
+  if (p_n >= p_cap) return NO_ID;
   u32 id = p_n++;
   p_slot[h] = id + 1;
   u8 acc = 1;
@@ -227,7 +255,7 @@ static u32 prod_intern(u32 *tuple) {
 
 static u32 tuple_scratch[MAX_CONJ];
 
-// returns product state, DEAD, or -3 on overflow
+// returns product state, DEAD, or CAP_OVERFLOW
 static i32 prod_transition(u32 state, u8 ch) {
   i32 sy = ch < 128 ? sym_of[ch] : -1;
   if (sy < 0) return DEAD;
@@ -235,7 +263,7 @@ static i32 prod_transition(u32 state, u8 ch) {
   if (t != UNCOMPUTED) return t;
   for (u32 i = 0; i < width; ++i) {
     i32 st = sub_transition(&subs[i], p_pool[state * width + i], (u32)sy);
-    if (st == -3) return -3;
+    if (st == CAP_OVERFLOW) return CAP_OVERFLOW;
     if (st == DEAD) {
       p_trans[state * NSYM + (u32)sy] = DEAD;
       return DEAD;
@@ -243,7 +271,7 @@ static i32 prod_transition(u32 state, u8 ch) {
     tuple_scratch[i] = (u32)st;
   }
   u32 id = prod_intern(tuple_scratch);
-  if (id == 0xFFFFFFFFu) return -3;
+  if (id == NO_ID) return CAP_OVERFLOW;
   p_trans[state * NSYM + (u32)sy] = (i32)id;
   return (i32)id;
 }
@@ -582,11 +610,11 @@ __attribute__((export_name("seed"))) i32 seed(f64 total_) {
     scratch_stack[0] = s->start;
     u32 count = close_and_collect(s, scratch_stack, 1);
     u32 id = sub_intern(s, count);
-    if (id == 0xFFFFFFFFu) return -1;
+    if (id == NO_ID) return -1;
     tuple_scratch[i] = id;
   }
   u32 startProd = prod_intern(tuple_scratch);
-  if (startProd == 0xFFFFFFFFu) return -1;
+  if (startProd == NO_ID) return -1;
   f_size = 0;
   c_len = 0;
   heap_push(-1, (i32)startProd, 0, 1.0, total, root);
@@ -611,7 +639,7 @@ __attribute__((export_name("run"))) i32 run(u32 budget) {
     u32 newCrumb = c_len;
     for (u32 i = 0; i < t_n; ++i) {
       i32 s2 = prod_transition((u32)topState, t_ch[i]);
-      if (s2 == -3) {
+      if (s2 == CAP_OVERFLOW) {
         *io_steps = steps;
         return 3;
       }

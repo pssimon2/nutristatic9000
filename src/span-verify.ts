@@ -270,6 +270,10 @@ export async function verifyMatch(
    * Like `ends`, but each way of parsing [i, end) that differs in what it
    * captured is its own entry. Only run where a capture actually sits — the
    * capture-free ground below stays on the memoised `ends` path.
+   *
+   * The case structure below deliberately mirrors `endsOf` above, case for
+   * case, with bindings threaded through; a fix to a case in one almost
+   * always belongs in its twin.
    */
   const walk = async (node: PatternAst, i: number): Promise<Entry[]> => {
     if (!hasCap(node)) {
@@ -380,6 +384,9 @@ export async function verifyMatch(
         return out;
       }
       case "anagram": {
+        // Twin of endsOf's anagram DP, minus its (pos, counts) memo: entries
+        // here carry bindings, which would blow the key space, and this path
+        // only ever runs over the short capture-bearing region.
         const parts = node.parts;
         const go = async (pos: number, counts: number[]): Promise<Entry[]> => {
           if (counts.every((c) => c === 0)) {

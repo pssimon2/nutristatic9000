@@ -1,4 +1,6 @@
-// The storage manager: everything this site keeps on the device, in one
+// The storage manager *page* (storage.html's script; its download queue runs
+// in web/storage-worker.ts, and the OPFS primitives both share live in
+// web/worker/opfs.ts): everything this site keeps on the device, in one
 // place — device copies of indexes, their reverse sidecars, the side
 // datasets, and the cached search pieces — with sizes, downloads and
 // deletion. The point is the offline story: an index copy plus its sidecar
@@ -15,7 +17,8 @@ import {
   parseOpfsMarker,
   parseOpfsProg,
   progName,
-} from "./worker/storage.js";
+} from "./worker/opfs.js";
+import { CHUNK_CACHE_NAME, chunkKeyBelongsTo } from "./worker/sources.js";
 import type { StorageOutMsg } from "./storage-worker.js";
 
 // The manager may be a visitor's first page, so it registers the service
@@ -27,7 +30,6 @@ if ("serviceWorker" in navigator) {
   });
 }
 
-const CHUNK_CACHE = "nutrimatic-chunks-v2";
 const DATA_CACHE = "nutristatic9000-data";
 
 const $ = (id: string) => document.getElementById(id)!;
@@ -136,10 +138,10 @@ async function removeCopyAt(url: string): Promise<void> {
 /** Cached range pieces for one index (and its .idxz), by exact key prefix. */
 async function chunkBytes(url: string): Promise<number> {
   try {
-    const cache = await caches.open(CHUNK_CACHE);
+    const cache = await caches.open(CHUNK_CACHE_NAME);
     let total = 0;
     for (const req of await cache.keys()) {
-      if (req.url.startsWith(url + "?") || req.url.startsWith(url + ".idxz?")) {
+      if (chunkKeyBelongsTo(req.url, url)) {
         const r = await cache.match(req);
         if (r) total += (await r.blob()).size;
       }
@@ -152,11 +154,9 @@ async function chunkBytes(url: string): Promise<number> {
 
 async function purgeChunks(url: string): Promise<void> {
   try {
-    const cache = await caches.open(CHUNK_CACHE);
+    const cache = await caches.open(CHUNK_CACHE_NAME);
     for (const req of await cache.keys()) {
-      if (req.url.startsWith(url + "?") || req.url.startsWith(url + ".idxz?")) {
-        await cache.delete(req);
-      }
+      if (chunkKeyBelongsTo(req.url, url)) await cache.delete(req);
     }
   } catch {
     // best-effort
@@ -394,7 +394,7 @@ $("rm-all").addEventListener("click", async () => {
       }
     }
   }
-  await caches.delete(CHUNK_CACHE).catch(() => {});
+  await caches.delete(CHUNK_CACHE_NAME).catch(() => {});
   await caches.delete(DATA_CACHE).catch(() => {});
   try {
     for (const key of Object.keys(localStorage)) {

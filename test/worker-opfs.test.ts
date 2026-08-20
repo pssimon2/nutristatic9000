@@ -14,7 +14,7 @@ import {
   progName,
   rangeCovered,
   validatorOk,
-} from "../web/worker/storage.js";
+} from "../web/worker/opfs.js";
 
 /** Build a range list by inserting in the given order. */
 function built(...spans: Array<[number, number]>): Array<[number, number]> {

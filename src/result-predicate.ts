@@ -249,6 +249,11 @@ async function anagramKeys(
   return built;
 }
 
+/** A bare word looks like a list name; anything else was meant as a pattern. */
+function wordListLike(spec: string): boolean {
+  return /^[a-z0-9 ]+$/i.test(spec.trim());
+}
+
 /**
  * The strings a pattern matches, when there are few enough to hold.
  *
@@ -256,11 +261,6 @@ async function anagramKeys(
  * strings, or more than the cap — for which the caller has no answer to give
  * and says so once rather than dropping every candidate in silence.
  */
-/** A bare word looks like a list name; anything else was meant as a pattern. */
-function wordListLike(spec: string): boolean {
-  return /^[a-z0-9 ]+$/i.test(spec.trim());
-}
-
 async function enumeratedSet(
   pattern: string,
   ctx: SessionContext,

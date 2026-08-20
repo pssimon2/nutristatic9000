@@ -33,8 +33,17 @@ export class WasmUnsupportedError extends Error {
 
 // Capacities are generous: linear memory is reserved, not touched, until the
 // kernel actually writes it, so oversizing costs address space, not RAM.
-const F_CAP = 8_000_000; // frontier entries (37 bytes each)
-const C_CAP = 16_000_000; // crumb entries (5 bytes each)
+const F_CAP = 8_000_000; // frontier entries
+const C_CAP = 16_000_000; // crumb entries
+// Bytes per frontier/crumb entry, matching what kernel.c's setup() wallocs
+// per capacity unit. Adding a field to either struct-of-arrays in kernel.c
+// means updating these, or the reservation below silently under-grows and a
+// later write traps.
+//   frontier: f_crumb 4 + f_state 4 + f_ch 1 + f_scale 8 + f_count 8
+//             + f_pri 8 + f_next 4
+const FRONTIER_ENTRY_BYTES = 37;
+//   crumb: c_parent 4 + c_ch 1
+const CRUMB_ENTRY_BYTES = 5;
 const P_CAP = 1 << 20; // product states per query
 const DFA_CAP = 16384; // lazy subset-DFA states per conjunct
 const POOL_CAP = 1 << 20; // subset-member pool per conjunct (u32s)
@@ -44,6 +53,14 @@ const IO_BYTES = 16 + 512; // result mailbox: steps, len, score, text
 // physical pages only as the cache fills.
 const PARSE_CACHE_BYTES = 88 * 1024 * 1024;
 const PAGE = 65536;
+
+/**
+ * Largest index the kernel takes: the link-time cap on kernel memory is 3GB,
+ * and the index plus the reserved frontier/crumb/DFA/parse-cache capacities
+ * above must fit inside it. Shared by the web worker and the CLI so the two
+ * drivers cannot drift.
+ */
+export const KERNEL_INDEX_CAP = 2_400 * 1024 * 1024;
 
 interface KernelExports {
   memory: WebAssembly.Memory;
@@ -158,8 +175,8 @@ export class WasmEngine {
       mem,
       heapBase +
         indexSize +
-        F_CAP * 37 +
-        C_CAP * 5 +
+        F_CAP * FRONTIER_ENTRY_BYTES +
+        C_CAP * CRUMB_ENTRY_BYTES +
         PARSE_CACHE_BYTES +
         NSYM +
         IO_BYTES +

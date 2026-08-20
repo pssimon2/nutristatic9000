@@ -19,7 +19,7 @@ import { ALPHABET, EPSILON, Nfa } from "./automata.js";
 import { Conjunct, isNegated } from "./conjunct.js";
 import { Box, parseExprBox } from "./expr-parse.js";
 import { type Filter, makeFilter } from "./expr-filter.js";
-import { compileConjuncts } from "./find-expr.js";
+import { compileConjuncts, appendSpace, endsInSpace } from "./find-expr.js";
 import { ParseError } from "./parse-error.js";
 import { SessionContext } from "./session-context.js";
 import { IndexReader } from "./index-reader.js";
@@ -37,21 +37,6 @@ export function unreverseText(text: string): string {
   return [...text.replace(/ +$/, "")].reverse().join("");
 }
 
-/**
- * Build the reverse index of `reader` into `sink`. Holds every entry in
- * memory — an offline build-time cost, like the forward index's own.
- *
- * Not a naive per-entry reversal: the forward index stores every *word
- * suffix* of each corpus window ("the quick brown fox" also stores "quick
- * brown fox", "brown fox", "fox"), which is what makes prefix counts equal
- * occurrence counts. Reversing those entries directly counts one occurrence
- * once per window it appears in. Instead the windows' own multiplicities are
- * recovered — an entry's stored count minus the counts of its one-word-left
- * extensions, since every longer window contains it through exactly one such
- * extension — and each window with a positive multiplicity is re-suffixed in
- * reverse. The reverse index then holds exactly the mirrored window set, and
- * reverse prefix counts equal forward ones.
- */
 /**
  * A string→count map that scales past V8's ~16.7M-entries-per-Map limit by
  * sharding on the first two characters. A large index has tens of millions
@@ -109,6 +94,21 @@ class BigCounter {
   }
 }
 
+/**
+ * Build the reverse index of `reader` into `sink`. Holds every entry in
+ * memory — an offline build-time cost, like the forward index's own.
+ *
+ * Not a naive per-entry reversal: the forward index stores every *word
+ * suffix* of each corpus window ("the quick brown fox" also stores "quick
+ * brown fox", "brown fox", "fox"), which is what makes prefix counts equal
+ * occurrence counts. Reversing those entries directly counts one occurrence
+ * once per window it appears in. Instead the windows' own multiplicities are
+ * recovered — an entry's stored count minus the counts of its one-word-left
+ * extensions, since every longer window contains it through exactly one such
+ * extension — and each window with a positive multiplicity is re-suffixed in
+ * reverse. The reverse index then holds exactly the mirrored window set, and
+ * reverse prefix counts equal forward ones.
+ */
 export async function buildReverseIndex(
   reader: IndexReader,
   sink: ByteSink,
@@ -196,8 +196,6 @@ export function reverseNfa(nfa: Nfa): Nfa {
   return out;
 }
 
-const CODE_SPACE = 0x20;
-
 /**
  * Compile a query for a reverse index: parse forward, reverse every conjunct,
  * then append the trailing space the search requires — after the reversal,
@@ -232,30 +230,11 @@ export function compileConjunctsReversed(
   }
   if (reversed.length > 0 && !reversed.some((c) => !isNegated(c))) {
     // Same soundness argument as the forward compile: restrict to strings
-    // ending in the boundary space (see compileConjuncts).
-    const all = new Nfa();
-    const loop = all.addState();
-    const end = all.addState();
-    all.setStart(loop);
-    all.setFinal(end);
-    for (let c2 = 0x30; c2 <= 0x39; ++c2) all.addArc(loop, c2, loop);
-    for (let c2 = 0x61; c2 <= 0x7a; ++c2) all.addArc(loop, c2, loop);
-    all.addArc(loop, CODE_SPACE, loop);
-    all.addArc(loop, CODE_SPACE, end);
-    reversed.push(all);
+    // ending in the boundary space (see compileConjuncts). Shared code, not
+    // just a shared argument: this and the forward path must stay mirrors.
+    reversed.push(endsInSpace());
   }
   return reversed;
-}
-
-/** Concat one literal space, the way the forward compile's suffix does. */
-function appendSpace(nfa: Nfa): void {
-  const space = new Nfa();
-  const a = space.addState();
-  const b = space.addState();
-  space.setStart(a);
-  space.setFinal(b);
-  space.addArc(a, CODE_SPACE, b);
-  nfa.concat(space);
 }
 
 /** How many symbols the filter accepts as a first character. */

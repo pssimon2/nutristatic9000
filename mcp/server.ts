@@ -31,9 +31,8 @@ import {
   makeWordChecker,
   parseFilterWrappers,
   planQuery,
-  providersFor,
-} from "../src/engine.js";
-import { cliOpenIndex } from "../src/node-io.js";
+  } from "../src/engine.js";
+import { cliOpenIndex, loadDatasetsFromDisk } from "../src/node-io.js";
 import { makeFilter } from "../src/expr-filter.js";
 import {
   compileConjunctsReversed,
@@ -93,24 +92,7 @@ function resolveIndex(name: string | undefined): string {
 const ctx = new SessionContext();
 const loadedProviders = new Set<string>();
 function ensureData(query: string): void {
-  for (const provider of providersFor(query)) {
-    if (loadedProviders.has(provider.key)) continue;
-    loadedProviders.add(provider.key);
-    try {
-      const file = path.join(repo, "web/public", provider.file);
-      if (provider.binary) {
-        const buf = fs.readFileSync(file);
-        provider.install(
-          ctx,
-          buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
-        );
-      } else {
-        provider.install(ctx, fs.readFileSync(file, "utf8"));
-      }
-    } catch {
-      // Left unloaded: the compile error names what is missing.
-    }
-  }
+  loadDatasetsFromDisk(ctx, query, path.join(repo, "web/public"), loadedProviders);
 }
 
 const readers = new Map<string, IndexReader>();

@@ -1,10 +1,51 @@
 // Node-only helpers: file-backed sink for IndexWriter, chunk-cached index
-// sources for the CLIs, and Nutrimatic-style CLI error reporting.
+// sources for the CLIs, side-dataset loading from disk, and Nutrimatic-style
+// CLI error reporting.
 
 import * as fs from "node:fs";
+import { join } from "node:path";
 import { SyncFileReader, SyncFileSource } from "./byte-source.js";
 import { IndexReader } from "./index-reader.js";
 import { ByteSink } from "./index-writer.js";
+import { providersFor } from "./data-providers.js";
+import { SessionContext } from "./session-context.js";
+
+/**
+ * Install into `ctx` the side datasets `query` needs, read from disk beside
+ * the web assets (`base`: the web/public directory, as a URL or a path).
+ * The one implementation behind every Node driver — the CLI, its shard
+ * workers, and the MCP server. Failures are deliberately silent: the compile
+ * error that follows names exactly which dataset is missing.
+ *
+ * Pass `loaded` to make repeat calls cheap in a long-lived process (each
+ * provider key is loaded once per set).
+ */
+export function loadDatasetsFromDisk(
+  ctx: SessionContext,
+  query: string,
+  base: URL | string,
+  loaded?: Set<string>,
+): void {
+  for (const provider of providersFor(query)) {
+    if (loaded?.has(provider.key)) continue;
+    loaded?.add(provider.key);
+    try {
+      const file =
+        base instanceof URL ? new URL(provider.file, base) : join(base, provider.file);
+      if (provider.binary) {
+        const buf = fs.readFileSync(file);
+        provider.install(
+          ctx,
+          buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
+        );
+      } else {
+        provider.install(ctx, fs.readFileSync(file, "utf8"));
+      }
+    } catch {
+      // Left unloaded: the parser reports what is missing.
+    }
+  }
+}
 
 export class FileSink implements ByteSink {
   private readonly fd: number;

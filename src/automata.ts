@@ -422,7 +422,7 @@ export function product(a: Dfa, b: Dfa): Dfa {
     let id = ids.get(key);
     if (id !== undefined) return id;
     id = pairs.length / 2;
-    if (id >= MAX_DFA_STATES) throw new Error("pattern too complex");
+    if (id >= MAX_DFA_STATES) throw new TooManyStates(MAX_DFA_STATES);
     ids.set(key, id);
     pairs.push(sa, sb);
     accepting.push(a.accepting[sa] && b.accepting[sb] ? 1 : 0);
@@ -450,7 +450,16 @@ export function product(a: Dfa, b: Dfa): Dfa {
   };
 }
 
-/** Convert a DFA back to an NFA so the parser can keep composing it. */
+/** The default determinization ceiling for `complement`. */
+export const MAX_COMPLEMENT_STATES = 5000;
+
+/** Determinizing ran past the ceiling it was given. */
+export class TooManyStates extends Error {
+  constructor(readonly limit: number) {
+    super("pattern too complex");
+  }
+}
+
 /**
  * The complement of a language: everything over the alphabet that `nfa` does
  * not accept. Negation is the missing dual of the `&` intersection the
@@ -461,15 +470,6 @@ export function product(a: Dfa, b: Dfa): Dfa {
  * than letting a subpattern explode. Short, literal-ish subpatterns — the
  * ones people actually negate — stay far below it.
  */
-export const MAX_COMPLEMENT_STATES = 5000;
-
-/** Determinizing ran past the ceiling it was given. */
-export class TooManyStates extends Error {
-  constructor(readonly limit: number) {
-    super("pattern too complex");
-  }
-}
-
 export function complement(nfa: Nfa, maxStates = MAX_COMPLEMENT_STATES): Nfa | null {
   // Bounded, not measured afterwards: determinizing to half a million states
   // and then reporting that 5,000 was the limit is the whole cost of the
@@ -478,6 +478,8 @@ export function complement(nfa: Nfa, maxStates = MAX_COMPLEMENT_STATES): Nfa | n
   try {
     dfa = determinize(nfa, Math.min(maxStates, MAX_DFA_STATES));
   } catch (e) {
+    // This catch owns eager-determinization overflow only; the lazy filters'
+    // mid-search overflow is FilterCapacityError, handled in SearchSession.
     if (e instanceof TooManyStates) return null;
     throw e;
   }
@@ -507,6 +509,7 @@ export function complement(nfa: Nfa, maxStates = MAX_COMPLEMENT_STATES): Nfa | n
   return dfaToNfa({ start: dfa.start, accepting, trans });
 }
 
+/** Convert a DFA back to an NFA so the parser can keep composing it. */
 export function dfaToNfa(dfa: Dfa): Nfa {
   const out = new Nfa();
   if (dfa.start === -1) return out;

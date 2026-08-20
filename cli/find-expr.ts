@@ -11,10 +11,11 @@ import {
 import { finiteStrategy } from "../src/finite-strategy.js";
 import { derivedNote } from "../src/match-notes.js";
 import { FilterCapacityError } from "../src/expr-filter.js";
-import { cliOpenIndex } from "../src/node-io.js";
+import { cliOpenIndex, loadDatasetsFromDisk } from "../src/node-io.js";
 import { MemorySource } from "../src/byte-source.js";
 import { IndexReader } from "../src/index-reader.js";
 import {
+  KERNEL_INDEX_CAP,
   WasmCapacityError,
   WasmEngine,
   WasmSession,
@@ -24,7 +25,6 @@ import {
 const fsStatSize = (p: string): number => fs.statSync(p).size;
 import fs from "node:fs";
 import { SessionContext } from "../src/session-context.js";
-import { providersFor } from "../src/data-providers.js";
 import { applyResultFilters } from "../src/result-predicate.js";
 import { type FilterSpec, parseFilterWrappers } from "../src/result-filter.js";
 import { type QueryShape, shapeOfQuery } from "../src/query-shape.js";
@@ -58,7 +58,8 @@ const USAGE =
   "    win for suffix-anchored patterns like .*tion; results read forward\n" +
   "  --stream: read the index in chunks instead of loading it into memory\n" +
   "  --no-wasm: keep the walk on the JS engine (the WASM kernel is used\n" +
-  "    automatically for memory-loaded single-index walks it supports)";
+  "    automatically for single-index walks with a raised or unlimited\n" +
+  "    --max-steps budget that fit in kernel memory)";
 
 const args = process.argv.slice(2);
 const forceWalk = args.includes("--walk");
@@ -71,8 +72,6 @@ const forceStream = args.includes("--stream");
 if (forceStream) args.splice(args.indexOf("--stream"), 1);
 const noWasm = args.includes("--no-wasm");
 if (noWasm) args.splice(args.indexOf("--no-wasm"), 1);
-// Same default computation limit as the Nutrimatic website; Nutrimatic's CLI
-// instead runs unbounded, which exhausts memory on open-ended patterns.
 const packRefs: string[] = [];
 for (let i = args.indexOf("--pack"); i !== -1; i = args.indexOf("--pack")) {
   const ref = args[i + 1];
@@ -117,6 +116,8 @@ if (floorIdx !== -1) {
   scoreFloor = parsed;
   args.splice(floorIdx, 2);
 }
+// Same default computation limit as the Nutrimatic website; Nutrimatic's CLI
+// instead runs unbounded, which exhausts memory on open-ended patterns.
 let maxSteps = 1000000;
 const flagIdx = args.indexOf("--max-steps");
 if (flagIdx !== -1) {
@@ -161,27 +162,9 @@ try {
 // the query needs it. Ships next to the web assets.
 const ctx = new SessionContext();
 
-// One row per dataset (src/data-providers.ts); the CLI supplies only the part
-// it alone knows — that they ship beside the web assets and are read from
-// disk rather than fetched.
 // Checked against `expr`, not the peeled pattern: a {syllables …}/{stress …}
 // wrapper has already been stripped out of the latter.
-for (const provider of providersFor(expr)) {
-  try {
-    const path = new URL(`../web/public/${provider.file}`, import.meta.url);
-    if (provider.binary) {
-      const buf = fs.readFileSync(path);
-      provider.install(
-        ctx,
-        buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength),
-      );
-    } else {
-      provider.install(ctx, fs.readFileSync(path, "utf8"));
-    }
-  } catch {
-    // Left unloaded: the parser reports what is missing.
-  }
-}
+loadDatasetsFromDisk(ctx, expr, new URL("../web/public/", import.meta.url));
 
 // Construct packs: files or URLs, installed before compiling.
 for (const ref of packRefs) {
@@ -226,9 +209,6 @@ const indexPaths = indexPath.split(",").map((x) => x.trim()).filter((x) => x !==
 // reader spends a third of a heavy walk in read() syscalls and chunk-cache
 // bookkeeping (measured on \"_{34}\"), which memory access simply deletes.
 // The bytes are kept when the WASM kernel can use them too.
-// The link-time cap on kernel memory is 3GB; the index plus the reserved
-// frontier/crumb/DFA capacities must fit inside it.
-const KERNEL_INDEX_LIMIT = 2_400 * 1024 * 1024;
 // Loading the index up front costs seconds before the first step — worth it
 // only when the walk is deep enough to repay it. A default-budget run stays
 // on the chunked reader and JS engine, exactly as before; a raised or
@@ -244,7 +224,10 @@ let kernelEngine: WasmEngine | null = null;
  * grown once at create and never again (per-query allocations come from the
  * reservation), so the underlying ArrayBuffer is never detached.
  */
-async function openViaKernel(path: string, size: number): Promise<IndexReader | null> {
+async function openViaKernel(
+  path: string,
+  size: number,
+): Promise<{ reader: IndexReader; engine: WasmEngine } | null> {
   try {
     const kernelPath = new URL("../wasm-kernel/kernel.wasm", import.meta.url);
     const module = await WebAssembly.compile(fs.readFileSync(kernelPath));
@@ -266,8 +249,7 @@ async function openViaKernel(path: string, size: number): Promise<IndexReader | 
       }
       view = target;
     });
-    kernelEngine = engine;
-    return await IndexReader.open(new MemorySource(view!));
+    return { reader: await IndexReader.open(new MemorySource(view!)), engine };
   } catch {
     return null; // chunked open below; the JS engine will carry the walk
   }
@@ -290,10 +272,15 @@ async function openFast(path: string): Promise<IndexReader> {
       DEEP_WALK &&
       indexPaths.length === 1 &&
       scoreFloor === 0 &&
-      size <= KERNEL_INDEX_LIMIT
+      size <= KERNEL_INDEX_CAP
     ) {
       const viaKernel = await openViaKernel(path, size);
-      if (viaKernel !== null) return viaKernel;
+      if (viaKernel !== null) {
+        // The whole run switches engines here: runQuery drives the kernel
+        // whenever kernelEngine is set.
+        kernelEngine = viaKernel.engine;
+        return viaKernel.reader;
+      }
     }
   } catch {
     // fall through to the chunked open, which prints the friendly error

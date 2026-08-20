@@ -1,5 +1,8 @@
 // OPFS-backed index storage: file names, the completion marker, the
 // partial-download progress record, and the range arithmetic both rely on.
+// (One of three storage-named modules: this one is the OPFS primitives; the
+// storage *page* is web/storage.ts, and its download-queue worker is
+// web/storage-worker.ts.)
 //
 // Downloaded indexes live in the origin-private filesystem and are read with
 // synchronous access handles: instant open (no whole-file load into RAM) and
@@ -164,6 +167,14 @@ export function validatorOk(
   current: string | null,
 ): boolean {
   return stored == null || current == null || stored === current;
+}
+
+/** Exact negation of `validatorOk`, for call sites that read better inverted. */
+export function validatorStale(
+  stored: string | null | undefined,
+  current: string | null,
+): boolean {
+  return !validatorOk(stored, current);
 }
 
 // ---- OPFS I/O ----

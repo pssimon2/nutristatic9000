@@ -43,6 +43,7 @@ import type {
 } from "./worker/protocol.js";
 import {
   DownloadReporter,
+  checkQuota,
   downloadToOpfs,
   downloadWhole,
   openOpfsIndex,
@@ -50,6 +51,7 @@ import {
 import {
   CACHE_NAME,
   CHUNK_CACHE_NAME,
+  chunkKeyBelongsTo,
   CacheChunkStore,
   RANGE_CHUNK_SIZE,
   cachedCopyStale,
@@ -67,7 +69,7 @@ import {
   opfsReadMarkerAliased,
   opfsRemove,
   parseOpfsMarker,
-} from "./worker/storage.js";
+} from "./worker/opfs.js";
 // letters() shares the space-dropping rule with the filters below.
 import {
   FilterError,
@@ -86,6 +88,7 @@ import { compileConjuncts, compileQuery } from "../src/find-expr.js";
 import { ParseError } from "../src/parse-error.js";
 import { SearchSession } from "../src/search-session.js";
 import {
+  KERNEL_INDEX_CAP,
   WasmCapacityError,
   WasmEngine,
   WasmSession,
@@ -136,7 +139,7 @@ let currentValidator: string | null = null; // ETag/Last-Modified from probe
 // index including English Wikipedia's device copy. A machine that cannot
 // actually grow WASM memory that far fails instantiation, which the caller
 // treats as "use the JS engine" — the limit is an upper bound, not a promise.
-const WASM_INDEX_LIMIT = 2_400 * 1024 * 1024;
+const WASM_INDEX_LIMIT = KERNEL_INDEX_CAP;
 let wasmModule: Promise<WebAssembly.Module> | null = null;
 // Single-flight per index: a second search racing the first engine creation
 // must await the SAME instance, not build a second full index copy.
@@ -187,7 +190,6 @@ let reverseReader: IndexReader | null | undefined = undefined;
 /** True while the live session walks the reverse sidecar. */
 let reversedSearch = false;
 
-/** Open (or reuse) the reverse sidecar's reader; null when there is none. */
 /** Drop the reverse reader, releasing an OPFS handle if it holds one. */
 function releaseReverseReader(): void {
   const src = reverseReader?.source as { close?: () => void } | undefined;
@@ -199,6 +201,7 @@ function releaseReverseReader(): void {
   reverseReader = undefined;
 }
 
+/** Open (or reuse) the reverse sidecar's reader; null when there is none. */
 async function reverseReaderFor(url: string): Promise<IndexReader | null> {
   if (reverseReader !== undefined) return reverseReader;
   reverseReader = null;
@@ -343,6 +346,9 @@ function indexIsRemote(): boolean {
  * the search will not repeat them.
  */
 async function serveFromHead(
+  // null means "serve from the head already loaded, fetch nothing" — the
+  // continue path uses it, and it only works because a prior call (with a
+  // real URL) has set `head`/`headTried`.
   url: string | null,
   query: string,
   maxResults: number,
@@ -780,6 +786,8 @@ async function openIndex(url: string, early?: OpenMsg["early"]): Promise<void> {
         prefixBytes: early?.table ? new Uint8Array(early.table) : undefined,
         makeStore: (blockSize) => new CacheChunkStore(url + ".idxz", blockSize),
         tableStore: {
+          // The "?nutrimatic-idxz-table" key is mirrored by hand in
+          // web/index.html's inline early-fetch script — change both.
           get: async () => {
             const cache = await openCacheNamed(CHUNK_CACHE_NAME);
             const hit = cache && (await cache.match(`${url}?nutrimatic-idxz-table`));
@@ -868,17 +876,8 @@ async function purgeChunks(url: string): Promise<void> {
   try {
     const cache = await openCacheNamed(CHUNK_CACHE_NAME);
     if (!cache) return;
-    // Keys are `${url}?nutrimatic-...` (plain store, validator, table) and
-    // `${url}.idxz?nutrimatic-chunk=...` (compressed store). Matching those
-    // two exact prefixes — rather than a bare `startsWith(url)` — avoids
-    // also purging a different index whose URL merely starts with this one.
     for (const req of await cache.keys()) {
-      if (
-        req.url.startsWith(url + "?") ||
-        req.url.startsWith(url + ".idxz?")
-      ) {
-        await cache.delete(req);
-      }
+      if (chunkKeyBelongsTo(req.url, url)) await cache.delete(req);
     }
   } catch {
     // best-effort
@@ -892,23 +891,7 @@ async function downloadFull(): Promise<void> {
     throw new Error("index too large to download whole");
   }
   // Fail fast on insufficient storage instead of minutes into the transfer.
-  try {
-    const est = await navigator.storage.estimate();
-    if (
-      est.quota != null &&
-      est.usage != null &&
-      currentSize > est.quota - est.usage
-    ) {
-      const free = Math.max(0, est.quota - est.usage);
-      throw new Error(
-        `not enough storage (need ${Math.round(currentSize / 1048576)} MB, ` +
-          `~${Math.round(free / 1048576)} MB free)`,
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.startsWith("not enough")) throw e;
-    // estimate() unavailable: proceed and let the write fail if it must.
-  }
+  await checkQuota(currentSize);
   // Ask the browser not to evict gigabytes of index behind the user's back.
   void navigator.storage.persist?.().catch(() => {});
 
@@ -962,10 +945,12 @@ async function downloadFull(): Promise<void> {
         "device storage unavailable and the index is too large to hold in memory",
       );
     }
+    // Range support was confirmed by the probe that put us in range mode.
+    const supportsRanges = true;
     const data = await downloadWhole(
       currentUrl,
       currentSize,
-      true,
+      supportsRanges,
       currentValidator,
       report,
       signal,

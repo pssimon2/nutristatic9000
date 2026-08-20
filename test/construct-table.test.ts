@@ -12,14 +12,14 @@
 // every row is reachable by writing something.
 
 import { describe, expect, it } from "vitest";
-import { CONSTRUCTS } from "../src/construct-table.js";
+import { CONSTRUCT_BUILDERS } from "../src/construct-table.js";
 import { dispatchName, namesAtLevel } from "../src/constructs.js";
 
 const AUTOMATON = [...namesAtLevel("automaton")];
 
 describe("every construct that exists can be built", () => {
   it("has a compile row for every automaton-level name", () => {
-    const missing = AUTOMATON.filter((n) => !CONSTRUCTS[dispatchName(n)]);
+    const missing = AUTOMATON.filter((n) => !CONSTRUCT_BUILDERS[dispatchName(n)]);
     expect(missing, "in the catalogue but nothing builds them").toEqual([]);
   });
 
@@ -30,7 +30,7 @@ describe("every construct that exists can be built", () => {
 
   it("has no row for a name nobody can write", () => {
     const reachable = new Set(AUTOMATON.map(dispatchName));
-    const orphans = Object.keys(CONSTRUCTS).filter((k) => !reachable.has(k));
+    const orphans = Object.keys(CONSTRUCT_BUILDERS).filter((k) => !reachable.has(k));
     expect(orphans, "builds something the catalogue does not offer").toEqual([]);
   });
 
@@ -39,14 +39,14 @@ describe("every construct that exists can be built", () => {
     // pattern, so a row here would mean one had been wired into the automaton
     // path by mistake.
     for (const name of namesAtLevel("predicate")) {
-      expect(CONSTRUCTS[name], `${name} is a predicate`).toBeUndefined();
+      expect(CONSTRUCT_BUILDERS[name], `${name} is a predicate`).toBeUndefined();
     }
   });
 });
 
 describe("each row says how its argument is read", () => {
   it("uses one of the three kinds", () => {
-    for (const [name, c] of Object.entries(CONSTRUCTS)) {
+    for (const [name, c] of Object.entries(CONSTRUCT_BUILDERS)) {
       expect(["literal", "wrap", "inner"], name).toContain(c.argKind);
     }
   });
@@ -56,13 +56,13 @@ describe("each row says how its argument is read", () => {
     // parsed as a query — that is what lets `{rhyme:tree}` mean the word.
     for (const name of ["rhyme", "homo", "like", "near", "kind", "list",
       "sub", "bank", "t9", "enum", "morse", "caesar", "atbash"]) {
-      expect(CONSTRUCTS[name].argKind, name).toBe("literal");
+      expect(CONSTRUCT_BUILDERS[name].argKind, name).toBe("literal");
     }
   });
 
   it("reads a pattern for the constructs that constrain one", () => {
     for (const name of ["sum", "distinct", "elements", "ascending"]) {
-      expect(CONSTRUCTS[name].argKind, name).toBe("wrap");
+      expect(CONSTRUCT_BUILDERS[name].argKind, name).toBe("wrap");
     }
   });
 
@@ -70,7 +70,7 @@ describe("each row says how its argument is read", () => {
     // `{del1:beast}` is one letter off its argument rather than an
     // intersection with it, so the argument is built on its own.
     for (const name of ["del", "add", "subst", "edit"]) {
-      expect(CONSTRUCTS[name].argKind, name).toBe("inner");
+      expect(CONSTRUCT_BUILDERS[name].argKind, name).toBe("inner");
     }
   });
 });

@@ -3,6 +3,8 @@
 // may pull in. Both pages must agree on names and URLs, or the manager would
 // count copies the search cannot find.
 
+// The first entry is the default index; web/index.html's inline early-fetch
+// script (which cannot import) mirrors its URL by hand — change both.
 export const BUNDLED_INDEXES: Array<[string, string]> = [
   ["/idx/2026-08/en-wiki.index", "English Wikipedia (1.3 GB, 2026-08)"],
   ["/idx/2026-08/de-wiki.index", "German Wikipedia – Deutsch (591 MB, 2026-08)"],
@@ -32,6 +34,8 @@ export const BUNDLED_INDEXES: Array<[string, string]> = [
 
 declare const OFFLINE: boolean;
 
+// Bump when a side dataset is rebuilt: it versions their URLs, which is what
+// makes a cached copy fall out of use.
 export const DATA_VERSION = "2";
 
 /** Absolute URL of a side dataset, or null in the single-file offline build. */

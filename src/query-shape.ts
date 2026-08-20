@@ -70,13 +70,8 @@ export function literalsOf(pattern: string, minChars: number): string[] {
 export function shapeOfQuery(query: string, minLiteralChars: number): QueryShape {
   const pattern = query.trim();
 
-  CAESAR.lastIndex = 0;
-  const found = pattern.match(CAESAR) ?? [];
-  let caesar: string | null = null;
-  if (found.length === 1) {
-    const m = /\{\s*(?:cipher\.)?caesar\s*:([a-z ]+)\}/i.exec(found[0]);
-    caesar = m ? m[1].trim() : null;
-  }
+  const caesars = [...pattern.matchAll(CAESAR)];
+  const caesar = caesars.length === 1 ? caesars[0][1].trim() : null;
 
   NEAR.lastIndex = 0;
   const nears = [...pattern.matchAll(NEAR)];

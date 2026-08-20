@@ -82,9 +82,6 @@ function setDlMsg(text: string): void {
   dlMsg.hidden = text === "";
 }
 
-// Bump when a side dataset is rebuilt: it versions their URLs, which is what
-// makes a cached copy fall out of use.
-
 /**
  * Where this index's head sidecar lives: beside the *page*, not beside the
  * index. The index files are shared between deployments — /en-wiki.index is
@@ -293,9 +290,6 @@ let lastConflict: string[] | null = null;
 // not evidence of repetition: `.*administration.*` must not collapse its own
 // matches into one.
 let queryLiterals: string[] = [];
-// The ciphertext of a lone unknown-shift `{caesar:…}`: each result is
-// annotated with the shift that produced it. Without that the tool solves the
-// puzzle and throws the answer away.
 /**
  * The current query's shape, for the notes derived from it — see
  * src/match-notes.ts. One field rather than one per kind of note, which is what
@@ -594,7 +588,8 @@ worker.onmessage = (ev: MessageEvent<OutMsg>) => {
       deviceCopy = msg.mode === "disk";
       indexMode = msg.mode === "range" ? "range" : "memory";
       // Flag device copies so the next page load skips the early sidecar
-      // table fetch (see the inline <head> script).
+      // table fetch. The "nutristatic-disk:" key is mirrored by hand in
+      // web/index.html's inline <head> script — change both.
       try {
         if (msg.mode === "disk") {
           localStorage.setItem(`nutristatic-disk:${indexUrl}`, "1");

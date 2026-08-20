@@ -146,36 +146,6 @@ export async function headPage(
 }
 
 /**
- * The word test `{compound …}` and `{reversible …}` need, answered from the
- * head instead of the index.
- *
- * Both constructs ask whether a piece is a word, and both answer it by
- * frequency: a piece counts if it carries at least `minShare` of the corpus
- * (see src/index-words.ts for why presence alone is not enough). Over a
- * streamed index that is a trie walk per distinct piece, each possibly a round
- * trip, and a page of candidates runs to tens of thousands of them —
- * `{compound 2:A{9}}` spent a minute on the deployed site and still finished
- * empty.
- *
- * But the head is sorted by exactly the quantity those floors are expressed
- * in, so it answers them outright whenever it reaches below the floor: if the
- * lowest score in the head is under `minShare * total`, then every word above
- * the floor is *in* the head, and absence from it is proof of failing the
- * floor rather than a gap in what we hold. That makes this identical to the
- * index-backed check, not an approximation of it — and free.
- *
- * It holds with room to spare on every index the site serves. The floors are
- * 1e-5 and 1e-6 of the corpus; measured across all 22 languages the head
- * reaches between 3x and 30x below the lower of the two — German, the tightest,
- * floors a reversal at 1968 and holds entries down to 694.
- *
- * `fallback` covers the case that leaves: a caller asking about a share so
- * small the head cannot rule it out, or plain presence (`minShare` 0), which
- * the head can never answer negatively.
- *
- * It also applies the suffix test below, which frequency alone cannot do.
- */
-/**
  * Least of a piece's weight that must come from it standing on its own,
  * rather than from words that merely end with it.
  *
@@ -228,6 +198,36 @@ export const MIN_STANDALONE_RATIO = 0.03;
  */
 const MAX_SUFFIX_TESTED = 6;
 
+/**
+ * The word test `{compound …}` and `{reversible …}` need, answered from the
+ * head instead of the index.
+ *
+ * Both constructs ask whether a piece is a word, and both answer it by
+ * frequency: a piece counts if it carries at least `minShare` of the corpus
+ * (see src/index-words.ts for why presence alone is not enough). Over a
+ * streamed index that is a trie walk per distinct piece, each possibly a round
+ * trip, and a page of candidates runs to tens of thousands of them —
+ * `{compound 2:A{9}}` spent a minute on the deployed site and still finished
+ * empty.
+ *
+ * But the head is sorted by exactly the quantity those floors are expressed
+ * in, so it answers them outright whenever it reaches below the floor: if the
+ * lowest score in the head is under `minShare * total`, then every word above
+ * the floor is *in* the head, and absence from it is proof of failing the
+ * floor rather than a gap in what we hold. That makes this identical to the
+ * index-backed check, not an approximation of it — and free.
+ *
+ * It holds with room to spare on every index the site serves. The floors are
+ * 1e-5 and 1e-6 of the corpus; measured across all 22 languages the head
+ * reaches between 3x and 30x below the lower of the two — German, the tightest,
+ * floors a reversal at 1968 and holds entries down to 694.
+ *
+ * `fallback` covers the case that leaves: a caller asking about a share so
+ * small the head cannot rule it out, or plain presence (`minShare` 0), which
+ * the head can never answer negatively.
+ *
+ * It also applies the suffix test below, which frequency alone cannot do.
+ */
 export function headWordChecker(
   head: HeadIndex,
   total: number,

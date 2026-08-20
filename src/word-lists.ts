@@ -7,6 +7,7 @@
 // dropped, every other separator a single space) so multiword entries match.
 
 import { Nfa } from "./automata.js";
+import { editDistance } from "./edit-distance.js";
 import { GENERATED_LISTS } from "./word-lists-data.js";
 
 /** Normalise like corpus.ts: apostrophes vanish, other punctuation splits. */
@@ -395,19 +396,6 @@ export function needsWikiLists(query: string): boolean {
   return false;
 }
 
-function editDistance(a: string, b: string): number {
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 0; i < a.length; ++i) {
-    const row = [i + 1];
-    for (let j = 0; j < b.length; ++j) {
-      row.push(
-        Math.min(prev[j + 1] + 1, row[j] + 1, prev[j] + (a[i] === b[j] ? 0 : 1)),
-      );
-    }
-    prev = row;
-  }
-  return prev[b.length];
-}
 
 /** The closest catalogue slug to `name`, for "did you mean". */
 export function suggestList(
@@ -446,12 +434,6 @@ export function suggestList(
   return bestScore >= 0.6 ? best : null;
 }
 
-/**
- * An automaton accepting any entry of a named list, or — when the argument
- * carries commas — of a list written inline: `{list:red,green,blue}`. Hunts
- * run on categories nobody could ship in advance, and an inline list needs no
- * settings screen and travels in the URL like the rest of the query.
- */
 /** The remote-list URLs a query names, in order of appearance. */
 export function remoteListUrls(query: string): string[] {
   const out: string[] = [];
@@ -482,6 +464,12 @@ export function parseRemoteList(text: string): string[] {
   return out;
 }
 
+/**
+ * An automaton accepting any entry of a named list, or — when the argument
+ * carries commas — of a list written inline: `{list:red,green,blue}`. Hunts
+ * run on categories nobody could ship in advance, and an inline list needs no
+ * settings screen and travels in the URL like the rest of the query.
+ */
 export function listNfa(
   nameOrEntries: string,
   lists: WikiLists | null = null,

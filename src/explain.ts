@@ -60,6 +60,11 @@ export function topLevelConjuncts(pattern: string): string[] {
     const c = pattern[i];
     if (c === '"') quoted = !quoted;
     else if (quoted) continue;
+    // `<`/`>` are counted as the anagram brackets. A comparison operator in a
+    // construct spec (`{sum>25:…}`) unbalances the count inside that
+    // construct, so an `&` there can split wrongly — the caller (plan.ts)
+    // falls back to unlabelled conjuncts when the split misfires, so this
+    // stays a display heuristic, never a correctness input.
     else if (c === "{" || c === "<") ++depth;
     else if (c === "}" || c === ">") --depth;
     else if (c === "[") bracket = true;

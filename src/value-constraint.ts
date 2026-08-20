@@ -1,5 +1,10 @@
-// Arithmetic constraints on letter values: `{sum=100:A*}` matches text whose
-// A1Z26 letter values total exactly 100, `{scrabble>25:A{5}}` scores tiles.
+// Constraint automata for the `{…}` constructs that compile to NFAs — not
+// just the letter-value arithmetic the filename remembers, but the whole
+// family: `{sum=100:A*}` / `{scrabble>25:A{5}}` running-total counters,
+// Levenshtein edit automata (`{del1:…}`, `{edit<=2:…}`), the cipher
+// alternations (`{caesar:…}`, `{vigenere(key):…}`, …), spelling codes
+// (`{t9:…}`, `{morse:…}`, `{elements:…}`), and the letter-class sets behind
+// `{roman:…}`-style shape restrictions.
 //
 // A running sum bounded by N is just a counter with N+1 states, so these stay
 // finite-state and compose with everything else. They are also the rare
@@ -201,12 +206,12 @@ export function namedConstraint(name: string, spec: string): Nfa[] | null {
   }
 }
 
-/** Any string built from `allowed` (spaces always permitted). */
 /** A pack's letter-class automaton: only these letters (spaces allowed). */
 export function packAlphabetNfa(allowed: Iterable<number>): Nfa {
   return alphabetNfa(allowed);
 }
 
+/** Any string built from `allowed` (spaces always permitted). */
 function alphabetNfa(allowed: Iterable<number>): Nfa {
   const nfa = new Nfa();
   const s = nfa.addState();
@@ -270,16 +275,6 @@ export interface EditOps {
   letters?: number[];
 }
 
-/**
- * A Levenshtein automaton over a fixed word: state (i, e) means "matched i
- * characters of the word using e edits". Small, finite, and deterministic in
- * shape, which is the one place automata theory hands puzzles exactly what
- * they want — deleted-letter and added-letter puzzles are otherwise brute
- * force or a trip outside the tool.
- *
- * `range` bounds the edits that may be spent, and which totals are accepted:
- * {del1:cargo} wants exactly one, {edit<=2:cargo} anything up to two.
- */
 /**
  * Ceiling on the arcs an edit automaton may generate. Deletion is nearly free
  * (one epsilon per arc), but substitution and insertion fan out across the
@@ -399,6 +394,17 @@ export function literalWordNfa(word: string): Nfa | null {
   return literalNfa(w);
 }
 
+/**
+ * `{del1:cargo}`, `{add2:…}`, `{subst1:…}`, `{edit<=2:…}` → its automaton:
+ * a Levenshtein automaton over a fixed word, where state (i, e) means
+ * "matched i characters of the word using e edits". Small, finite, and
+ * deterministic in shape, which is the one place automata theory hands
+ * puzzles exactly what they want — deleted-letter and added-letter puzzles
+ * are otherwise brute force or a trip outside the tool.
+ *
+ * `range` bounds the edits that may be spent, and which totals are accepted:
+ * {del1:cargo} wants exactly one, {edit<=2:cargo} anything up to two.
+ */
 export function editNfa(
   word: string,
   ops: EditOps,
@@ -408,7 +414,6 @@ export function editNfa(
   return chain ? editNfaOver(chain, ops, range) : null;
 }
 
-/** `{del1:cargo}`, `{add2:…}`, `{subst1:…}`, `{edit<=2:…}` → its automaton. */
 /**
  * Split a trailing `(letters)` off an edit spec: `1(a)` → count `1` restricted
  * to A, `<=2(vowel)` → up to two edits, each involving a vowel.

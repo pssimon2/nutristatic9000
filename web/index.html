@@ -19,6 +19,12 @@
     // before the app and worker have even booted. The worker consumes these
     // via postMessage instead of refetching.
     (function () {
+      // This inline script cannot import, so four values are mirrored from
+      // the app by hand — keep them in sync when either side changes:
+      //   the default index      = BUNDLED_INDEXES[0]   (web/catalog.ts)
+      //   "nutristatic-disk:"    = the disk-mode flag    (web/main.ts)
+      //   "nutrimatic-chunks-v2" = CHUNK_CACHE_NAME      (web/worker/sources.ts)
+      //   "?nutrimatic-idxz-table" = the sidecar-table key (web/worker.ts)
       var params = new URLSearchParams(location.search);
       var url = new URL(params.get("index") || "/idx/2026-08/en-wiki.index", location.href).href;
       window.__earlyIndex = {

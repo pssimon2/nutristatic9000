@@ -62,9 +62,7 @@ export function compileConjuncts(
       appendSpaceWeighted(nfa);
       continue;
     }
-    const space = new Nfa();
-    parseExpr(" ", 0, space, true, ctx);
-    nfa.concat(space);
+    appendSpace(nfa);
   }
   const conjuncts: Conjunct[] = box.and;
   if (conjuncts.length > 0 && !conjuncts.some((c) => !isNegated(c))) {
@@ -101,8 +99,23 @@ function appendSpaceWeighted(nfa: Nfa): void {
   nfa.finalWeight = weights.size > 0 ? weights : undefined;
 }
 
+/**
+ * Concat one literal space onto `nfa` — the boundary both compile
+ * directions (compileConjuncts here, compileConjunctsReversed in
+ * reverse.ts) put after every conjunct.
+ */
+export function appendSpace(nfa: Nfa): void {
+  const space = new Nfa();
+  const a = space.addState();
+  const b = space.addState();
+  space.setStart(a);
+  space.setFinal(b);
+  space.addArc(a, CODE_SPACE, b);
+  nfa.concat(space);
+}
+
 /** Any string over the alphabet, then one space: `.*" "` without the parser. */
-function endsInSpace(): Nfa {
+export function endsInSpace(): Nfa {
   const nfa = new Nfa();
   const loop = nfa.addState();
   const end = nfa.addState();

@@ -7,7 +7,13 @@ import { IndexWalker } from "./index-walker.js";
 import { IndexWriter } from "./index-writer.js";
 
 export class FrequencyCutoffWriter {
+  // The previous entry's text, whose word boundaries the stack below indexes.
   private saved = "";
+  // How many leading characters of `saved` the underlying writer has already
+  // been given (the shared prefix with its most recent emission). This is
+  // what decides whether a below-cutoff word must still be emitted: if a
+  // longer entry extending it went out, the word itself is that entry's trie
+  // parent and cannot be dropped.
   private outputSame = 0;
   // Stack of word-boundary positions in `saved` with accumulated counts.
   private readonly words: Array<{ pos: number; count: number }> = [
@@ -34,6 +40,9 @@ export class FrequencyCutoffWriter {
       this.saved = this.saved.slice(0, lastWord.pos);
       this.outputSame = Math.min(this.outputSame, this.saved.length);
       if (
+        // Above the cutoff, or below it but with an already-emitted entry
+        // extending it (`outputSame` reaches this word's start): the output
+        // trie must contain the parent of anything it contains.
         lastWord.count >= this.cutoff ||
         (lastWord.count > 0 && this.outputSame === lastWord.pos)
       ) {

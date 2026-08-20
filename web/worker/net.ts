@@ -7,7 +7,7 @@
 // has. Progress is reported through a callback rather than posted directly, so
 // this module knows nothing about the page protocol.
 
-import { coveredBytes, rangeCovered } from "./storage.js";
+import { coveredBytes, rangeCovered } from "./opfs.js";
 
 /** Thrown when a transfer is cancelled or superseded, rather than failing. */
 export class StopError extends Error {}

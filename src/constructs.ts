@@ -20,6 +20,8 @@
 // The compile functions live in construct-table.ts; the per-construct docs
 // and the UI's grouping hang off this same table.
 
+import { editDistance } from "./edit-distance.js";
+
 export type ConstructLevel = "automaton" | "predicate";
 
 /**
@@ -251,7 +253,9 @@ export function dispatchName(written: string): string {
 
 /**
  * Resolve a written name, which may carry a group prefix. Returns the
- * construct, or a message explaining what is wrong with the token.
+ * construct, or a message explaining what is wrong with the token, or null
+ * when the token names no known construct at all — the caller falls back to
+ * `suggestConstruct` for a typo hint.
  *
  * Digit-bearing names are folded before the group is checked, because the
  * lexer splits `shape.rot180` into `shape.rot` + spec `180`: the group has to
@@ -336,23 +340,10 @@ export function mentionsConstruct(query: string, names: string[]): boolean {
 
 /** Closest known construct name, when it's close enough to be a typo. */
 export function suggestConstruct(name: string): string | null {
-  const distance = (a: string, b: string): number => {
-    let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-    for (let i = 0; i < a.length; ++i) {
-      const row = [i + 1];
-      for (let j = 0; j < b.length; ++j) {
-        row.push(
-          Math.min(prev[j + 1] + 1, row[j] + 1, prev[j] + (a[i] === b[j] ? 0 : 1)),
-        );
-      }
-      prev = row;
-    }
-    return prev[b.length];
-  };
   let best: string | null = null;
   let bestDistance = Infinity;
   for (const known of CONSTRUCT_NAMES) {
-    const d = distance(name, known);
+    const d = editDistance(name, known);
     if (d < bestDistance) {
       bestDistance = d;
       best = known;
