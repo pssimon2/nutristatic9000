@@ -407,7 +407,13 @@ if ((await page.$eval("#results span", (e) => e.textContent)) !== "anagram") {
 // how many are variants of what is already there — a separate decision that
 // has changed before and will again. On an anagram the second page is mostly
 // respellings of the first, so the visible count barely moves while the
-// result count doubles.
+// result count grows by a page.
+//
+// A page, not a doubling: each "More results" asks for PER_RUN_RESULTS more
+// (main.ts), and it used to deliver more than that — the run budget was
+// widened by everything already on screen, which a surviving session
+// re-finds none of, so page two came back doubled, page three tripled. This
+// asserted that growth until the widening was fixed.
 const total = async () => {
   const shown = (await page.$$("#results span")).length;
   const btn = await page.$("#after button:has-text('similar result')");
@@ -422,8 +428,12 @@ console.log(
   `after interrupt + continue: ${before.shown}+${before.hidden} -> ` +
     `${after.shown}+${after.hidden} (shown+collapsed)`,
 );
-if (after.all < before.all * 2) {
-  throw new Error("continue after interrupt failed");
+// PER_RUN_RESULTS is 1000; allow slack for results the page collapses away
+// or the walk rediscovers.
+if (after.all - before.all < 900) {
+  throw new Error(
+    `continue after interrupt found too little: ${before.all} -> ${after.all}`,
+  );
 }
 
 // Reload: disk copy persists, WASM engages on a fresh worker.
